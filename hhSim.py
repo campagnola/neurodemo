@@ -7,13 +7,15 @@ Also simulates voltage clamp and current clamp with access resistance.
 Luke Campagnola 2015
 """
 
+import collections
 import numpy as np
 import scipy.integrate
 from PyQt4 import QtGui, QtCore
 
+
 # Define a set of scaled unit symbols to make the code more clear
-for unit in 'mFAΩs':
-    for pfx, val in [('p', -12), ('n', -9), ('u', -6), ('m', -3), ('c', -2), ('k', 3), ('M', 6)]:
+for unit in 'mFAΩsS':
+    for pfx, val in [('p', -12), ('n', -9), ('u', -6), ('m', -3), ('c', -2), ('k', 3), ('M', 6), ('G', 9)]:
         locals()[pfx+unit] = 10**val
 
 
@@ -68,11 +70,86 @@ def IAlpha(Vm, t):
             return gAlpha * (Vm - EAlpha)*(tn/Alpha_tau) * np.exp(-(tn-Alpha_tau)/Alpha_tau)
 
 
-class Neuron(object):
+class Mechanism(object):
+    def __init__(self, init_state):
+        self.init_state = init_state
+        self.records = []
+        self._rec_dtype = [(sv, float) for sv in init_state.keys()]
+        
+    def state_vars(self):
+        return self.init_state.keys()
+        
+    def state(self):
+        if len(self.records) == 0:
+            return collections.OrderedDict([(sv, self.init_state[sv]) for sv in self.state_vars])
+        else:
+            return collections.OrderedDict([(sv, self.records[-1][-1][sv]) for sv in self.state_vars])
+        
+    def derivatives(self):
+        raise NotImplementedError()
+
+    def run(self, dt=0.1, dur=100, **args):
+        npts = int(dur/dt)
+        t = np.linspace(0, dur, npts)
+        result = np.empty((npts, len(self.state_vars) + 1))
+
+        # Run the simulation
+        (result[:,1:], info) = scipy.integrate.odeint(self.derivatives, self.state(), t, (dt,),
+                                                rtol=1e-6, atol=1e-6, hmax=5e-2, full_output=1, **args)
+        result[:,0] = t
+        #t, Im, Ve, Vm, m, h, n, f, s = [result[:,i] for i in range(result.shape[1])]
+        
+        # Compute electrode current sans pipette capacitance current
+        #result[:,1] = (Ve-Vm) / Raccess
+
+        # update state so next run starts where we left off
+        #self.state = result[-1, 2:]
+        
+        
+        
+        return result  ## result is array with dims: [npts, (time, Ie, Ve, Vm, Im, m, h, n, f, s)]
+
+
+
+class Neuron(Mechanism):
     def __init__(self):
-        self.state = [-65e-3, -65e-3, 0.05, 0.6, 0.3, 0.0, 0.0]
+        #self.state = [-65e-3, -65e-3, 0.05, 0.6, 0.3, 0.0, 0.0]
+        init_state = collections.OrderedDict([('Vm', -65*mV)])
+        Mechanism.__init__(self, init_state)
+        self.mechanisms = []
+
+    def add(self, mech):
+        self.mechanisms.append(mech)
+
+    def state_vars(self):
+        svars = Mechanism.state_vars(self)
+        for mech in self.mechanisms:
+            svars.extend(mech.state_vars())
+        return svars
+
+    def state(self):
+        state = Mechanism.state(self)
+        for mech in self.mechanisms:
+            for k,v in mech.state().items():
+                state[k] = v
+        return state
         
     def derivatives(self, y, t, mode, cmd, dt):
+        deriv = []
+        Im = 0
+        for mech in self.mechanisms:
+            Im += mech.current()
+            deriv.extend(mech.derivatives())
+            
+        dv = 1e-3 * Im / C    # 1e-3 is because t is expressed in ms
+        deriv.insert(0, dv)
+        
+        return deriv
+        
+        
+        
+        
+    def old_derivs(self, y, t, mode, cmd, dt):
         ## y is a vector [Ve, Vm, m, h, n, f, s], function returns derivatives of each variable
         ## with respect to time.
         ## t is current time expressed in ms.
@@ -156,7 +233,7 @@ class Neuron(object):
         
         return [dve, dv, dm, dh, dn, df, ds]
 
-    def run(self, mode='ic', cmd=None, dt=0.1, dur=100, **args):
+    def old_run(self, mode='ic', cmd=None, dt=0.1, dur=100, **args):
         npts = int(dur/dt)
         t = np.linspace(0, dur, npts)
         result = np.empty((npts, 9))
@@ -171,11 +248,62 @@ class Neuron(object):
         result[:,1] = (Ve-Vm) / Raccess
 
         # update state so next run starts where we left off
-        self.state = result[-1, 2:]
+        #self.state = result[-1, 2:]
+        
+        
         
         return result  ## result is array with dims: [npts, (time, Ie, Ve, Vm, Im, m, h, n, f, s)]
 
 
+class Leak(Mechanism):
+    def __init__(self, g, erev=-55*mV):
+        self.g = g
+        self.erev = erev
+        Mechanism.__init__(self, {})
+        
+    def current(self, vm):
+        return self.g * (vm - self.erev)
+
+    def derivatives(self):
+        return []
+
+
+class MultiClamp(Mechanism):
+    def __init__(self, mode='ic', cmd=None, ra=5*MΩ, cpip=3*pF):
+        self.ra = ra
+        self.cpip = cpip
+        self.mode = mode
+        self.cmd = cmd
+        self.gain = 50e-6  # arbitrary VC gain
+        init_state = collections.OrderedDict([('Ve', -65*mV)])
+        Mechanism.__init__(self, init_state)
+
+    def current(self, vm):
+        # Compute current through tip of pipette
+        return (self.state()['Ve'] - vm) / self.ra
+
+    def derivatives(self):
+        ## Select between VC and CC
+        cmd = self.cmd
+        if cmd is None:
+            cmd = 0
+            mode = 'ic'
+        else:
+            # interpolate command -- sharp steps confuse the integrator.
+            fInd = t/dt
+            ind = min(len(cmd)-1, np.floor(fInd))
+            ind2 = min(len(cmd)-1, ind+1)
+            s = fInd - ind
+            cmd = cmd[ind] * (1-s) + cmd[ind2] * s
+            
+        # determine current generated by voltage clamp 
+        if self.mode == 'vc':
+            ve = self.state()['Ve']
+            cmd = (cmd-ve) * self.gain
+        
+        # Compute change in electrode potential
+        dve = 1e-3 * (cmd - self.current()) / self.cpip    # 1e-3 is because t is expressed in ms
+        return [dve]
 
 
 # provide a visible test to make sure code is working and failures are not ours.
