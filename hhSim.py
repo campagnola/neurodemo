@@ -7,14 +7,14 @@ Also simulates voltage clamp and current clamp with access resistance.
 Luke Campagnola 2015
 """
 
-import collections
+from collections import OrderedDict
 import numpy as np
 import scipy.integrate
 from PyQt4 import QtGui, QtCore
 
 
 # Define a set of scaled unit symbols to make the code more clear
-for unit in 'mFAΩsS':
+for unit in 'msVAΩFS':
     for pfx, val in [('p', -12), ('n', -9), ('u', -6), ('m', -3), ('c', -2), ('k', 3), ('M', 6), ('G', 9)]:
         locals()[pfx+unit] = 10**val
 
@@ -70,23 +70,34 @@ def IAlpha(Vm, t):
             return gAlpha * (Vm - EAlpha)*(tn/Alpha_tau) * np.exp(-(tn-Alpha_tau)/Alpha_tau)
 
 
-class Mechanism(object):
-    def __init__(self, init_state):
-        self.init_state = init_state
-        self.records = []
-        self._rec_dtype = [(sv, float) for sv in init_state.keys()]
-        
-    def state_vars(self):
-        return self.init_state.keys()
-        
+class Sim(object):
+    """Simulator for a collection of objects that derive from SimObject
+    """
+    def __init__(self, objects=None):
+        if objects is None:
+            objects = []
+        self._objects = objects
+        self._time = 0.0
+
+    def add(self, obj):
+        self._objects.append(obj)
+
+    def all_objects(self):
+        objs = []
+        for o in self._objects:
+            objs.extend(o.all_objects())
+        return objs
+            
     def state(self):
-        if len(self.records) == 0:
-            return collections.OrderedDict([(sv, self.init_state[sv]) for sv in self.state_vars])
-        else:
-            return collections.OrderedDict([(sv, self.records[-1][-1][sv]) for sv in self.state_vars])
-        
-    def derivatives(self):
-        raise NotImplementedError()
+        s = OrderedDict()
+        for o in self.all_objects():
+            for k,v in o.state().items():
+                s[k] = v
+        return s
+    
+    @property
+    def state_vars(self):
+        return list(self.state().keys())
 
     def run(self, dt=0.1, dur=100, **args):
         npts = int(dur/dt)
@@ -94,7 +105,8 @@ class Mechanism(object):
         result = np.empty((npts, len(self.state_vars) + 1))
 
         # Run the simulation
-        (result[:,1:], info) = scipy.integrate.odeint(self.derivatives, self.state(), t, (dt,),
+        init_state = list(self.state().values())
+        (result[:,1:], info) = scipy.integrate.odeint(self.derivatives, init_state, t, (dt,),
                                                 rtol=1e-6, atol=1e-6, hmax=5e-2, full_output=1, **args)
         result[:,0] = t
         #t, Im, Ve, Vm, m, h, n, f, s = [result[:,i] for i in range(result.shape[1])]
@@ -105,49 +117,94 @@ class Mechanism(object):
         # update state so next run starts where we left off
         #self.state = result[-1, 2:]
         
-        
-        
         return result  ## result is array with dims: [npts, (time, Ie, Ve, Vm, Im, m, h, n, f, s)]
 
+    def derivatives(self, state, t, dt):
+        d = []
+        for o in self.all_objects():
+            nvars = len(o.state_vars)
+            substate = state[:nvars]
+            state = state[nvars:]
+            d.extend(o._get_derivs(substate, t, dt))
+        return d
+    
 
 
-class Neuron(Mechanism):
+class SimObject(object):
+    """
+    Base class for objects that participate in integration by providing a set
+    of state variables and their derivatives.
+    """
+    def __init__(self, init_state):
+        self._init_state = init_state
+        self._last_state = init_state.copy()
+        self._sub_objs = []
+        self.records = []
+        self._rec_dtype = [(sv, float) for sv in init_state.keys()]
+    
+    def state(self):
+        return self._last_state.copy()
+
+    def all_objects(self):
+        objs = [self]
+        for o in self._sub_objs:
+            objs.extend(o.all_objects())
+        return objs
+        
+    @property
+    def state_vars(self):
+        return list(self._init_state.keys())
+
+    def _get_derivs(self, state, t, dt):
+        for i,k in enumerate(self._last_state):
+            self._last_state[k] = state[i]
+        return self.derivatives(state, t, dt)
+    
+    def derivatives(self, state, t, dt):
+        """Return derivatives of all state variables.
+        
+        Must be reimplemented in subclasses.
+        """
+        raise NotImplementedError()
+
+
+class Mechanism(SimObject):
+    def __init__(self, init_state, section=None):
+        SimObject.__init__(self, init_state)
+        self._section = section
+        
+    def current(self):
+        """Return the membrane current being passed by this mechanism.
+        
+        Must be implemented in subclasses.
+        """
+        raise NotImplementedError()
+
+    @property
+    def vm(self):
+        return self._section._last_state['Vm']
+
+
+class Section(SimObject):
     def __init__(self):
         #self.state = [-65e-3, -65e-3, 0.05, 0.6, 0.3, 0.0, 0.0]
-        init_state = collections.OrderedDict([('Vm', -65*mV)])
-        Mechanism.__init__(self, init_state)
+        init_state = OrderedDict([('Vm', -65*mV)])
+        SimObject.__init__(self, init_state)
         self.mechanisms = []
 
     def add(self, mech):
+        assert mech._section is None
+        mech._section = self
         self.mechanisms.append(mech)
+        self._sub_objs.append(mech)
 
-    def state_vars(self):
-        svars = Mechanism.state_vars(self)
-        for mech in self.mechanisms:
-            svars.extend(mech.state_vars())
-        return svars
-
-    def state(self):
-        state = Mechanism.state(self)
-        for mech in self.mechanisms:
-            for k,v in mech.state().items():
-                state[k] = v
-        return state
-        
-    def derivatives(self, y, t, mode, cmd, dt):
-        deriv = []
+    def derivatives(self, state, t, dt):
         Im = 0
         for mech in self.mechanisms:
             Im += mech.current()
-            deriv.extend(mech.derivatives())
             
         dv = 1e-3 * Im / C    # 1e-3 is because t is expressed in ms
-        deriv.insert(0, dv)
-        
-        return deriv
-        
-        
-        
+        return [dv]
         
     def old_derivs(self, y, t, mode, cmd, dt):
         ## y is a vector [Ve, Vm, m, h, n, f, s], function returns derivatives of each variable
@@ -261,10 +318,10 @@ class Leak(Mechanism):
         self.erev = erev
         Mechanism.__init__(self, {})
         
-    def current(self, vm):
-        return self.g * (vm - self.erev)
+    def current(self):
+        return self.g * (self.vm - self.erev)
 
-    def derivatives(self):
+    def derivatives(self, state, t, dt):
         return []
 
 
@@ -275,14 +332,17 @@ class MultiClamp(Mechanism):
         self.mode = mode
         self.cmd = cmd
         self.gain = 50e-6  # arbitrary VC gain
-        init_state = collections.OrderedDict([('Ve', -65*mV)])
+        init_state = OrderedDict([('Ve', -65*mV)])
         Mechanism.__init__(self, init_state)
 
-    def current(self, vm):
-        # Compute current through tip of pipette
-        return (self.state()['Ve'] - vm) / self.ra
+    def set_command(self, cmd):
+        self.cmd = cmd
 
-    def derivatives(self):
+    def current(self):
+        # Compute current through tip of pipette
+        return (self.state()['Ve'] - self.vm) / self.ra
+
+    def derivatives(self, state, t, dt):
         ## Select between VC and CC
         cmd = self.cmd
         if cmd is None:
@@ -306,43 +366,38 @@ class MultiClamp(Mechanism):
         return [dve]
 
 
-# provide a visible test to make sure code is working and failures are not ours.
-# call this from the command line to observe the clamp plot results
-#
+def run(sim, dt=1e-4, mode='ic', cmd=None, dur=None):
+    """
+    Return array of Vm or Im values.        
+    """
+    dt = dt * 1e3  ## convert s -> ms
+    
+    if dur is None and cmd is not None:
+        dur = dt*len(cmd)
+    
+    result = neuron.run(cmd=cmd, mode=mode, dt=dt, dur=dur)
+    
+    if mode == 'ic':
+        out = result#[:,2] + np.random.normal(size=len(data), scale=0.3e-3)
+    elif mode == 'vc':
+        out = result#[:,1] + np.random.normal(size=len(data), scale=3.e-12)
+    
+    return out
+
+
 if __name__ == '__main__':
     import pyqtgraph as pg
     from pyqtgraph.Qt import QtGui
-    
-    def run(cmd):
-        """
-        Accept command like 
-        
-            {
-                'dt': 1e-4,
-                'mode': 'ic',
-                'data': np.array([...]),
-            }
-            
-        Return array of Vm or Im values.        
-        """
-        global neuron
-        dt = cmd['dt'] * 1e3  ## convert s -> ms
-        data = cmd['data']
-        mode = cmd['mode']
-        
-        result = neuron.run(cmd=data, mode=mode, dt=dt, dur=dt*len(data))
-        
-        if mode == 'ic':
-            out = result#[:,2] + np.random.normal(size=len(data), scale=0.3e-3)
-        elif mode == 'vc':
-            out = result#[:,1] + np.random.normal(size=len(data), scale=3.e-12)
-        
-        return out
-
-    
-    neuron = Neuron()
     pg.setConfigOption('antialias', True)
     app = QtGui.QApplication([])
+    
+    sim = Sim()
+    neuron = Section()
+    neuron.add(Leak(g=0.1e-3 * Area/cm**2))
+    clamp = MultiClamp(mode='ic')
+    neuron.add(clamp)
+    sim.add(neuron)
+    
     win = pg.GraphicsWindow()
     win.resize(1000, 600)
     win.setWindowTitle('Testing hhSim.py')
@@ -362,12 +417,9 @@ if __name__ == '__main__':
     for i, v in enumerate(x):
         print('V: ', v)
         cmd[i, x1:x2] = v
-        opts = {
-            'mode': 'ic',
-            'dt': dt,
-            'data': cmd[i,:]
-        }
-        data[i] = run(opts)
+        clamp.set_command(cmd[i])
+        #data[i] = run(neuron, mode='ic', dt=dt, cmd=cmd[i])
+        data[i] = sim.run(dt=dt, dur=dur)
         p1.plot(tb, data[i,:,2], pen=(i, 15))
         p2.plot(tb, cmd[i], pen=(i, 15))
 
