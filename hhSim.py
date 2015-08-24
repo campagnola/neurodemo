@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Simple Hodgkin-Huxley simulator for Python. VERY slow.
-Includes Ih from Destexhe 1993 [disabled]
+Simple neuron simulator for Python.
 Also simulates voltage clamp and current clamp with access resistance.
 
 Luke Campagnola 2015
@@ -19,12 +18,6 @@ for unit in 'msVAΩFS':
         locals()[pfx+unit] = 10**val
 
 
-#gH = 30. * Area/cm**2  ## 10mS * cm^2
-
-#EK = -77e-3
-#ENa = 50e-3
-#EL = -55e-3
-#EH = -43e-3
 #Ik2 = 24.3
 
 # alpha synapse
@@ -34,11 +27,6 @@ for unit in 'msVAΩFS':
 #EAlpha = -7e-3  # V
 
 
-def IL(Vm):
-    return gL * (Vm - EL)
-
-def IH(Vm, f, s):
-    return gH * f * s * (Vm - EH)
 
 def IAlpha(Vm, t):
     if t < Alpha_t0:
@@ -59,6 +47,7 @@ class Sim(object):
         if objects is None:
             objects = []
         self._objects = objects
+        self._all_objs = None
         self._time = 0.0
         self.temp = 6.3
 
@@ -68,11 +57,13 @@ class Sim(object):
         self._objects.append(obj)
 
     def all_objects(self):
-        objs = []
-        for o in self._objects:
-            objs.extend(o.all_objects())
-        return objs
-            
+        if self._all_objs is None:
+            objs = []
+            for o in self._objects:
+                objs.extend(o.all_objects())
+            self._all_objs = objs
+        return self._all_objs
+    
     def state(self):
         s = OrderedDict()
         for o in self.all_objects():
@@ -85,6 +76,12 @@ class Sim(object):
         return list(self.state().keys())
 
     def run(self, dt=0.1*ms, dur=100*ms, **args):
+        self._all_objs = None
+        svars = []
+        for o in self.all_objects():
+            for k in o.state_vars:
+                svars.append((o, k))
+        self._simstate = SimState(svars)
         npts = int(dur/dt)
         t = np.linspace(0, dur, npts)
 
@@ -96,26 +93,34 @@ class Sim(object):
         p = 0
         for o in self.all_objects():
             nvar = len(o.state_vars)
-            o._last_result = result[:, p:p+nvar]
+            o.update_result(result[:, p:p+nvar])
             p += nvar
             
         self._last_run_time = t
 
     def derivatives(self, state, t, dt):
-        orig_state = state[:]
         objs = self.all_objects()
-        for o in objs:
-            nvars = len(o.state_vars)
-            substate = state[:nvars]
-            state = state[nvars:]
-            o.set_current_state(substate)
-        
+        #for o in objs:
+            #nvars = len(o.state_vars)
+            #substate = state[:nvars]
+            #state = state[nvars:]
+            #o.set_current_state(substate)
+        self._simstate.state = state
         d = []
         for o in objs:
-            d.extend(o._get_derivs(t))
-        #print (t, orig_state, d)
+            d.extend(o.derivatives(self._simstate, t))
+            
         return d
     
+
+class SimState(object):
+    def __init__(self, keys):
+        self.keys = keys
+        self.indexes = dict([(k,i) for i,k in enumerate(keys)])
+        self.state = None
+        
+    def __getitem__(self, key):
+        return self.state[self.indexes[key]]
 
 
 class SimObject(object):
@@ -126,8 +131,8 @@ class SimObject(object):
     def __init__(self, init_state):
         self._sim = None
         self._init_state = init_state
-        self._current_state = init_state.copy()
         self._state_vars = tuple(init_state.keys())
+        self._current_state = init_state.copy()
         self._sub_objs = []
         self.records = []
         self._rec_dtype = [(sv, float) for sv in init_state.keys()]
@@ -145,13 +150,14 @@ class SimObject(object):
     def state_vars(self):
         return self._state_vars
 
+    def update_result(self, result):
+        self._last_result = result
+        self.set_current_state(result[-1])
+
     def set_current_state(self, state):
         for i,k in enumerate(self.state_vars):
             self._current_state[k] = state[i]
 
-    def _get_derivs(self, t):
-        return self.derivatives(self._current_state, t)
-    
     def derivatives(self, state, t):
         """Return derivatives of all state variables.
         
@@ -175,10 +181,6 @@ class Mechanism(SimObject):
         Must be implemented in subclasses.
         """
         raise NotImplementedError()
-
-    @property
-    def vm(self):
-        return self._section._current_state['Vm']
 
     @property
     def section(self):
@@ -207,7 +209,6 @@ class Mechanism(SimObject):
 
 class Section(SimObject):
     def __init__(self, radius=10*um):
-        #self.state = [-65e-3, -65e-3, 0.05, 0.6, 0.3, 0.0, 0.0]
         self.area = 4 * 3.1415926 * radius**2
         self.cm = self.area * (1 * uF / cm**2)
         self.ek = -77*mV
@@ -226,8 +227,7 @@ class Section(SimObject):
     def derivatives(self, state, t):
         Im = 0
         for mech in self.mechanisms:
-            i = mech.current()
-            Im += i
+            Im += mech.current(state, t)
             
         dv = Im / self.cm
         return [dv]
@@ -239,8 +239,9 @@ class Leak(Mechanism):
         self.erev = erev
         Mechanism.__init__(self, {})
         
-    def current(self):
-        return self.g * (self.erev - self.vm)
+    def current(self, state, t):
+        vm = state[self.section, 'Vm']
+        return self.g * (self.erev - vm)
 
     def derivatives(self, state, t):
         return []
@@ -268,9 +269,11 @@ class MultiClamp(Mechanism):
         vm = self.section._last_result[:,0]
         return (ve-vm) / self.ra
 
-    def current(self):
+    def current(self, state, t):
         # Compute current through tip of pipette at this timestep
-        return (self.state()['Ve'] - self.vm) / self.ra
+        vm = state[self.section, 'Vm']
+        ve = state[self, 'Ve']
+        return (ve - vm) / self.ra
     
     def derivatives(self, state, t):
         ## Select between VC and CC
@@ -288,11 +291,11 @@ class MultiClamp(Mechanism):
             
         # determine current generated by voltage clamp 
         if self.mode == 'vc':
-            ve = self.state()['Ve']
+            ve = state[self, 'Ve']
             cmd = (cmd-ve) * self.gain
         
         # Compute change in electrode potential
-        dve = (cmd - self.current()) / self.cpip
+        dve = (cmd - self.current(state, t)) / self.cpip
         return [dve]
 
 
@@ -326,21 +329,26 @@ class HHK(Mechanism):
             self._g = self.gbar * self.section.area
         return self._g
 
-    def current(self):
-        return -self.g * self.state()['n']**4 * (self.vm - self.section.ek)
+    def current(self, state, t):
+        vm = state[self.section, 'Vm']
+        n = state[self, 'n']
+        return -self.g * n**4 * (vm - self.section.ek)
 
     def derivatives(self, state, t):
         # temperature dependence of rate constants
         q10 = 3 ** ((self.sim.temp-6.3) / 10.)
-        vm = self.vm - self.shift
+        vm = state[self.section, 'Vm'] - self.shift
         
         vm = vm + 65e-3   ## gating parameter eqns assume resting is 0mV
         vm *= 1000.   ##  ..and that Vm is in mV
         
-        n = state['n']
-        an, bn = self.interpolate_rates(self.rates, vm, self.rates_vmin, self.rates_vstep)
-        #an = (0.1 - 0.01*vm) / (np.exp(1.0 - 0.1*vm) - 1.0)
-        #bn = 0.125 * np.exp(-vm / 80.)
+        n = state[self, 'n']
+        
+        # disabled for now -- does not seem to improve speed.
+        #an, bn = self.interpolate_rates(self.rates, vm, self.rates_vmin, self.rates_vstep)
+        
+        an = (0.1 - 0.01*vm) / (np.exp(1.0 - 0.1*vm) - 1.0)
+        bn = 0.125 * np.exp(-vm / 80.)
         dn = q10 * (an * (1.0 - n) - bn * n)
         return [dn*1e3]
                  
@@ -377,43 +385,72 @@ class HHNa(Mechanism):
             self._g = self.gbar * self.section.area
         return self._g
 
-    def current(self):
-        s = self.state()
-        return -self.g * s['m']**3 * s['h'] * (self.vm - self.section.ena)
+    def current(self, state, t):
+        vm = state[self.section, 'Vm']
+        m = state[self, 'm']
+        h = state[self, 'h']
+        return -self.g * m**3 * h * (vm - self.section.ena)
 
     def derivatives(self, state, t):
         # temperature dependence of rate constants
         q10 = 3 ** ((self.sim.temp-6.3) / 10.)
-        vm = self.vm - self.shift
-        m = state['m']
-        h = state['h']
+        vm = state[self.section, 'Vm'] - self.shift
+        m = state[self, 'm']
+        h = state[self, 'h']
 
         vm = vm + 65e-3   ## gating parameter eqns assume resting is 0mV
         vm *= 1000.   ##  ..and that Vm is in mV
         
-        am, bm, ah, bh = self.interpolate_rates(self.rates, vm, self.rates_vmin, self.rates_vstep)
+        # disabled for now -- does not seem to improve speed.
+        #am, bm, ah, bh = self.interpolate_rates(self.rates, vm, self.rates_vmin, self.rates_vstep)
         
-        #am = (2.5-0.1*vm) / (np.exp(2.5-0.1*vm) - 1.0)
-        #bm = 4. * np.exp(-vm / 18.)
+        am = (2.5-0.1*vm) / (np.exp(2.5-0.1*vm) - 1.0)
+        bm = 4. * np.exp(-vm / 18.)
         dm = q10 * (am * (1.0 - m) - bm * m)
         
-        #ah = 0.07 * np.exp(-vm / 20.)
-        #bh = 1.0 / (np.exp(3.0 - 0.1 * vm) + 1.0)
+        ah = 0.07 * np.exp(-vm / 20.)
+        bh = 1.0 / (np.exp(3.0 - 0.1 * vm) + 1.0)
         dh = q10 * (ah * (1.0 - h) - bh * h)
 
         return [dm*1e3, dh*1e3]
                  
 
 class IH(Mechanism):
+    """Ih from Destexhe 1993
+    """
+    def __init__(self, gbar=30*mS/cm**2):
+        init_state = OrderedDict([('f', 0), ('s', 0)]) 
+        Mechanism.__init__(self, init_state)
+        self.gbar = gbar
+        self.erev = -43*mV
+        self._g = None
+        self.shift = 0
+        
+    @property
+    def g(self):
+        if self._g is None:
+            self._g = self.gbar * self.section.area
+        return self._g
+    
+    def current(self, state, t):
+        vm = state[self.section, 'Vm'] - self.shift
+        f = state[self, 'f']
+        s = state[self, 's']
+        return -self.g * f * s * (vm - self.erev)
+    
     def derivatives(self, state, t):
-        # Ih is disabled--very slow.
-        #Hinf = 1.0 / (1.0 + np.exp((Vm + 68.9) / 6.5))
-        #tauF = np.exp((Vm + 158.6)/11.2) / (1.0 + np.exp((Vm + 75.)/5.5))
-        #tauS = np.exp((Vm + 183.6) / 15.24)
-        #df = (Hinf - f) / tauF
-        #ds = (Hinf - s) / tauS
-        df = 0
-        ds = 0
+        vm = state[self.section, 'Vm'] - self.shift
+        f = state[self, 'f']
+        s = state[self, 's']
+        
+        #vm = vm + 65e-3   ## gating parameter eqns assume resting is 0mV
+        vm *= 1000.   ##  ..and that Vm is in mV
+        Hinf = 1.0 / (1.0 + np.exp((vm + 68.9) / 6.5))
+        tauF = np.exp((vm + 158.6)/11.2) / (1.0 + np.exp((vm + 75.)/5.5))
+        tauS = np.exp((vm + 183.6) / 15.24)
+        df = (Hinf - f) / tauF
+        ds = (Hinf - s) / tauS
+        return [df*1e3, ds*1e3]
 
 
 def run(sim, dt=1e-4, mode='ic', cmd=None, dur=None):
@@ -446,6 +483,7 @@ if __name__ == '__main__':
     neuron.add(Leak(g=0.1e-3 * neuron.area/cm**2))
     neuron.add(HHK())
     neuron.add(HHNa())
+    neuron.add(IH())
     clamp = MultiClamp(mode='ic')
     neuron.add(clamp)
     sim.add(neuron)
