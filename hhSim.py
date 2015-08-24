@@ -19,32 +19,22 @@ for unit in 'msVAΩFS':
         locals()[pfx+unit] = 10**val
 
 
+#gNa = 40e-3 * Area/cm**2
+#gKShift = 0
+#gL =  0.1e-3 * Area/cm**2
+#gH = 30. * Area/cm**2  ## 10mS * cm^2
 
-Raccess = 10*MΩ
-Cpip = 3*pF
-
-Temp = 6.3
-
-Radius = 20 * um
-Area = (4 * 3.1415926 * Radius**2)
-C = Area * uF / cm**2
-gNa = 40e-3 * Area/cm**2
-gK =  12e-3 * Area/cm**2
-gKShift = 0
-gL =  0.1e-3 * Area/cm**2
-gH = 30. * Area/cm**2  ## 10mS * cm^2
-
-EK = -77e-3
-ENa = 50e-3
-EL = -55e-3
-EH = -43e-3
-Ik2 = 24.3
+#EK = -77e-3
+#ENa = 50e-3
+#EL = -55e-3
+#EH = -43e-3
+#Ik2 = 24.3
 
 # alpha synapse
-Alpha_t0 = 500.  # msec
-Alpha_tau = 2.0
-gAlpha = 1e-3 * Area/cm**2
-EAlpha = -7e-3  # V
+#Alpha_t0 = 500.  # msec
+#Alpha_tau = 2.0
+#gAlpha = 1e-3 * Area/cm**2
+#EAlpha = -7e-3  # V
 
 def IK(n, Vm):
     return gK * n**4 * (Vm - EK)
@@ -80,6 +70,8 @@ class Sim(object):
         self._time = 0.0
 
     def add(self, obj):
+        assert obj._sim is None
+        obj._sim = self
         self._objects.append(obj)
 
     def all_objects(self):
@@ -100,10 +92,6 @@ class Sim(object):
         return list(self.state().keys())
 
     def run(self, dt=0.1*ms, dur=100*ms, **args):
-        print("run:")
-        for o in self.all_objects():
-            print(o, o.state_vars)
-        
         npts = int(dur/dt)
         t = np.linspace(0, dur, npts)
 
@@ -119,13 +107,6 @@ class Sim(object):
             p += nvar
             
         self._last_run_time = t
-        #t, Im, Ve, Vm, m, h, n, f, s = [result[:,i] for i in range(result.shape[1])]
-        
-        # Compute electrode current sans pipette capacitance current
-        #result[:,1] = (Ve-Vm) / Raccess
-
-        # update state so next run starts where we left off
-        #self.state = result[-1, 2:]
 
     def derivatives(self, state, t, dt):
         orig_state = state[:]
@@ -138,7 +119,7 @@ class Sim(object):
         
         d = []
         for o in objs:
-            d.extend(o._get_derivs(t, dt))
+            d.extend(o._get_derivs(t))
         #print (t, orig_state, d)
         return d
     
@@ -150,6 +131,7 @@ class SimObject(object):
     of state variables and their derivatives.
     """
     def __init__(self, init_state):
+        self._sim = None
         self._init_state = init_state
         self._current_state = init_state.copy()
         self._sub_objs = []
@@ -173,15 +155,19 @@ class SimObject(object):
         for i,k in enumerate(self.state_vars):
             self._current_state[k] = state[i]
 
-    def _get_derivs(self, t, dt):
-        return self.derivatives(self._current_state, t, dt)
+    def _get_derivs(self, t):
+        return self.derivatives(self._current_state, t)
     
-    def derivatives(self, state, t, dt):
+    def derivatives(self, state, t):
         """Return derivatives of all state variables.
         
         Must be reimplemented in subclasses.
         """
         raise NotImplementedError()
+    
+    @property
+    def sim(self):
+        return self._sim
 
 
 class Mechanism(SimObject):
@@ -202,8 +188,13 @@ class Mechanism(SimObject):
 
 
 class Section(SimObject):
-    def __init__(self):
+    def __init__(self, radius=10*um):
         #self.state = [-65e-3, -65e-3, 0.05, 0.6, 0.3, 0.0, 0.0]
+        self.area = 4 * 3.1415926 * radius**2
+        self.cm = self.area * (1 * uF / cm**2)
+        self.ek = -90*mV
+        self.ena = 50*mV
+        self.ecl = -70*mV
         init_state = OrderedDict([('Vm', -65*mV)])
         SimObject.__init__(self, init_state)
         self.mechanisms = []
@@ -214,13 +205,13 @@ class Section(SimObject):
         self.mechanisms.append(mech)
         self._sub_objs.append(mech)
 
-    def derivatives(self, state, t, dt):
+    def derivatives(self, state, t):
         Im = 0
         for mech in self.mechanisms:
             i = mech.current()
             Im += i
             
-        dv = Im / C
+        dv = Im / self.cm
         return [dv]
         
     def old_derivs(self, y, t, mode, cmd, dt):
@@ -338,28 +329,37 @@ class Leak(Mechanism):
     def current(self):
         return self.g * (self.erev - self.vm)
 
-    def derivatives(self, state, t, dt):
+    def derivatives(self, state, t):
         return []
 
 
 class MultiClamp(Mechanism):
-    def __init__(self, mode='ic', cmd=None, ra=5*MΩ, cpip=3*pF):
+    def __init__(self, mode='ic', cmd=None, dt=None, ra=5*MΩ, cpip=3*pF):
         self.ra = ra
         self.cpip = cpip
         self.mode = mode
         self.cmd = cmd
+        self.dt = dt
         self.gain = 50e-6  # arbitrary VC gain
         init_state = OrderedDict([('Ve', -65*mV)])
         Mechanism.__init__(self, init_state)
 
-    def set_command(self, cmd):
+    def set_command(self, cmd, dt):
         self.cmd = cmd
+        self.dt = dt
+
+    def pipette_current(self):
+        """Compute current through pipette from most recent simulation run.
+        """
+        ve = self._last_result[:,0]
+        vm = self.section._last_result[:,0]
+        return (ve-vm) / self.ra
 
     def current(self):
-        # Compute current through tip of pipette
+        # Compute current through tip of pipette at this timestep
         return (self.state()['Ve'] - self.vm) / self.ra
-
-    def derivatives(self, state, t, dt):
+    
+    def derivatives(self, state, t):
         ## Select between VC and CC
         cmd = self.cmd
         if cmd is None:
@@ -367,7 +367,7 @@ class MultiClamp(Mechanism):
             mode = 'ic'
         else:
             # interpolate command -- sharp steps confuse the integrator.
-            fInd = t/dt
+            fInd = t / self.dt
             ind = min(len(cmd)-1, np.floor(fInd))
             ind2 = min(len(cmd)-1, ind+1)
             s = fInd - ind
@@ -382,6 +382,26 @@ class MultiClamp(Mechanism):
         dve = (cmd - self.current()) / self.cpip
         return [dve]
 
+
+class HHK(Mechanism):
+    """Hodgkin-Huxley K channel.
+    """
+    def __init__(self, gbar=12*mS/cm**2):
+        self.gbar = gbar
+        self._g = None
+              
+    @property
+    def g(self):
+        if self._g is None:
+            self._g = self.gbar * self.section.area
+        return self._g
+
+    def current(self):
+        return self.g * self.state()['n']**4 * (self.vm - self.section.ek)
+
+    def derivatives(self, state, t):
+        pass
+                 
 
 def run(sim, dt=1e-4, mode='ic', cmd=None, dur=None):
     """
@@ -410,7 +430,7 @@ if __name__ == '__main__':
     
     sim = Sim()
     neuron = Section()
-    neuron.add(Leak(g=0.1e-3 * Area/cm**2))
+    neuron.add(Leak(g=0.1e-3 * neuron.area/cm**2))
     clamp = MultiClamp(mode='ic')
     neuron.add(clamp)
     sim.add(neuron)
@@ -434,7 +454,7 @@ if __name__ == '__main__':
     for i, v in enumerate(x):
         print('V: ', v)
         cmd[i, x1:x2] = v
-        clamp.set_command(cmd[i])
+        clamp.set_command(cmd[i], dt)
         #data[i] = run(neuron, mode='ic', dt=dt, cmd=cmd[i])
         sim.run(dt=dt, dur=dur)
         data = neuron._last_result[:,0]
