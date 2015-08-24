@@ -171,6 +171,9 @@ class SimObject(object):
 
 
 class Mechanism(SimObject):
+    """Base class for simulation objects that interact with a section's
+    membrane--channels, electrodes, etc.
+    """
     def __init__(self, init_state, section=None):
         SimObject.__init__(self, init_state)
         self._section = section
@@ -189,6 +192,35 @@ class Mechanism(SimObject):
     @property
     def sim(self):
         return self.section.sim
+
+
+class Channel(Mechanism):
+    """Base class for simple ion channels.
+    """
+    # precomputed rate constant tables
+    rates = None
+    
+    @classmethod
+    def compute_rates(cls):
+        return
+        
+    def __init__(self, gbar, init_state):
+        Mechanism.__init__(self, init_state)
+        self.gbar = gbar
+        self._g = None
+        if self.rates is None:
+            type(self).compute_rates()
+              
+    @property
+    def g(self):
+        if self._g is None:
+            self._g = self.gbar * self.section.area
+        return self._g
+
+    def current(self, state, t):
+        vm = state[self.section, 'Vm']
+        op = self.open_probability(state)
+        return -self.g * op * (vm - self.erev)
 
     @staticmethod
     def interpolate_rates(rates, val, minval, step):
@@ -299,12 +331,9 @@ class MultiClamp(Mechanism):
         return [dve]
 
 
-class HHK(Mechanism):
+class HHK(Channel):
     """Hodgkin-Huxley K channel.
     """
-    # precomputed rate constant tables
-    rates = None
-    
     @classmethod
     def compute_rates(cls):
         cls.rates_vmin = -100
@@ -316,23 +345,15 @@ class HHK(Mechanism):
         
     def __init__(self, gbar=12*mS/cm**2):
         init_state = OrderedDict([('n', 0.3)]) 
-        Mechanism.__init__(self, init_state)
-        self.gbar = gbar
-        self._g = None
+        Channel.__init__(self, gbar, init_state)
         self.shift = 0
-        if self.rates is None:
-            type(self).compute_rates()
-              
+        
     @property
-    def g(self):
-        if self._g is None:
-            self._g = self.gbar * self.section.area
-        return self._g
-
-    def current(self, state, t):
-        vm = state[self.section, 'Vm']
-        n = state[self, 'n']
-        return -self.g * n**4 * (vm - self.section.ek)
+    def erev(self):
+        return self.section.ek
+        
+    def open_probability(self, state):
+        return state[self, 'n']**4
 
     def derivatives(self, state, t):
         # temperature dependence of rate constants
@@ -353,12 +374,9 @@ class HHK(Mechanism):
         return [dn*1e3]
                  
 
-class HHNa(Mechanism):
+class HHNa(Channel):
     """Hodgkin-Huxley Na channel.
     """
-    # precomputed rate constant tables
-    rates = None
-    
     @classmethod
     def compute_rates(cls):
         cls.rates_vmin = -100
@@ -372,24 +390,15 @@ class HHNa(Mechanism):
         
     def __init__(self, gbar=40*mS/cm**2):
         init_state = OrderedDict([('m', 0.05), ('h', 0.6)]) 
-        Mechanism.__init__(self, init_state)
-        self.gbar = gbar
-        self._g = None
+        Channel.__init__(self, gbar, init_state)
         self.shift = 0
-        if self.rates is None:
-            type(self).compute_rates()
         
     @property
-    def g(self):
-        if self._g is None:
-            self._g = self.gbar * self.section.area
-        return self._g
-
-    def current(self, state, t):
-        vm = state[self.section, 'Vm']
-        m = state[self, 'm']
-        h = state[self, 'h']
-        return -self.g * m**3 * h * (vm - self.section.ena)
+    def erev(self):
+        return self.section.ena
+        
+    def open_probability(self, state):
+        return state[self, 'm']**3 * state[self, 'h']
 
     def derivatives(self, state, t):
         # temperature dependence of rate constants
@@ -433,7 +442,7 @@ class IH(Mechanism):
         return self._g
     
     def current(self, state, t):
-        vm = state[self.section, 'Vm'] - self.shift
+        vm = state[self.section, 'Vm']
         f = state[self, 'f']
         s = state[self, 's']
         return -self.g * f * s * (vm - self.erev)
@@ -451,6 +460,54 @@ class IH(Mechanism):
         df = (Hinf - f) / tauF
         ds = (Hinf - s) / tauS
         return [df*1e3, ds*1e3]
+
+
+class LGNa(Mechanism):
+    """Cortical sodium channel (Lewis & Gerstner 2002, p.124)
+    """
+    def __init__(self, gbar=112.5*mS/cm**2):
+        init_state = OrderedDict([('m', 0.05), ('h', 0.6)]) 
+        Mechanism.__init__(self, init_state)
+        self.gbar = gbar
+        self.erev = 74*mV
+        self._g = None
+        
+    @property
+    def g(self):
+        if self._g is None:
+            self._g = self.gbar * self.section.area
+        return self._g
+
+    def current(self, state, t):
+        vm = state[self.section, 'Vm']
+        m = state[self, 'm']
+        h = state[self, 'h']
+        return -self.g * m**3 * h * (vm - self.section.ena)
+
+    def derivatives(self, state, t):
+        # temperature dependence of rate constants
+        q10 = 3 ** ((self.sim.temp-6.3) / 10.)
+        vm = state[self.section, 'Vm'] - self.shift
+        m = state[self, 'm']
+        h = state[self, 'h']
+
+        vm = vm + 65e-3   ## gating parameter eqns assume resting is 0mV
+        vm *= 1000.   ##  ..and that Vm is in mV
+        
+        # disabled for now -- does not seem to improve speed.
+        #am, bm, ah, bh = self.interpolate_rates(self.rates, vm, self.rates_vmin, self.rates_vstep)
+        
+        am = (2.5-0.1*vm) / (np.exp(2.5-0.1*vm) - 1.0)
+        bm = 4. * np.exp(-vm / 18.)
+        dm = q10 * (am * (1.0 - m) - bm * m)
+        
+        ah = 0.07 * np.exp(-vm / 20.)
+        bh = 1.0 / (np.exp(3.0 - 0.1 * vm) + 1.0)
+        dh = q10 * (ah * (1.0 - h) - bh * h)
+
+        return [dm*1e3, dh*1e3]
+
+
 
 
 def run(sim, dt=1e-4, mode='ic', cmd=None, dur=None):
@@ -483,7 +540,7 @@ if __name__ == '__main__':
     neuron.add(Leak(g=0.1e-3 * neuron.area/cm**2))
     neuron.add(HHK())
     neuron.add(HHNa())
-    neuron.add(IH())
+    #neuron.add(IH())
     clamp = MultiClamp(mode='ic')
     neuron.add(clamp)
     sim.add(neuron)
