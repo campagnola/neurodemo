@@ -100,15 +100,18 @@ class Sim(object):
         return list(self.state().keys())
 
     def run(self, dt=0.1, dur=100, **args):
+        print("run:")
+        for o in self.all_objects():
+            print(o, o.state_vars)
+        
         npts = int(dur/dt)
         t = np.linspace(0, dur, npts)
-        result = np.empty((npts, len(self.state_vars) + 1))
 
         # Run the simulation
         init_state = list(self.state().values())
-        (result[:,1:], info) = scipy.integrate.odeint(self.derivatives, init_state, t, (dt,),
-                                                rtol=1e-6, atol=1e-6, hmax=5e-2, full_output=1, **args)
-        
+        global result
+        result, info = scipy.integrate.odeint(self.derivatives, init_state, t, (dt,),
+                                              rtol=1e-6, atol=1e-6, hmax=5e-2, full_output=1, **args)
         p = 0
         for o in self.all_objects():
             nvar = len(o.state_vars)
@@ -125,12 +128,18 @@ class Sim(object):
         #self.state = result[-1, 2:]
 
     def derivatives(self, state, t, dt):
-        d = []
-        for o in self.all_objects():
+        orig_state = state[:]
+        objs = self.all_objects()
+        for o in objs:
             nvars = len(o.state_vars)
             substate = state[:nvars]
             state = state[nvars:]
-            d.extend(o._get_derivs(substate, t, dt))
+            o.set_current_state(substate)
+        
+        d = []
+        for o in objs:
+            d.extend(o._get_derivs(t, dt))
+        #print (t, orig_state, d)
         return d
     
 
@@ -142,13 +151,13 @@ class SimObject(object):
     """
     def __init__(self, init_state):
         self._init_state = init_state
-        self._last_state = init_state.copy()
+        self._current_state = init_state.copy()
         self._sub_objs = []
         self.records = []
         self._rec_dtype = [(sv, float) for sv in init_state.keys()]
     
     def state(self):
-        return self._last_state.copy()
+        return self._current_state.copy()
 
     def all_objects(self):
         objs = [self]
@@ -160,10 +169,12 @@ class SimObject(object):
     def state_vars(self):
         return list(self._init_state.keys())
 
-    def _get_derivs(self, state, t, dt):
-        for i,k in enumerate(self._last_state):
-            self._last_state[k] = state[i]
-        return self.derivatives(state, t, dt)
+    def set_current_state(self, state):
+        for i,k in enumerate(self.state_vars):
+            self._current_state[k] = state[i]
+
+    def _get_derivs(self, t, dt):
+        return self.derivatives(self._current_state, t, dt)
     
     def derivatives(self, state, t, dt):
         """Return derivatives of all state variables.
@@ -187,7 +198,7 @@ class Mechanism(SimObject):
 
     @property
     def vm(self):
-        return self._section._last_state['Vm']
+        return self._section._current_state['Vm']
 
 
 class Section(SimObject):
@@ -206,7 +217,8 @@ class Section(SimObject):
     def derivatives(self, state, t, dt):
         Im = 0
         for mech in self.mechanisms:
-            Im += mech.current()
+            i = mech.current()
+            Im += i
             
         dv = 1e-3 * Im / C    # 1e-3 is because t is expressed in ms
         return [dv]
@@ -324,7 +336,7 @@ class Leak(Mechanism):
         Mechanism.__init__(self, {})
         
     def current(self):
-        return self.g * (self.vm - self.erev)
+        return self.g * (self.erev - self.vm)
 
     def derivatives(self, state, t, dt):
         return []
@@ -415,7 +427,8 @@ if __name__ == '__main__':
     npts = int(dur / dt)
     x1 = int(20*ms / dt)
     x2 = int(80*ms / dt)
-    x = np.linspace(-200, 200, 11) * pA
+    x = np.linspace(-200, 200, 3) * pA
+    #x = [-200*pA]
     cmd = np.zeros((len(x), npts)) #*-65e-3
     data = np.zeros((len(x), npts, 9))
     for i, v in enumerate(x):
@@ -423,7 +436,7 @@ if __name__ == '__main__':
         cmd[i, x1:x2] = v
         clamp.set_command(cmd[i])
         #data[i] = run(neuron, mode='ic', dt=dt, cmd=cmd[i])
-        sim.run(dt=dt, dur=dur)
+        sim.run(dt=dt/ms, dur=dur/ms)
         data = neuron._last_result[:,0]
         t = sim._last_run_time
         p1.plot(t, data, pen=(i, 15))
