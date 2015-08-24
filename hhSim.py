@@ -99,7 +99,7 @@ class Sim(object):
     def state_vars(self):
         return list(self.state().keys())
 
-    def run(self, dt=0.1, dur=100, **args):
+    def run(self, dt=0.1*ms, dur=100*ms, **args):
         print("run:")
         for o in self.all_objects():
             print(o, o.state_vars)
@@ -220,7 +220,7 @@ class Section(SimObject):
             i = mech.current()
             Im += i
             
-        dv = 1e-3 * Im / C    # 1e-3 is because t is expressed in ms
+        dv = Im / C
         return [dv]
         
     def old_derivs(self, y, t, mode, cmd, dt):
@@ -379,7 +379,7 @@ class MultiClamp(Mechanism):
             cmd = (cmd-ve) * self.gain
         
         # Compute change in electrode potential
-        dve = 1e-3 * (cmd - self.current()) / self.cpip    # 1e-3 is because t is expressed in ms
+        dve = (cmd - self.current()) / self.cpip
         return [dve]
 
 
@@ -436,7 +436,7 @@ if __name__ == '__main__':
         cmd[i, x1:x2] = v
         clamp.set_command(cmd[i])
         #data[i] = run(neuron, mode='ic', dt=dt, cmd=cmd[i])
-        sim.run(dt=dt/ms, dur=dur/ms)
+        sim.run(dt=dt, dur=dur)
         data = neuron._last_result[:,0]
         t = sim._last_run_time
         p1.plot(t, data, pen=(i, 15))
