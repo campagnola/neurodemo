@@ -10,11 +10,7 @@ from collections import OrderedDict
 import numpy as np
 import scipy.integrate
 from PyQt4 import QtGui, QtCore
-from units import *
-
-
-
-#Ik2 = 24.3
+from .units import *
 
 # alpha synapse
 #Alpha_t0 = 500.  # msec
@@ -75,6 +71,9 @@ class Sim(object):
     def run(self, dt=0.1*ms, dur=100*ms, **args):
         self._all_objs = None
         svars = []
+        if len(self.all_objects()) == 0:
+            raise RuntimeError("No objects added to simulation.")
+            
         for o in self.all_objects():
             for k in o.state_vars:
                 svars.append((o, k))
