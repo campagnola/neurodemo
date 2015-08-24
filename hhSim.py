@@ -588,21 +588,19 @@ if __name__ == '__main__':
     app = QtGui.QApplication([])
     
     # HH Simulation
-    #sim = Sim(temp=6.3)
-    #neuron = Section()
-    #neuron.add(Leak(gbar=0.1*mS/cm**2))
-    #neuron.add(HHK())
-    #neuron.add(HHNa())
-    ##neuron.add(IH())
+    sim = Sim(temp=6.3)
+    neuron = Section()
+    neuron.add(Leak(gbar=0.1*mS/cm**2))
+    neuron.add(HHK())
+    neuron.add(HHNa())
     
     # Lewis & Gerstner cortical neuron
-    sim = Sim(temp=37)
-    neuron = Section(vm=-70*mV)
+    #sim = Sim(temp=37)
+    #neuron = Section(vm=-70*mV)
     #lgna = neuron.add(LGNa())
-    lgkf = neuron.add(LGKfast())
-    lgks = neuron.add(LGKslow())
-    leak = neuron.add(Leak(gbar=0.25*mS/cm**2, erev=-70*mV))
-    #neuron.add(IH())
+    #lgkf = neuron.add(LGKfast())
+    #lgks = neuron.add(LGKslow())
+    #leak = neuron.add(Leak(gbar=0.25*mS/cm**2, erev=-70*mV))
     
     clamp = MultiClamp(mode='ic')
     neuron.add(clamp)
@@ -636,17 +634,21 @@ if __name__ == '__main__':
         p1.plot(t, data, pen=(i, 15))
         p2.plot(t, cmd[i], pen=(i, 15))
         p2.plot(t, clamp.current(result), pen=(i, 15))
-        #p3.plot(t, lgkf._last_result[:,0]**2, pen=(i, 15))
-        #p3.plot(t, result[lgna, 'm']**3 * result[lgna, 'h'], pen=(i, 15))
         
         #p3.plot(t, leak.current(result), pen=(i, 15))
         #p3.setLabel('left', 'Ileak', 'A')
 
-        #p3.plot(t, lgkf.open_probability(result), pen=(i, 15))
-        #p3.setLabel('left', 'LG Kfast O.P.')
+        #p3.plot(t, lgkf.current(result), pen=(i, 15))
+        #p3.setLabel('left', 'LG Kfast Current', 'A')
 
-        p3.plot(t, lgks.open_probability(result), pen=(i, 15))
-        p3.setLabel('left', 'LG Kslow O.P.')
+        #p3.plot(t, lgks.open_probability(result), pen=(i, 15))
+        #p3.setLabel('left', 'LG Kslow O.P.')
+
+        #p3.plot(t, lgna.current(result), pen=(i, 15))
+        #p3.setLabel('left', 'LG Na Current', 'A')
+
+        #p3.plot(t, lgna.open_probability(result), pen=(i, 15))
+        #p3.setLabel('left', 'LG Na O.P.')
 
     #win2 = pg.GraphicsWindow()
     #for i, k in enumerate(('t', 'Im', 'Ve', 'Vm', 'm', 'h', 'n', 'f', 's')):
