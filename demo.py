@@ -17,7 +17,7 @@ class DemoWindow(pg.QtGui.QWidget):
         self.ptree = pt.ParameterTree()
         self.layout.addWidget(self.ptree, 0, 0)
         
-        self.scroll_plot = pg.PlotWidget(parent=self, labels={'left': ('Membrane Potential', 'V'), 
+        self.scroll_plot = ScrollingPlot(parent=self, labels={'left': ('Membrane Potential', 'V'), 
                                                               'bottom': ('Time', 's')})
         self.layout.addWidget(self.scroll_plot, 0, 1)
 
@@ -28,6 +28,7 @@ class DemoWindow(pg.QtGui.QWidget):
         ndemo = self.proc._import('neurodemo')
         
         self.sim = ndemo.Sim(temp=6.3)
+        self.sim._setProxyOptions(deferGetattr=True)
         self.neuron = ndemo.Section()
         self.sim.add(self.neuron)
         self.hhna = self.neuron.add(ndemo.HHNa())
@@ -50,15 +51,31 @@ class DemoWindow(pg.QtGui.QWidget):
             return
         if self.next_result.hasResult():
             res = self.next_result.result()
+            res._setProxyOptions(deferGetattr=True)
             self.last_result = res
             self.next_result = None
-            t = res['t']._getValue()
             vm = res[self.neuron, 'Vm']._getValue()
-            self.scroll_plot.plot(t, vm, clear=True)
+            self.scroll_plot.append(vm)
             self.run_once()
 
     def run_once(self):
         self.next_result = self.sim.run(dt=1e-5, dur=100e-3, _callSync='async', _returnType='proxy')
+
+
+class ScrollingPlot(pg.PlotWidget):
+    def __init__(self, **kwds):
+        pg.PlotWidget.__init__(self, **kwds)
+        self.data_curve = self.plot()
+        self.data = []
+        
+    def append(self, data):
+        self.data.append(data)
+        while len(self.data) > 10:
+            self.data.pop(0)
+        data = np.concatenate(self.data)
+        t = np.arange(len(data)) * 1e-5
+        self.data_curve.setData(t, data)
+        
         
         
 if __name__ == '__main__':
