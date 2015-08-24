@@ -108,7 +108,14 @@ class Sim(object):
         init_state = list(self.state().values())
         (result[:,1:], info) = scipy.integrate.odeint(self.derivatives, init_state, t, (dt,),
                                                 rtol=1e-6, atol=1e-6, hmax=5e-2, full_output=1, **args)
-        result[:,0] = t
+        
+        p = 0
+        for o in self.all_objects():
+            nvar = len(o.state_vars)
+            o._last_result = result[:, p:p+nvar]
+            p += nvar
+            
+        self._last_run_time = t
         #t, Im, Ve, Vm, m, h, n, f, s = [result[:,i] for i in range(result.shape[1])]
         
         # Compute electrode current sans pipette capacitance current
@@ -116,8 +123,6 @@ class Sim(object):
 
         # update state so next run starts where we left off
         #self.state = result[-1, 2:]
-        
-        return result  ## result is array with dims: [npts, (time, Ie, Ve, Vm, Im, m, h, n, f, s)]
 
     def derivatives(self, state, t, dt):
         d = []
@@ -413,21 +418,22 @@ if __name__ == '__main__':
     x = np.linspace(-200, 200, 11) * pA
     cmd = np.zeros((len(x), npts)) #*-65e-3
     data = np.zeros((len(x), npts, 9))
-    tb = np.arange(0, npts*dt, dt)
     for i, v in enumerate(x):
         print('V: ', v)
         cmd[i, x1:x2] = v
         clamp.set_command(cmd[i])
         #data[i] = run(neuron, mode='ic', dt=dt, cmd=cmd[i])
-        data[i] = sim.run(dt=dt, dur=dur)
-        p1.plot(tb, data[i,:,2], pen=(i, 15))
-        p2.plot(tb, cmd[i], pen=(i, 15))
+        sim.run(dt=dt, dur=dur)
+        data = neuron._last_result[:,0]
+        t = sim._last_run_time
+        p1.plot(t, data, pen=(i, 15))
+        p2.plot(t, cmd[i], pen=(i, 15))
 
-    win2 = pg.GraphicsWindow()
-    for i, k in enumerate(('t', 'Im', 'Ve', 'Vm', 'm', 'h', 'n', 'f', 's')):
-        p = win2.addPlot(labels={'left': k})
-        win2.nextRow()
-        p.plot(data[0,:,i])
+    #win2 = pg.GraphicsWindow()
+    #for i, k in enumerate(('t', 'Im', 'Ve', 'Vm', 'm', 'h', 'n', 'f', 's')):
+        #p = win2.addPlot(labels={'left': k})
+        #win2.nextRow()
+        #p.plot(data[0,:,i])
 
     import sys
     if sys.flags.interactive == 0:
