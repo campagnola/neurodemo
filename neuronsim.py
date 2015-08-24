@@ -10,12 +10,8 @@ from collections import OrderedDict
 import numpy as np
 import scipy.integrate
 from PyQt4 import QtGui, QtCore
+from units import *
 
-
-# Define a set of scaled unit symbols to make the code more clear
-for unit in 'msVAΩFS':
-    for pfx, val in [('p', -12), ('n', -9), ('u', -6), ('m', -3), ('c', -2), ('k', 3), ('M', 6), ('G', 9)]:
-        locals()[pfx+unit] = 10**val
 
 
 #Ik2 = 24.3
@@ -561,26 +557,6 @@ class LGKslow(Channel):
 
 
 
-
-def run(sim, dt=1e-4, mode='ic', cmd=None, dur=None):
-    """
-    Return array of Vm or Im values.        
-    """
-    dt = dt * 1e3  ## convert s -> ms
-    
-    if dur is None and cmd is not None:
-        dur = dt*len(cmd)
-    
-    result = neuron.run(cmd=cmd, mode=mode, dt=dt, dur=dur)
-    
-    if mode == 'ic':
-        out = result#[:,2] + np.random.normal(size=len(data), scale=0.3e-3)
-    elif mode == 'vc':
-        out = result#[:,1] + np.random.normal(size=len(data), scale=3.e-12)
-    
-    return out
-
-
 if __name__ == '__main__':
     import pyqtgraph as pg
     from pyqtgraph.Qt import QtGui
@@ -650,12 +626,6 @@ if __name__ == '__main__':
         #p3.plot(t, lgna.open_probability(result), pen=(i, 15))
         #p3.setLabel('left', 'LG Na O.P.')
 
-    #win2 = pg.GraphicsWindow()
-    #for i, k in enumerate(('t', 'Im', 'Ve', 'Vm', 'm', 'h', 'n', 'f', 's')):
-        #p = win2.addPlot(labels={'left': k})
-        #win2.nextRow()
-        #p.plot(data[0,:,i])
-
     import sys
-    #if sys.flags.interactive == 0:
-        #QtGui.QApplication.instance().exec_()
+    if sys.flags.interactive == 0:
+        QtGui.QApplication.instance().exec_()
