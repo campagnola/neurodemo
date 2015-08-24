@@ -35,13 +35,14 @@ def IAlpha(Vm, t):
 class Sim(object):
     """Simulator for a collection of objects that derive from SimObject
     """
-    def __init__(self, objects=None, temp=37.0):
+    def __init__(self, objects=None, temp=37.0, dt=10*us):
         if objects is None:
             objects = []
         self._objects = objects
         self._all_objs = None
         self._time = 0.0
         self.temp = temp
+        self.dt = dt
 
     def add(self, obj):
         assert obj._sim is None
@@ -68,7 +69,18 @@ class Sim(object):
     def state_vars(self):
         return list(self.state().keys())
 
-    def run(self, dt=0.1*ms, dur=100*ms, **args):
+    @property
+    def time(self):
+        return self._time
+
+    def run(self, samples=1000, **kwds):
+        """Run the simulation until a number of *samples* have been acquired.
+        
+        Extra keyword arguments are passed to `scipy.integrate.odeint()`.
+        """
+        opts = {'rtol': 1e-6, 'atol': 1e-6, 'hmax': 5e-2, 'full_output': 1}
+        opts.update(kwds)
+        
         self._all_objs = None
         svars = []
         if len(self.all_objects()) == 0:
@@ -78,23 +90,22 @@ class Sim(object):
             for k in o.state_vars:
                 svars.append((o, k))
         self._simstate = SimState(svars)
-        npts = int(dur/dt)
-        t = np.linspace(0, dur, npts)
+        t = np.arange(1, samples+1) * self.dt + self._time
 
         # Run the simulation
         init_state = list(self.state().values())
-        result, info = scipy.integrate.odeint(self.derivatives, init_state, t, (dt,),
-                                              rtol=1e-6, atol=1e-6, hmax=5e-2, full_output=1, **args)
+        result, info = scipy.integrate.odeint(self.derivatives, init_state, t, **opts)
         p = 0
         for o in self.all_objects():
             nvar = len(o.state_vars)
             o.update_result(result[:, p:p+nvar])
             p += nvar
             
+        self._time = t[-1]
         self._last_run_time = t
         return SimState(svars, result.T, t=t) 
 
-    def derivatives(self, state, t, dt):
+    def derivatives(self, state, t):
         objs = self.all_objects()
         self._simstate.state = state
         self._simstate.extra['t'] = t
@@ -114,7 +125,10 @@ class SimState(object):
     """
     def __init__(self, keys, state=None, **extra):
         self.keys = keys
-        self.indexes = dict([(k,i) for i,k in enumerate(keys)])
+        self.indexes = {}
+        for i, k in enumerate(keys):
+            self.indexes[k] = i
+            self.indexes[(k[0].name, k[1])] = i
         self.state = state
         self.extra = extra
         
@@ -130,8 +144,15 @@ class SimObject(object):
     Base class for objects that participate in integration by providing a set
     of state variables and their derivatives.
     """
-    def __init__(self, init_state):
+    instance_count = 0
+    
+    def __init__(self, init_state, name=None):
         self._sim = None
+        if name is None:
+            i = self.instance_count
+            type(self).instance_count = i + 1
+            name = type(self).__name__ + '%d' % i
+        self.name = name
         self._init_state = init_state
         self._state_vars = tuple(init_state.keys())
         self._current_state = init_state.copy()
@@ -176,8 +197,8 @@ class Mechanism(SimObject):
     """Base class for simulation objects that interact with a section's
     membrane--channels, electrodes, etc.
     """
-    def __init__(self, init_state, section=None):
-        SimObject.__init__(self, init_state)
+    def __init__(self, init_state, section=None, **kwds):
+        SimObject.__init__(self, init_state, **kwds)
         self._section = section
         
     def current(self):
@@ -206,8 +227,8 @@ class Channel(Mechanism):
     def compute_rates(cls):
         return
         
-    def __init__(self, gbar, init_state):
-        Mechanism.__init__(self, init_state)
+    def __init__(self, gbar, init_state, **kwds):
+        Mechanism.__init__(self, init_state, **kwds)
         self.gbar = gbar
         self._g = None
         if self.rates is None:
@@ -246,14 +267,14 @@ class Channel(Mechanism):
 
 
 class Section(SimObject):
-    def __init__(self, radius=10*um, vm=-65*mV):
+    def __init__(self, radius=10*um, vm=-65*mV, **kwds):
         self.area = 4 * 3.1415926 * radius**2
         self.cm = self.area * (1 * uF / cm**2)
         self.ek = -77*mV
         self.ena = 50*mV
         self.ecl = -70*mV
         init_state = OrderedDict([('Vm', vm)])
-        SimObject.__init__(self, init_state)
+        SimObject.__init__(self, init_state, **kwds)
         self.mechanisms = []
 
     def add(self, mech):
@@ -273,19 +294,22 @@ class Section(SimObject):
         
 
 class MultiClamp(Mechanism):
-    def __init__(self, mode='ic', cmd=None, dt=None, ra=5*MΩ, cpip=3*pF):
+    def __init__(self, mode='ic', cmd=None, dt=None, ra=5*MΩ, cpip=3*pF, **kwds):
         self.ra = ra
         self.cpip = cpip
         self.mode = mode
-        self.cmd = cmd
-        self.dt = dt
+        self.cmd = None
+        if cmd is not None:
+            self.set_command(cmd, dt)
         self.gain = 50e-6  # arbitrary VC gain
         init_state = OrderedDict([('Ve', -65*mV)])
-        Mechanism.__init__(self, init_state)
+        Mechanism.__init__(self, init_state, **kwds)
 
-    def set_command(self, cmd, dt):
+    def set_command(self, cmd, dt, start=0):
         self.cmd = cmd
         self.dt = dt
+        self.cmd_ptr = 0
+        self.start = start
 
     def pipette_current(self):
         """Compute current through pipette from most recent simulation run.
@@ -301,6 +325,8 @@ class MultiClamp(Mechanism):
         return (ve - vm) / self.ra
     
     def derivatives(self, state, t):
+        t = t - self.start
+        
         ## Select between VC and CC
         cmd = self.cmd
         if cmd is None:
@@ -325,8 +351,8 @@ class MultiClamp(Mechanism):
 
 
 class Leak(Channel):
-    def __init__(self, gbar=0.1*mS/cm**2, erev=-55*mV):
-        Channel.__init__(self, gbar, {})
+    def __init__(self, gbar=0.1*mS/cm**2, erev=-55*mV, **kwds):
+        Channel.__init__(self, gbar, {}, **kwds)
         self.erev = erev
 
     def open_probability(self, state):
@@ -348,9 +374,9 @@ class HHK(Channel):
         cls.rates[:,0] = (0.1 - 0.01*vm) / (np.exp(1.0 - 0.1*vm) - 1.0)
         cls.rates[:,1] = 0.125 * np.exp(-vm / 80.)
         
-    def __init__(self, gbar=12*mS/cm**2):
+    def __init__(self, gbar=12*mS/cm**2, **kwds):
         init_state = OrderedDict([('n', 0.3)]) 
-        Channel.__init__(self, gbar, init_state)
+        Channel.__init__(self, gbar, init_state, **kwds)
         self.shift = 0
         
     @property
@@ -393,9 +419,9 @@ class HHNa(Channel):
         cls.rates[:,2] = 0.07 * np.exp(-vm / 20.)
         cls.rates[:,3] = 1.0 / (np.exp(3.0 - 0.1 * vm) + 1.0)
         
-    def __init__(self, gbar=40*mS/cm**2):
+    def __init__(self, gbar=40*mS/cm**2, **kwds):
         init_state = OrderedDict([('m', 0.05), ('h', 0.6)]) 
-        Channel.__init__(self, gbar, init_state)
+        Channel.__init__(self, gbar, init_state, **kwds)
         self.shift = 0
         
     @property
@@ -432,9 +458,9 @@ class HHNa(Channel):
 class IH(Channel):
     """Ih from Destexhe 1993
     """
-    def __init__(self, gbar=30*mS/cm**2):
+    def __init__(self, gbar=30*mS/cm**2, **kwds):
         init_state = OrderedDict([('f', 0), ('s', 0)]) 
-        Channel.__init__(self, gbar, init_state)
+        Channel.__init__(self, gbar, init_state, **kwds)
         self.erev = -43*mV
         self.shift = 0
         
@@ -459,9 +485,9 @@ class IH(Channel):
 class LGNa(Channel):
     """Cortical sodium channel (Lewis & Gerstner 2002, p.124)
     """
-    def __init__(self, gbar=112.5*mS/cm**2):
+    def __init__(self, gbar=112.5*mS/cm**2, **kwds):
         init_state = OrderedDict([('m', 0.019), ('h', 0.876)]) 
-        Channel.__init__(self, gbar, init_state)
+        Channel.__init__(self, gbar, init_state, **kwds)
         self.erev = 74*mV
         
     def open_probability(self, state):
@@ -497,9 +523,9 @@ class LGNa(Channel):
 class LGKfast(Channel):
     """Cortical fast potassium channel (Lewis & Gerstner 2002, p.124)
     """
-    def __init__(self, gbar=225*mS/cm**2):
+    def __init__(self, gbar=225*mS/cm**2, **kwds):
         init_state = OrderedDict([('n', 0.00024)]) 
-        Channel.__init__(self, gbar, init_state)
+        Channel.__init__(self, gbar, init_state, **kwds)
         self.erev = -90*mV
         
     def open_probability(self, state):
@@ -527,9 +553,9 @@ class LGKfast(Channel):
 class LGKslow(Channel):
     """Cortical slow potassium channel (Lewis & Gerstner 2002, p.124)
     """
-    def __init__(self, gbar=0.225*mS/cm**2):
+    def __init__(self, gbar=0.225*mS/cm**2, **kwds):
         init_state = OrderedDict([('n', 0.0005)]) 
-        Channel.__init__(self, gbar, init_state)
+        Channel.__init__(self, gbar, init_state, **kwds)
         self.erev = -90*mV
         
     def open_probability(self, state):
@@ -554,77 +580,3 @@ class LGKslow(Channel):
 
         return [dn*1e3]
 
-
-
-if __name__ == '__main__':
-    import pyqtgraph as pg
-    from pyqtgraph.Qt import QtGui
-    pg.setConfigOption('antialias', True)
-    app = QtGui.QApplication([])
-    
-    # HH Simulation
-    sim = Sim(temp=6.3)
-    neuron = Section()
-    neuron.add(Leak(gbar=0.1*mS/cm**2))
-    neuron.add(HHK())
-    neuron.add(HHNa())
-    
-    # Lewis & Gerstner cortical neuron
-    #sim = Sim(temp=37)
-    #neuron = Section(vm=-70*mV)
-    #lgna = neuron.add(LGNa())
-    #lgkf = neuron.add(LGKfast())
-    #lgks = neuron.add(LGKslow())
-    #leak = neuron.add(Leak(gbar=0.25*mS/cm**2, erev=-70*mV))
-    
-    clamp = MultiClamp(mode='ic')
-    neuron.add(clamp)
-    sim.add(neuron)
-    
-    win = pg.GraphicsWindow()
-    win.resize(1000, 600)
-    win.setWindowTitle('Testing hhSim.py')
-    p1 = win.addPlot(title='IC', labels={'left': ('Vm', 'V')})
-    p2 = win.addPlot(labels={'left': ('Ipip', 'A')}, row=1, col=0)
-    win.ci.layout.setRowFixedHeight(1, 150)
-    p3 = win.addPlot(row=2, col=0)
-    
-    dur = 100 * ms
-    dt = 1e-5
-    npts = int(dur / dt)
-    x1 = int(20*ms / dt)
-    x2 = int(80*ms / dt)
-    x = np.linspace(-200, 200, 11) * pA
-    #x = [0*pA]
-    cmd = np.zeros((len(x), npts)) #*-65e-3
-    data = np.zeros((len(x), npts, 9))
-    for i, v in enumerate(x):
-        print('V: ', v)
-        cmd[i, x1:x2] = v
-        clamp.set_command(cmd[i], dt)
-        #data[i] = run(neuron, mode='ic', dt=dt, cmd=cmd[i])
-        result = sim.run(dt=dt, dur=dur)
-        data = result[neuron, 'Vm']
-        t = result['t']
-        p1.plot(t, data, pen=(i, 15))
-        p2.plot(t, cmd[i], pen=(i, 15))
-        p2.plot(t, clamp.current(result), pen=(i, 15))
-        
-        #p3.plot(t, leak.current(result), pen=(i, 15))
-        #p3.setLabel('left', 'Ileak', 'A')
-
-        #p3.plot(t, lgkf.current(result), pen=(i, 15))
-        #p3.setLabel('left', 'LG Kfast Current', 'A')
-
-        #p3.plot(t, lgks.open_probability(result), pen=(i, 15))
-        #p3.setLabel('left', 'LG Kslow O.P.')
-
-        #p3.plot(t, lgna.current(result), pen=(i, 15))
-        #p3.setLabel('left', 'LG Na Current', 'A')
-
-        #p3.plot(t, lgna.open_probability(result), pen=(i, 15))
-        #p3.setLabel('left', 'LG Na O.P.')
-
-    import sys
-    if sys.flags.interactive == 0:
-        QtGui.QApplication.instance().exec_()
