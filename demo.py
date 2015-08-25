@@ -69,11 +69,14 @@ class DemoWindow(QtGui.QWidget):
             ch.plots_changed.connect(self.channel_plots_changed)
         self.channel_plots = {}
         
+        self.clamp_param = ClampParameter(self.clamp)
+        
         self.params = pt.Parameter.create(name='params', type='group', children=[
             #dict(name='Preset', type='list', values=['', 'Basic Membrane', 'Hodgkin & Huxley']),
             dict(name='Run', type='bool', value=True),
             dict(name='Speed', type='float', value=0.3, limits=[0, 1], step=1, dec=True),
             dict(name='Temp', type='float', value=self.sim.temp, suffix='C', step=1.0),
+            self.clamp_param,
             dict(name='Ion Channels', type='group', children=self.channel_params),
         ])
         self.ptree.setParameters(self.params)
@@ -203,6 +206,46 @@ class ChannelParameter(pt.parameterTypes.SimpleParameter):
             elif param.name().startswith('Plot'):
                 self.plots_changed.emit(self, param.name()[5:], val)
 
+
+class ClampParameter(pt.parameterTypes.GroupParameter):
+    def __init__(self, clamp):
+        self.clamp = clamp
+        pt.parameterTypes.GroupParameter.__init__(self, name='Patch Clamp', children=[
+            dict(name='Mode', type='list', values=['Current Clamp', 'Voltage Clamp']),
+            dict(name='Holding', type='float', value=0, suffix='A', siPrefix=True, step=10*pA),
+            dict(name='Pipette Capacitance', type='float', value=clamp.cpip, suffix='F', siPrefix=True, dec=True, step=0.5),
+            dict(name='Access Resistance', type='float', value=clamp.ra, suffix='Ω', siPrefix=True, step=0.5, dec=True),
+            dict(name='Plot Current', type='bool', value=True),
+            dict(name='Pulse', type='group', children=[
+                dict(name='Pulse Once', type='action'),
+                dict(name='Amplitude', type='float', value=50*pA, suffix='A', siPrefix=True),
+                dict(name='Pre-delay', type='float', value=20*ms, suffix='s', siPrefix=True, limits=[0, None]),
+                dict(name='Duration', type='float', value=50*ms, suffix='s', siPrefix=True, limits=[0, None]),
+                dict(name='Post-delay', type='float', value=50*ms, suffix='s', siPrefix=True, limits=[0, None]),
+                dict(name='Pulse Sequence', type='action'),
+                dict(name='Start Amplitude', type='float', value=50*pA, suffix='A', siPrefix=True),
+                dict(name='Stop Amplitude', type='float', value=50*pA, suffix='A', siPrefix=True),
+                dict(name='Pulse Number', type='int', value=11, limits=[2,None]),
+            ]),
+        ])
+        self.sigTreeStateChanged.connect(self.treeChange)
+
+    def treeChange(self, root, changes):
+        for param, change, val in changes:
+            if change != 'value':
+                continue
+            if param is self.child('Mode'):
+                self.set_mode(val)
+            elif param is self.child('Holding'):
+                self.clamp.set_holding(self.mode(), val)
+            elif param is self.child('Pipette Capacitance'):
+                self.clamp.cpip = val
+            elif param is self.child('Access Resistance'):
+                self.clamp.ra = val
+
+    def mode(self):
+        return {'Current Clamp': 'ic', 'Voltage Clamp': 'vc'}[self['Mode']]
+            
 
 class ScrollingPlot(pg.PlotWidget):
     def __init__(self, dt, npts, pen='w', **kwds):
