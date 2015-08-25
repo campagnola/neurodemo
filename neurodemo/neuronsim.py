@@ -140,6 +140,12 @@ class SimState(object):
         else:
             return self.extra[key]
 
+    def __repr__(self):
+        rep = 'SimState:\n'
+        for i,k in enumerate(self.keys):
+            rep += '  %s.%s = %s\n' % (k[0].name, k[1], self.state[i])
+        return rep
+
 
 class SimObject(object):
     """
@@ -244,7 +250,14 @@ class Channel(Mechanism):
 
     def conductance(self, state):
         op = self.open_probability(state)
-        return self.g * op
+        try:
+            return self.g * op
+        except:
+            print(self, self.g, op, state)
+            print(state[self, 'f'], state[self, 's'], state[self, 'f'] * state[self, 's'], self.open_probability(state))
+            import sys
+            sys.exit()
+            raise
 
     def current(self, state, t=None):
         vm = state[self.section, 'Vm']
@@ -469,7 +482,7 @@ class IH(Channel):
         self.shift = 0
         
     def open_probability(self, state):
-        return state[self, 'f'] * [self, 's']
+        return state[self, 'f'] * state[self, 's']
     
     def derivatives(self, state, t):
         vm = state[self.section, 'Vm'] - self.shift
