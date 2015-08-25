@@ -22,7 +22,7 @@ class SimRunner(QtCore.QObject):
         self.timer.stop()
         
     def run_once(self):
-        blocksize = int(max(10, self.blocksize * self.speed))
+        blocksize = int(max(2, self.blocksize * self.speed))
         res = self.sim.run(blocksize, **self.run_args)
         self.new_result.emit(res)
         

@@ -48,7 +48,7 @@ class DemoWindow(QtGui.QWidget):
                                          parent=self, labels={'left': ('Membrane Potential', 'V'), 
                                                               'bottom': ('Time', 's')})
         self.scroll_plot.setYRange(-90*mV, 50*mV)
-        self.scroll_plot.setXRange(0*ms, 1000*ms)
+        self.scroll_plot.setXRange(-1000*ms, 0*ms)
         self.scroll_plot.addLine(y=self.neuron.ek)
         self.scroll_plot.addLine(y=self.neuron.ena)
         self.splitter.addWidget(self.scroll_plot)
@@ -60,7 +60,7 @@ class DemoWindow(QtGui.QWidget):
         self.params = pt.Parameter.create(name='params', type='group', children=[
             #dict(name='Preset', type='list', values=['', 'Basic Membrane', 'Hodgkin & Huxley']),
             dict(name='Run', type='bool', value=True),
-            dict(name='Speed', type='float', value=1.0, limits=[0, 1], step=0.1),
+            dict(name='Speed', type='float', value=1.0, limits=[0, 1], step=1, dec=True),
             dict(name='Temp', type='float', value=self.sim.temp, suffix='C', step=1.0),
             dict(name='Ion Channels', type='group', children=[
                 ChannelParameter(self.leak, 'Ileak'),
@@ -100,7 +100,7 @@ class DemoWindow(QtGui.QWidget):
         
     def new_result(self, res):
         self.last_result = res
-        vm = res['soma', 'Vm']
+        vm = res['soma', 'Vm'][1:]
         self.scroll_plot.append(vm)
 
     def load_preset(self, preset):
@@ -148,6 +148,7 @@ class ScrollingPlot(pg.PlotWidget):
         if len(self.data) > self.npts:
             self.data = self.data[-self.npts:]
         t = np.arange(len(self.data)) * self.dt
+        t -= t[-1]
         self.data_curve.setData(t, self.data)
         
 
