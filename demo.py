@@ -81,7 +81,7 @@ class DemoWindow(QtGui.QWidget):
         
         self.runner = ndemo.SimRunner(self.sim)
         self.runner.add_request('soma.Vm', (self.neuron, 'Vm')) 
-        self.runner.new_result.connect(mp.proxy(self.new_result))
+        self.runner.new_result.connect(mp.proxy(self.new_result, autoProxy=False))
         self.start()
 
     def params_changed(self, root, changes):
@@ -112,6 +112,7 @@ class DemoWindow(QtGui.QWidget):
                 'h': (0, 1),
                 'n': (0, 1),
             }
+            color = {'I': 'c', 'G': 'y', 'OP': 'g'}.get(name, 0.7)
             units = {'I': 'A', 'G': 'S'}
             label = param.name() + ' ' + name
             if name in units:
@@ -119,7 +120,7 @@ class DemoWindow(QtGui.QWidget):
                 
             # create new plot
             plt = ScrollingPlot(dt=self.vm_plot.dt, npts=self.vm_plot.npts,
-                                labels={'left': label})
+                                labels={'left': label}, pen=color)
             plt.setXLink(self.vm_plot)
             plt.setYRange(*yranges.get(name, (0, 1)))
             
@@ -203,9 +204,9 @@ class ChannelParameter(pt.parameterTypes.SimpleParameter):
 
 
 class ScrollingPlot(pg.PlotWidget):
-    def __init__(self, dt, npts, **kwds):
+    def __init__(self, dt, npts, pen='w', **kwds):
         pg.PlotWidget.__init__(self, **kwds)
-        self.data_curve = self.plot()
+        self.data_curve = self.plot(pen=pen)
         self.data = np.array([], dtype=float)
         self.npts = npts
         self.dt = dt

@@ -250,14 +250,7 @@ class Channel(Mechanism):
 
     def conductance(self, state):
         op = self.open_probability(state)
-        try:
-            return self.g * op
-        except:
-            print(self, self.g, op, state)
-            print(state[self, 'f'], state[self, 's'], state[self, 'f'] * state[self, 's'], self.open_probability(state))
-            import sys
-            sys.exit()
-            raise
+        return self.g * op
 
     def current(self, state, t=None):
         vm = state[self.section, 'Vm']
@@ -373,7 +366,11 @@ class Leak(Channel):
         self.erev = erev
 
     def open_probability(self, state):
-        return 1
+        if state.state.ndim == 2:
+            # need to return an array of the correct length..
+            return np.ones(state.state.shape[1])
+        else:
+            return 1
 
     def derivatives(self, state, t):
         return []
