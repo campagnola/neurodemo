@@ -78,7 +78,7 @@ class Sim(object):
         
         Extra keyword arguments are passed to `scipy.integrate.odeint()`.
         """
-        opts = {'rtol': 1e-6, 'atol': 1e-6, 'hmax': 5e-2, 'full_output': 1}
+        opts = {'rtol': 1e-6, 'atol': 1e-6, 'hmax': self.dt*50, 'full_output': 1}
         opts.update(kwds)
         
         self._all_objs = None

@@ -1,4 +1,5 @@
 import numpy as np
+from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph as pg
 import pyqtgraph.multiprocess as mp
 import pyqtgraph.parametertree as pt
@@ -8,20 +9,24 @@ pg.setConfigOption('antialias', True)
 app = pg.mkQApp()
 
 
-class DemoWindow(pg.QtGui.QWidget):
+class DemoWindow(QtGui.QWidget):
     def __init__(self):
-        pg.QtGui.QWidget.__init__(self)
+        QtGui.QWidget.__init__(self)
         self.resize(1024, 768)
-        self.layout = pg.QtGui.QGridLayout()
+        self.layout = QtGui.QGridLayout()
         self.setLayout(self.layout)
         
+        self.splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
+        self.layout.addWidget(self.splitter, 0, 0)
+        
         self.ptree = pt.ParameterTree()
-        self.layout.addWidget(self.ptree, 0, 0)
+        self.splitter.addWidget(self.ptree)
         
         self.scroll_plot = ScrollingPlot(parent=self, labels={'left': ('Membrane Potential', 'V'), 
                                                               'bottom': ('Time', 's')})
         self.scroll_plot.setYRange(-90*mV, 50*mV)
-        self.layout.addWidget(self.scroll_plot, 0, 1)
+        self.splitter.addWidget(self.scroll_plot)
+        self.splitter.setSizes([224, 800])
 
         self.show()
         
@@ -44,34 +49,35 @@ class DemoWindow(pg.QtGui.QWidget):
         
         self.scroll_plot.addLine(y=self.neuron.ek)
         self.scroll_plot.addLine(y=self.neuron.ena)
+
+
+        self.params = pt.Parameter.create(name='params', type='group', children=[
+            dict(name='Hodgkin Huxley', type='group', children=[
+                dict(name='Ileak', type='bool', value=True, children=[
+                    dict(name='ḡ', type='float', value=0.1, suffix='S/cm²', siPrefix=True, step=0.01),
+                    dict(name='Erev', type='float', value=-50*mV, suffix='V', siPrefix=True, step=5*mV),
+                ]),
+                dict(name='INa', type='bool', value=True, children=[
+                    dict(name='ḡ', type='float', value=0.1, suffix='S/cm²', siPrefix=True, step=0.01),
+                    dict(name='Erev', type='float', value=-50*mV, suffix='V', siPrefix=True, step=5*mV),
+                ]),
+                dict(name='IK', type='bool', value=True, children=[
+                    dict(name='ḡ', type='float', value=0.1, suffix='S/cm²', siPrefix=True, step=0.01),
+                    dict(name='Erev', type='float', value=-50*mV, suffix='V', siPrefix=True, step=5*mV),
+                ]),
+            ]),
+        ])
+        self.ptree.setParameters(self.params)
+        self.params.sigTreeStateChanged.connect(self.params_changed)
         
         self.runner = ndemo.SimRunner(self.sim)
         self.runner.new_result.connect(mp.proxy(self.new_result))
         self.runner.start()
-        
-        
-        #self.run_once()
-        #self.timer = pg.QtCore.QTimer()
-        #self.timer.timeout.connect(self.update)
-        #self.timer.start(10)
-        
-    #def update(self):
-        #if self.next_result is None:
-            #return
-        #if self.next_result.hasResult():
-            #nr = self.next_result
-            #self.run_once()
-            #res = nr.result()
-            #res._setProxyOptions(deferGetattr=True)
-            #self.last_result = res
-            #vm = res[self.neuron, 'Vm']._getValue()
-            #self.scroll_plot.append(vm)
 
-    #def run_once(self):
-        #self.next_result = self.sim.run(samples=200, _callSync='async', _returnType='proxy')
-
+    def params_changed(self, *args):
+        print(args)
+        
     def new_result(self, res):
-        #res._setProxyOptions(deferGetattr=True)
         self.last_result = res
         vm = res['soma', 'Vm']
         self.scroll_plot.append(vm)
