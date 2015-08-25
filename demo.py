@@ -72,7 +72,7 @@ class DemoWindow(QtGui.QWidget):
         self.params = pt.Parameter.create(name='params', type='group', children=[
             #dict(name='Preset', type='list', values=['', 'Basic Membrane', 'Hodgkin & Huxley']),
             dict(name='Run', type='bool', value=True),
-            dict(name='Speed', type='float', value=1.0, limits=[0, 1], step=1, dec=True),
+            dict(name='Speed', type='float', value=0.3, limits=[0, 1], step=1, dec=True),
             dict(name='Temp', type='float', value=self.sim.temp, suffix='C', step=1.0),
             dict(name='Ion Channels', type='group', children=self.channel_params),
         ])
@@ -186,7 +186,8 @@ class ChannelParameter(pt.parameterTypes.SimpleParameter):
             ch_params.append(dict(name='Plot ' + sv, type='bool', value=False))
         
         pt.parameterTypes.SimpleParameter.__init__(self, name=name, type='bool', 
-                                                   value=channel.enabled, children=ch_params)
+                                                   value=channel.enabled, children=ch_params,
+                                                   expanded=False)
         self.sigTreeStateChanged.connect(self.treeChange)
         
     def treeChange(self, root, changes):

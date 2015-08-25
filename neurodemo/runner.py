@@ -34,17 +34,21 @@ class SimRunner(QtCore.QObject):
         
         ret = {}
         for key, req in self.requests.items():
-            if isinstance(req, tuple):
-                if req[1] == 'I':
-                    data = req[0].current(result)
-                elif req[1] == 'G':
-                    data = req[0].conductance(result)
-                elif req[1] == 'OP':
-                    data = req[0].open_probability(result)
+            try:
+                if isinstance(req, tuple):
+                    if req[1] == 'I':
+                        data = req[0].current(result)
+                    elif req[1] == 'G':
+                        data = req[0].conductance(result)
+                    elif req[1] == 'OP':
+                        data = req[0].open_probability(result)
+                    else:
+                        data = result[req]
                 else:
                     data = result[req]
-            else:
-                data = result[req]
+            except KeyError:
+                print("Key '%s' not found in sim result; skipping." % key)
+                continue
             ret[key] = data
         
         self.new_result.emit(ret)
