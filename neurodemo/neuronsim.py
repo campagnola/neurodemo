@@ -53,13 +53,10 @@ class Sim(object):
     def all_objects(self):
         if self._all_objs is None:
             objs = []
-            print('---------------')
             for o in self._objects:
                 if not o.enabled:
                     continue
                 objs.extend(o.all_objects())
-            for o in objs:
-                print('   ' + str(o))
             self._all_objs = objs
         return self._all_objs
     
@@ -238,15 +235,12 @@ class Channel(Mechanism):
     def __init__(self, gbar, init_state, **kwds):
         Mechanism.__init__(self, init_state, **kwds)
         self.gbar = gbar
-        self._g = None
         if self.rates is None:
             type(self).compute_rates()
-              
+    
     @property
     def g(self):
-        if self._g is None:
-            self._g = self.gbar * self.section.area
-        return self._g
+        return self.gbar * self.section.area
 
     def conductance(self, state):
         op = self.open_probability(state)
@@ -295,6 +289,8 @@ class Section(SimObject):
     def derivatives(self, state, t):
         Im = 0
         for mech in self.mechanisms:
+            if not mech.enabled:
+                continue
             Im += mech.current(state, t)
             
         dv = Im / self.cm
