@@ -512,7 +512,10 @@ class LGNa(Channel):
         dm = q10 * (minf - m) / mtau
         
         ah = 0.0035 / np.exp(vm / 24.186)
-        bh = (0.8712 + 0.017 * vm) / (1.0 - np.exp(-(51.25 + vm) / 5.2))
+        # note: bh as originally written causes integration failures; we use
+        # an equivalent expression that behaves nicely under floating point stress.
+        #bh = (0.8712 + 0.017 * vm) / (1.0 - np.exp(-(51.25 + vm) / 5.2))
+        bh = 0.017 * (51.25 + vm) / (1.0 - np.exp(-(51.25 + vm) / 5.2))
         htau = 1 / (ah + bh)
         hinf = ah * htau
         dh = q10 * (hinf - h) / htau
