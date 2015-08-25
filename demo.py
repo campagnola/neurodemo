@@ -25,6 +25,7 @@ class DemoWindow(QtGui.QWidget):
         self.scroll_plot = ScrollingPlot(parent=self, labels={'left': ('Membrane Potential', 'V'), 
                                                               'bottom': ('Time', 's')})
         self.scroll_plot.setYRange(-90*mV, 50*mV)
+        self.scroll_plot.setXRange(0*ms, 800*ms)
         self.splitter.addWidget(self.scroll_plot)
         self.splitter.setSizes([224, 800])
 
@@ -52,19 +53,10 @@ class DemoWindow(QtGui.QWidget):
 
 
         self.params = pt.Parameter.create(name='params', type='group', children=[
+            dict(name='Run', type='bool', value=True),
+            dict(name='Speed', type='float', value=1.0, limits=[0, 1], step=0.1),
             dict(name='Hodgkin Huxley', type='group', children=[
-                dict(name='Ileak', type='bool', value=True, children=[
-                    dict(name='ḡ', type='float', value=0.1, suffix='S/cm²', siPrefix=True, step=0.01),
-                    dict(name='Erev', type='float', value=-50*mV, suffix='V', siPrefix=True, step=5*mV),
-                ]),
-                dict(name='INa', type='bool', value=True, children=[
-                    dict(name='ḡ', type='float', value=0.1, suffix='S/cm²', siPrefix=True, step=0.01),
-                    dict(name='Erev', type='float', value=-50*mV, suffix='V', siPrefix=True, step=5*mV),
-                ]),
-                dict(name='IK', type='bool', value=True, children=[
-                    dict(name='ḡ', type='float', value=0.1, suffix='S/cm²', siPrefix=True, step=0.01),
-                    dict(name='Erev', type='float', value=-50*mV, suffix='V', siPrefix=True, step=5*mV),
-                ]),
+                ChannelParameter(self.leak),
             ]),
         ])
         self.ptree.setParameters(self.params)
@@ -72,16 +64,53 @@ class DemoWindow(QtGui.QWidget):
         
         self.runner = ndemo.SimRunner(self.sim)
         self.runner.new_result.connect(mp.proxy(self.new_result))
-        self.runner.start()
+        self.start()
 
-    def params_changed(self, *args):
-        print(args)
+    def params_changed(self, root, changes):
+        for param, change, val in changes:
+            if change != 'value':
+                continue
+            if param is self.params.child('Run'):
+                if val:
+                    self.start()
+                else:
+                    self.stop()
+            elif param is self.params.child('Speed'):
+                self.runner.set_speed(val)
+            
+        
+    def start(self):
+        self.runner.start()
+        
+    def stop(self):
+        self.runner.stop()
         
     def new_result(self, res):
         self.last_result = res
         vm = res['soma', 'Vm']
         self.scroll_plot.append(vm)
+
+
+class ChannelParameter(pt.parameterTypes.SimpleParameter):
+    def __init__(self, channel):
+        self.channel = channel
+        pt.parameterTypes.SimpleParameter.__init__(self, name=channel.name, type='bool', 
+                                                   value=channel.enabled, children=[
+            dict(name='ḡ', type='float', value=0.1, suffix='S/cm²', siPrefix=True, step=0.01),
+            dict(name='Erev', type='float', value=-50*mV, suffix='V', siPrefix=True, step=5*mV),
+        ])
+        self.sigTreeStateChanged.connect(self.treeChange)
         
+    def treeChange(self, root, changes):
+        for param, change, val in changes:
+            if change != 'value':
+                continue
+            if param is self:
+                self.channel.enabled = val
+            elif param is self.child('ḡ'):
+                self.channel.gbar = val
+            elif param is self.child('Erev'):
+                self.channel.erev = val
 
 
 class ScrollingPlot(pg.PlotWidget):
@@ -98,7 +127,7 @@ class ScrollingPlot(pg.PlotWidget):
         t = np.arange(len(data)) * 1e-5
         self.data_curve.setData(t, data)
         
-        
+
         
 if __name__ == '__main__':
     import sys

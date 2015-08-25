@@ -53,8 +53,13 @@ class Sim(object):
     def all_objects(self):
         if self._all_objs is None:
             objs = []
+            print('---------------')
             for o in self._objects:
+                if not o.enabled:
+                    continue
                 objs.extend(o.all_objects())
+            for o in objs:
+                print('   ' + str(o))
             self._all_objs = objs
         return self._all_objs
     
@@ -153,6 +158,7 @@ class SimObject(object):
             type(self).instance_count = i + 1
             name = type(self).__name__ + '%d' % i
         self.name = name
+        self.enabled = True
         self._init_state = init_state
         self._state_vars = tuple(init_state.keys())
         self._current_state = init_state.copy()
@@ -166,6 +172,8 @@ class SimObject(object):
     def all_objects(self):
         objs = [self]
         for o in self._sub_objs:
+            if not o.enabled:
+                continue
             objs.extend(o.all_objects())
         return objs
         
