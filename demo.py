@@ -103,8 +103,27 @@ class DemoWindow(QtGui.QWidget):
     def channel_plots_changed(self, param, name, plot):
         key = param.name() + '.' + name
         if plot:
-            plt = ScrollingPlot(dt=self.vm_plot.dt, npts=self.vm_plot.npts, labels={'left': param.name() + ' ' + name})
-            plt.data_key = key
+            # decide on y range, label , and units for new plot
+            yranges = {
+                'I': (-1*nA, 1*nA),
+                'G': (0, 100*nS),
+                'OP': (0, 1),
+                'm': (0, 1),
+                'h': (0, 1),
+                'n': (0, 1),
+            }
+            units = {'I': 'A', 'G': 'S'}
+            label = param.name() + ' ' + name
+            if name in units:
+                label = (label, units[name])
+                
+            # create new plot
+            plt = ScrollingPlot(dt=self.vm_plot.dt, npts=self.vm_plot.npts,
+                                labels={'left': label})
+            plt.setXLink(self.vm_plot)
+            plt.setYRange(*yranges.get(name, (0, 1)))
+            
+            # register this plot for later..
             self.channel_plots[key] = plt
             self.runner.add_request(key, (param.channel, name))
             
@@ -136,7 +155,7 @@ class DemoWindow(QtGui.QWidget):
         for k, plt in self.channel_plots.items():
             if k not in result:
                 continue
-            plt.append(result[k])
+            plt.append(result[k][1:])
 
     def load_preset(self, preset):
         if preset == 'Basic Membrane':
