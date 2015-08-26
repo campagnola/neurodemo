@@ -219,8 +219,8 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
         pt.parameterTypes.GroupParameter.__init__(self, name='Patch Clamp', children=[
             dict(name='Mode', type='list', values={'Current Clamp': 'ic', 'Voltage Clamp': 'vc'}, value='ic'),
             dict(name='Holding', type='float', value=0, suffix='A', siPrefix=True, step=10*pA),
-            dict(name='Pipette Capacitance', type='float', value=clamp.cpip, suffix='F', siPrefix=True, dec=True, step=0.5),
-            dict(name='Access Resistance', type='float', value=clamp.ra, suffix='Ω', siPrefix=True, step=0.5, dec=True),
+            dict(name='Pipette Capacitance', type='float', value=clamp.cpip, limits=[0.01*pF, None], suffix='F', siPrefix=True, dec=True, step=0.5),
+            dict(name='Access Resistance', type='float', value=clamp.ra, limits=[10*kΩ, None], suffix='Ω', siPrefix=True, step=0.5, dec=True),
             dict(name='Plot Current', type='bool', value=False),
             dict(name='Pulse', type='group', children=[
                 dict(name='Pulse Once', type='action'),
@@ -280,6 +280,7 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
 class ScrollingPlot(pg.PlotWidget):
     def __init__(self, dt, npts, pen='w', **kwds):
         pg.PlotWidget.__init__(self, **kwds)
+        self.showGrid(True, True)
         self.data_curve = self.plot(pen=pen)
         self.data = np.array([], dtype=float)
         self.npts = npts
