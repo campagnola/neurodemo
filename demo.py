@@ -65,10 +65,11 @@ class DemoWindow(QtGui.QWidget):
             ChannelParameter(self.dexh, 'IH'),
         ]
         for ch in self.channel_params:
-            ch.plots_changed.connect(self.channel_plots_changed)
+            ch.plots_changed.connect(self.plots_changed)
         self.channel_plots = {}
         
         self.clamp_param = ClampParameter(self.clamp)
+        self.clamp_param.plots_changed.connect(self.plots_changed)
         
         self.params = pt.Parameter.create(name='params', type='group', children=[
             #dict(name='Preset', type='list', values=['', 'Basic Membrane', 'Hodgkin & Huxley']),
@@ -86,6 +87,9 @@ class DemoWindow(QtGui.QWidget):
         self.runner.new_result.connect(mp.proxy(self.new_result, autoProxy=False))
         self.start()
 
+        self.clamp_param['Plot Current'] = True
+        self.plot_splitter.setSizes([500, 200])
+
     def params_changed(self, root, changes):
         for param, change, val in changes:
             if change != 'value':
@@ -102,10 +106,10 @@ class DemoWindow(QtGui.QWidget):
             #elif param is self.params.child('Preset'):
                 #self.load_preset(val)
         
-    def channel_plots_changed(self, param, name, plot):
+    def plots_changed(self, param, channel, name, plot):
         key = param.name() + '.' + name
         if plot:
-            # decide on y range, label , and units for new plot
+            # decide on y range, label, and units for new plot
             yranges = {
                 'I': (-1*nA, 1*nA),
                 'G': (0, 100*nS),
@@ -128,7 +132,7 @@ class DemoWindow(QtGui.QWidget):
             
             # register this plot for later..
             self.channel_plots[key] = plt
-            self.runner.add_request(key, (param.channel, name))
+            self.runner.add_request(key, (channel, name))
             
             # add new plot to splitter and resize all accordingly
             sizes = self.plot_splitter.sizes()
@@ -173,7 +177,7 @@ class DemoWindow(QtGui.QWidget):
 class ChannelParameter(pt.parameterTypes.SimpleParameter):
     
     # emitted when a plot should be shown or hidden
-    plots_changed = QtCore.Signal(object, object, object)  # self, param, value
+    plots_changed = QtCore.Signal(object, object, object, object)  # self, channel, name, on/off
     
     def __init__(self, channel, name):
         self.channel = channel
@@ -203,10 +207,13 @@ class ChannelParameter(pt.parameterTypes.SimpleParameter):
             elif param is self.child('Erev'):
                 self.channel.erev = val
             elif param.name().startswith('Plot'):
-                self.plots_changed.emit(self, param.name()[5:], val)
+                self.plots_changed.emit(self, self.channel, param.name()[5:], val)
 
 
 class ClampParameter(pt.parameterTypes.GroupParameter):
+    # emitted when a plot should be shown or hidden
+    plots_changed = QtCore.Signal(object, object, object, object)  # self, channel, name, on/off
+        
     def __init__(self, clamp):
         self.clamp = clamp
         pt.parameterTypes.GroupParameter.__init__(self, name='Patch Clamp', children=[
@@ -214,7 +221,7 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
             dict(name='Holding', type='float', value=0, suffix='A', siPrefix=True, step=10*pA),
             dict(name='Pipette Capacitance', type='float', value=clamp.cpip, suffix='F', siPrefix=True, dec=True, step=0.5),
             dict(name='Access Resistance', type='float', value=clamp.ra, suffix='Ω', siPrefix=True, step=0.5, dec=True),
-            dict(name='Plot Current', type='bool', value=True),
+            dict(name='Plot Current', type='bool', value=False),
             dict(name='Pulse', type='group', children=[
                 dict(name='Pulse Once', type='action'),
                 dict(name='Amplitude', type='float', value=50*pA, suffix='A', siPrefix=True),
@@ -243,6 +250,8 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
                 self.clamp.cpip = val
             elif param is self.child('Access Resistance'):
                 self.clamp.ra = val
+            elif param.name().startswith('Plot'):
+                self.plots_changed.emit(self, self.clamp, 'I', val)
 
     def mode(self):
         return self['Mode']
