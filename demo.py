@@ -27,10 +27,9 @@ class DemoWindow(QtGui.QWidget):
         self.dexh.enabled = False
         
         self.clamp = self.neuron.add(ndemo.MultiClamp(mode='ic'))
-        cmd = np.zeros(int(1/self.dt))
-        cmd[int(0.4/self.dt):int(0.8/self.dt)] = 200e-12
-        self.clamp.set_command(cmd, dt=self.dt)
-
+        #cmd = np.zeros(int(1/self.dt))
+        #cmd[int(0.4/self.dt):int(0.8/self.dt)] = 200e-12
+        #self.clamp.set_command(cmd, dt=self.dt)
         
         # set up GUI
         QtGui.QWidget.__init__(self)
@@ -211,7 +210,7 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
     def __init__(self, clamp):
         self.clamp = clamp
         pt.parameterTypes.GroupParameter.__init__(self, name='Patch Clamp', children=[
-            dict(name='Mode', type='list', values=['Current Clamp', 'Voltage Clamp']),
+            dict(name='Mode', type='list', values={'Current Clamp': 'ic', 'Voltage Clamp': 'vc'}, value='ic'),
             dict(name='Holding', type='float', value=0, suffix='A', siPrefix=True, step=10*pA),
             dict(name='Pipette Capacitance', type='float', value=clamp.cpip, suffix='F', siPrefix=True, dec=True, step=0.5),
             dict(name='Access Resistance', type='float', value=clamp.ra, suffix='Ω', siPrefix=True, step=0.5, dec=True),
@@ -229,6 +228,8 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
             ]),
         ])
         self.sigTreeStateChanged.connect(self.treeChange)
+        self.child('Pulse', 'Pulse Once').sigActivated.connect(self.pulse_once)
+        self.child('Pulse', 'Pulse Sequence').sigActivated.connect(self.pulse_sequence)
 
     def treeChange(self, root, changes):
         for param, change, val in changes:
@@ -244,8 +245,28 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
                 self.clamp.ra = val
 
     def mode(self):
-        return {'Current Clamp': 'ic', 'Voltage Clamp': 'vc'}[self['Mode']]
+        return self['Mode']
+
+    def set_mode(self, mode):
+        self.clamp.mode = mode
+        suff = {'ic': 'A', 'vc': 'V'}[mode]
+        amp, start, stop, step = {'ic': (-10*pA, -100*pA, 100*pA, 10*pA), 
+                                  'vc': (-10*mV, -80*mV, 50*mV, 5*mV)}[mode]
+        self.sigTreeStateChanged.disconnect(self.treeChange)
+        try:
+            self.child('Holding').setOpts(suffix=suff, value=self.clamp.holding[mode], step=step)
+            self.child('Pulse', 'Amplitude').setOpts(suffix=suff, value=amp, step=step)
+            self.child('Pulse', 'Start Amplitude').setOpts(suffix=suff, value=start, step=step)
+            self.child('Pulse', 'Stop Amplitude').setOpts(suffix=suff, value=stop, step=step)
+        finally:
+            self.sigTreeStateChanged.connect(self.treeChange)
             
+    def pulse_once(self):
+        pass
+    
+    def pulse_sequence(self):
+        pass
+
 
 class ScrollingPlot(pg.PlotWidget):
     def __init__(self, dt, npts, pen='w', **kwds):

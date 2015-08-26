@@ -341,13 +341,13 @@ class MultiClamp(Mechanism):
         return (ve - vm) / self.ra
     
     def derivatives(self, state, t):
-        t = t - self.start
         
         ## Select between VC and CC
         cmd = self.cmd
         if cmd is None:
             cmd = self.holding[self.mode]
         else:
+            t = t - self.start
             # interpolate command -- sharp steps confuse the integrator.
             fInd = t / self.dt
             ind1 = int(np.floor(fInd))
@@ -364,7 +364,7 @@ class MultiClamp(Mechanism):
             cmd = (cmd-ve) * self.gain
         
         # Compute change in electrode potential
-        dve = (cmd - self.current(state, t)) / self.cpip
+        dve = (cmd - self.current(state)) / self.cpip
         return [dve]
 
 
