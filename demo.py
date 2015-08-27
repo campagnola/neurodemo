@@ -182,6 +182,11 @@ class DemoWindow(QtGui.QWidget):
                 p.setValue(False)
             self.params['Preset'] = ''
 
+    def closeEvent(self, ev):
+        self.runner.stop()
+        self.proc.close()
+        QtGui.QApplication.instance().quit()
+
 
 class ChannelParameter(pt.parameterTypes.SimpleParameter):
     
@@ -227,7 +232,7 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
         self.clamp = clamp
         self.dt = dt
         self.plot_win = SequencePlotWindow()
-        self.triggers = []
+        self.triggers = []  # items are (trigger_time, pointer, trigger_buffer, (mode, amp, cmd))
         pt.parameterTypes.GroupParameter.__init__(self, name='Patch Clamp', children=[
             dict(name='Mode', type='list', values={'Current Clamp': 'ic', 'Voltage Clamp': 'vc'}, value='ic'),
             dict(name='Holding', type='float', value=0, suffix='A', siPrefix=True, step=10*pA),
@@ -296,24 +301,25 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
         
     def pulse_once(self):
         cmd, i1, i2 = self.pulse_template()
-        cmd[i1:i2] += self['Pulse', 'Amplitude']
+        amp = self['Pulse', 'Amplitude']
+        cmd[i1:i2] += amp
         t = self.clamp.queue_command(cmd, self.dt)
-        self.triggers.append([t, 0, np.empty((len(cmd), 2))]) 
-        self.plot_win.show()
+        self.triggers.append([t, 0, np.empty((len(cmd), 2)), (self.mode(), amp, cmd)]) 
     
     def pulse_sequence(self):
         cmd, i1, i2 = self.pulse_template()
         cmds = []
-        for amp in np.linspace(self['Pulse', 'Start Amplitude'],
-                               self['Pulse', 'Stop Amplitude'],
-                               self['Pulse', 'Pulse Number']):
+        amps = np.linspace(self['Pulse', 'Start Amplitude'],
+                           self['Pulse', 'Stop Amplitude'],
+                           self['Pulse', 'Pulse Number'])
+        for amp in amps:
             cmd2 = cmd.copy()
             cmd2[i1:i2] += amp
             cmds.append(cmd2)
         
         times = self.clamp.queue_commands(cmds, self.dt)
-        for t in times:
-            self.triggers.append([t, 0, np.empty((len(cmd), 2))])
+        for i, t in enumerate(times):
+            self.triggers.append([t, 0, np.empty((len(cmd), 2)), (self.mode(), amps[i], cmds[i])])
         
     def new_result(self, result):
         if len(self.triggers) == 0:
@@ -329,7 +335,7 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
     def plot_triggered(self, vm, ip, t):
         if len(self.triggers) == 0:
             return
-        tt, ptr, data = self.triggers[0]
+        tt, ptr, data, info = self.triggers[0]
         if tt > t[-1]:
             # no triggers ready
             return
@@ -343,7 +349,7 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
         ptr += npts
         if ptr >= data.shape[0]:
             # If the trigger buffer is full, plot and remove
-            self.plot_win.plot(np.arange(data.shape[0])*self.dt, data[:,0], data[:,1])
+            self.plot_win.plot(np.arange(data.shape[0])*self.dt, data[:,0], data[:,1], info)
             self.triggers.pop(0)
             if len(vm) > npts:
                 # If there is data left over, try feeding it to the next trigger
@@ -374,6 +380,7 @@ class ScrollingPlot(pg.PlotWidget):
 class SequencePlotWindow(QtGui.QWidget):
     def __init__(self):
         QtGui.QWidget.__init__(self)
+        self.mode = 'ic'
         self.layout = QtGui.QGridLayout()
         self.setLayout(self.layout)
         self.hold_check = QtGui.QCheckBox("Hold data")
@@ -383,22 +390,54 @@ class SequencePlotWindow(QtGui.QWidget):
         self.layout.addWidget(self.clear_btn, 0, 1)
         self.clear_btn.clicked.connect(self.clear_data)
         
+        self.splitter = QtGui.QSplitter(QtCore.Qt.Vertical)
+        self.layout.addWidget(self.splitter, 1, 0, 1, 2)
+        
         self.plot_layout = pg.GraphicsLayoutWidget()
-        self.layout.addWidget(self.plot_layout, 1, 0, 1, 2)
+        self.splitter.addWidget(self.plot_layout)
         self.vplot = self.plot_layout.addPlot(0, 0, labels={'left': ('Membrane Voltage', 'V'), 'bottom': ('Time', 's')})
         self.iplot = self.plot_layout.addPlot(1, 0, labels={'left': ('Pipette Current', 'A'), 'bottom': ('Time', 's')})
         self.iplot.setXLink(self.vplot)
         
-    def plot(self, t, v, i):
+        self.analyzer = TraceAnalyzer()
+        self.splitter.addWidget(self.analyzer)
+        
+    def plot(self, t, v, i, info):
+        mode, amp, cmd = info
         if not self.hold_check.isChecked():
             self.clear_data()
-        self.vplot.plot(t, v)
-        self.iplot.plot(t, i)
+        if self.mode != mode:
+            self.mode = mode
+            self.clear_data()
+        
+        if mode == 'ic':
+            self.vplot.plot(t, v)
+            self.iplot.plot(t, cmd)
+        else:
+            self.vplot.plot(t, cmd)
+            self.iplot.plot(t, i)
+        
         self.show()
         
     def clear_data(self):
         self.vplot.clear()
         self.iplot.clear()
+
+
+class TraceAnalyzer(QtGui.QWidget):
+    def __init__(self):
+        QtGui.QWidget.__init__(self)
+        self.layout = QtGui.QGridLayout()
+        self.setLayout(self.layout)
+        self.splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
+        self.layout.addWidget(self.splitter)
+        
+        self.ptree = pt.ParameterTree()
+        self.splitter.addWidget(self.ptree)
+        
+        self.table = pg.TableWidget()
+        self.splitter.addWidget(self.table)
+        self.splitter.setSizes([200, 600])
 
         
 if __name__ == '__main__':

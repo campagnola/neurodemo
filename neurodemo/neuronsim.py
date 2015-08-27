@@ -285,7 +285,7 @@ class Section(SimObject):
         
 
 class MultiClamp(Mechanism):
-    def __init__(self, mode='ic', ra=5*MOhm, cpip=1*pF, **kwds):
+    def __init__(self, mode='ic', ra=5*MOhm, cpip=3*pF, **kwds):
         self.ra = ra
         self.cpip = cpip
         self._mode = mode
