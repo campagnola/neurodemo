@@ -232,7 +232,7 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
         self.clamp = clamp
         self.dt = dt
         self.plot_win = SequencePlotWindow()
-        self.triggers = []  # items are (trigger_time, pointer, trigger_buffer, (mode, amp, cmd))
+        self.triggers = []  # items are (trigger_time, pointer, trigger_buffer, (mode, amp, cmd, seq_ind, seq_len))
         pt.parameterTypes.GroupParameter.__init__(self, name='Patch Clamp', children=[
             dict(name='Mode', type='list', values={'Current Clamp': 'ic', 'Voltage Clamp': 'vc'}, value='ic'),
             dict(name='Holding', type='float', value=0, suffix='A', siPrefix=True, step=10*pA),
@@ -304,7 +304,7 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
         amp = self['Pulse', 'Amplitude']
         cmd[i1:i2] += amp
         t = self.clamp.queue_command(cmd, self.dt)
-        self.triggers.append([t, 0, np.empty((len(cmd), 2)), (self.mode(), amp, cmd)]) 
+        self.triggers.append([t, 0, np.empty((len(cmd), 2)), (self.mode(), amp, cmd, 0, 0)]) 
     
     def pulse_sequence(self):
         cmd, i1, i2 = self.pulse_template()
@@ -319,7 +319,7 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
         
         times = self.clamp.queue_commands(cmds, self.dt)
         for i, t in enumerate(times):
-            self.triggers.append([t, 0, np.empty((len(cmd), 2)), (self.mode(), amps[i], cmds[i])])
+            self.triggers.append([t, 0, np.empty((len(cmd), 2)), (self.mode(), amps[i], cmds[i], i, len(amps))])
         
     def new_result(self, result):
         if len(self.triggers) == 0:
@@ -403,26 +403,33 @@ class SequencePlotWindow(QtGui.QWidget):
         self.splitter.addWidget(self.analyzer)
         
     def plot(self, t, v, i, info):
-        mode, amp, cmd = info
+        mode, amp, cmd, seq_ind, seq_len = info
         if not self.hold_check.isChecked():
             self.clear_data()
         if self.mode != mode:
             self.mode = mode
             self.clear_data()
         
-        if mode == 'ic':
-            self.vplot.plot(t, v)
-            self.iplot.plot(t, cmd)
+        if seq_len == 0:
+            pen = 'w'
         else:
-            self.vplot.plot(t, cmd)
-            self.iplot.plot(t, i)
+            pen = (seq_ind, seq_len * 4./3.)
         
+        if mode == 'ic':
+            self.vplot.plot(t, v, pen=pen)
+            self.iplot.plot(t, cmd, pen=pen)
+        else:
+            self.vplot.plot(t, cmd, pen=pen)
+            self.iplot.plot(t, i, pen=pen)
+        
+        self.analyzer.add_data(t, v, i, info)
         self.show()
         
     def clear_data(self):
         self.vplot.clear()
         self.iplot.clear()
-
+        self.analyzer.clear()
+        
 
 class TraceAnalyzer(QtGui.QWidget):
     def __init__(self):
@@ -438,8 +445,34 @@ class TraceAnalyzer(QtGui.QWidget):
         self.table = pg.TableWidget()
         self.splitter.addWidget(self.table)
         self.splitter.setSizes([200, 600])
-
         
+        self.clear()
+
+    def clear(self):
+        self.data = np.empty(0, dtype=[(str('command'), float)]) # note: no unicode allowed in py2/numpy dtypes
+        self.table.clear()
+        
+    def add_data(self, t, v,i, info):
+        mode, amp, cmd, seq_ind, seq_len = info
+        rec = np.array([(amp,)], dtype=self.data.dtype)
+        self.data = np.append(self.data, rec)
+        self.table.setData(self.data)
+
+
+#class TraceAnalyzerGroup(pt.GroupParameter):
+    #def __init__(self):
+        #analyses = ['min', 'max', 'mean', 'exp tau', 'spike count', 'spike latency']
+        #pt.GroupParameter.__init__(self, addText='Add analysis..', addList=analyses)
+
+    #def addNew(self, typ):
+        #pass
+    
+
+#class TraceAnalyzerParameter(pt.GroupParameter):
+    #def __init__(self):
+        #pass
+
+
 if __name__ == '__main__':
     import sys
     win = DemoWindow()
