@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+"""
+NeuroDemo - Physiological neuron sandbox for educational purposes
+Luke Campagnola 2015
+"""
+from __future__ import unicode_literals
 import numpy as np
 from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph as pg
@@ -226,7 +232,7 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
             dict(name='Mode', type='list', values={'Current Clamp': 'ic', 'Voltage Clamp': 'vc'}, value='ic'),
             dict(name='Holding', type='float', value=0, suffix='A', siPrefix=True, step=10*pA),
             dict(name='Pipette Capacitance', type='float', value=clamp.cpip, limits=[0.01*pF, None], suffix='F', siPrefix=True, dec=True, step=0.5),
-            dict(name='Access Resistance', type='float', value=clamp.ra, limits=[10*kΩ, None], suffix='Ω', siPrefix=True, step=0.5, dec=True),
+            dict(name='Access Resistance', type='float', value=clamp.ra, limits=[10*kOhm, None], suffix='Ω', siPrefix=True, step=0.5, dec=True),
             dict(name='Plot Current', type='bool', value=False),
             dict(name='Pulse', type='group', children=[
                 dict(name='Pulse Once', type='action'),
@@ -308,7 +314,6 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
         times = self.clamp.queue_commands(cmds, self.dt)
         for t in times:
             self.triggers.append([t, 0, np.empty((len(cmd), 2))])
-        self.plot_win.show()
         
     def new_result(self, result):
         if len(self.triggers) == 0:
@@ -366,19 +371,32 @@ class ScrollingPlot(pg.PlotWidget):
         self.data_curve.setData(t, self.data)
         
 
-class SequencePlotWindow(pg.GraphicsWindow):
+class SequencePlotWindow(QtGui.QWidget):
     def __init__(self):
-        pg.GraphicsWindow.__init__(self)
-        self.hide()
-        self.vplot = self.addPlot(0, 0)
-        self.iplot = self.addPlot(1, 0)
+        QtGui.QWidget.__init__(self)
+        self.layout = QtGui.QGridLayout()
+        self.setLayout(self.layout)
+        self.hold_check = QtGui.QCheckBox("Hold data")
+        self.hold_check.setChecked(True)
+        self.layout.addWidget(self.hold_check, 0, 0)
+        self.clear_btn = QtGui.QPushButton("Clear data")
+        self.layout.addWidget(self.clear_btn, 0, 1)
+        self.clear_btn.clicked.connect(self.clear_data)
+        
+        self.plot_layout = pg.GraphicsLayoutWidget()
+        self.layout.addWidget(self.plot_layout, 1, 0, 1, 2)
+        self.vplot = self.plot_layout.addPlot(0, 0, labels={'left': ('Membrane Voltage', 'V'), 'bottom': ('Time', 's')})
+        self.iplot = self.plot_layout.addPlot(1, 0, labels={'left': ('Pipette Current', 'A'), 'bottom': ('Time', 's')})
         self.iplot.setXLink(self.vplot)
         
     def plot(self, t, v, i):
+        if not self.hold_check.isChecked():
+            self.clear_data()
         self.vplot.plot(t, v)
         self.iplot.plot(t, i)
+        self.show()
         
-    def clear(self):
+    def clear_data(self):
         self.vplot.clear()
         self.iplot.clear()
 

@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+"""
+NeuroDemo - Physiological neuron sandbox for educational purposes
+Luke Campagnola 2015
+"""
 from pyqtgraph.Qt import QtGui, QtCore
 
 
