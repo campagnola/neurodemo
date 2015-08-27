@@ -10,6 +10,7 @@ import pyqtgraph as pg
 import pyqtgraph.multiprocess as mp
 import pyqtgraph.parametertree as pt
 from neurodemo.units import *
+from neurodemo.neuronview import NeuronView
 
 pg.setConfigOption('antialias', True)
 app = pg.mkQApp()
@@ -51,6 +52,9 @@ class DemoWindow(QtGui.QWidget):
         
         self.plot_splitter = QtGui.QSplitter(QtCore.Qt.Vertical)
         self.splitter.addWidget(self.plot_splitter)
+        
+        self.neuronview = NeuronView()
+        self.plot_splitter.addWidget(self.neuronview)
         
         self.vm_plot = ScrollingPlot(dt=self.dt, npts=int(1.0/self.dt),
                                          parent=self, labels={'left': ('Membrane Potential', 'V'), 
@@ -95,7 +99,7 @@ class DemoWindow(QtGui.QWidget):
         self.start()
 
         self.clamp_param['Plot Current'] = True
-        self.plot_splitter.setSizes([500, 200])
+        self.plot_splitter.setSizes([300, 500, 200])
 
     def params_changed(self, root, changes):
         for param, change, val in changes:
@@ -172,6 +176,8 @@ class DemoWindow(QtGui.QWidget):
             plt.append(result[k][1:])
             
         self.clamp_param.new_result(result)
+        
+        self.neuronview.update(vm[-1])
 
     def load_preset(self, preset):
         if preset == 'Basic Membrane':
