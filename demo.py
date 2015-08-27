@@ -68,7 +68,7 @@ class DemoWindow(QtGui.QWidget):
             ch.plots_changed.connect(self.plots_changed)
         self.channel_plots = {}
         
-        self.clamp_param = ClampParameter(self.clamp)
+        self.clamp_param = ClampParameter(self.clamp, self.dt)
         self.clamp_param.plots_changed.connect(self.plots_changed)
         
         self.params = pt.Parameter.create(name='params', type='group', children=[
@@ -84,6 +84,7 @@ class DemoWindow(QtGui.QWidget):
         
         self.runner = ndemo.SimRunner(self.sim)
         self.runner.add_request('soma.Vm', (self.neuron, 'Vm')) 
+        self.runner.add_request('t', 't') 
         self.runner.new_result.connect(mp.proxy(self.new_result, autoProxy=False))
         self.start()
 
@@ -163,6 +164,8 @@ class DemoWindow(QtGui.QWidget):
             if k not in result:
                 continue
             plt.append(result[k][1:])
+            
+        self.clamp_param.new_result(result)
 
     def load_preset(self, preset):
         if preset == 'Basic Membrane':
@@ -214,9 +217,11 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
     # emitted when a plot should be shown or hidden
     plots_changed = QtCore.Signal(object, object, object, object)  # self, channel, name, on/off
         
-    def __init__(self, clamp):
+    def __init__(self, clamp, dt):
         self.clamp = clamp
-        self.dt = 1e-4
+        self.dt = dt
+        self.plot_win = SequencePlotWindow()
+        self.triggers = []
         pt.parameterTypes.GroupParameter.__init__(self, name='Patch Clamp', children=[
             dict(name='Mode', type='list', values={'Current Clamp': 'ic', 'Voltage Clamp': 'vc'}, value='ic'),
             dict(name='Holding', type='float', value=0, suffix='A', siPrefix=True, step=10*pA),
@@ -230,7 +235,7 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
                 dict(name='Duration', type='float', value=50*ms, suffix='s', siPrefix=True, limits=[0, None]),
                 dict(name='Post-delay', type='float', value=50*ms, suffix='s', siPrefix=True, limits=[0, None]),
                 dict(name='Pulse Sequence', type='action'),
-                dict(name='Start Amplitude', type='float', value=50*pA, suffix='A', siPrefix=True),
+                dict(name='Start Amplitude', type='float', value=-50*pA, suffix='A', siPrefix=True),
                 dict(name='Stop Amplitude', type='float', value=50*pA, suffix='A', siPrefix=True),
                 dict(name='Pulse Number', type='int', value=11, limits=[2,None]),
             ]),
@@ -271,7 +276,7 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
         finally:
             self.sigTreeStateChanged.connect(self.treeChange)
             
-    def pulse_once(self):
+    def pulse_template(self):
         d1 = self['Pulse', 'Pre-delay']
         d2 = self['Pulse', 'Duration']
         d3 = self['Pulse', 'Post-delay']
@@ -280,14 +285,67 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
         cmd = np.empty(npts)
         i1 = d1 / self.dt
         i2 = i1 + d2 / self.dt
-        hold = self['Holding']
-        cmd[:i1] = hold
-        cmd[i1:i2] = hold + self['Pulse', 'Amplitude']
-        cmd[i2:] = hold
-        self.clamp.queue_command(cmd, self.dt)
+        cmd[:] = self['Holding']
+        return cmd, i1, i2
+        
+    def pulse_once(self):
+        cmd, i1, i2 = self.pulse_template()
+        cmd[i1:i2] += self['Pulse', 'Amplitude']
+        t = self.clamp.queue_command(cmd, self.dt)
+        self.triggers.append([t, 0, np.empty((len(cmd), 2))]) 
+        self.plot_win.show()
     
     def pulse_sequence(self):
-        pass
+        cmd, i1, i2 = self.pulse_template()
+        cmds = []
+        for amp in np.linspace(self['Pulse', 'Start Amplitude'],
+                               self['Pulse', 'Stop Amplitude'],
+                               self['Pulse', 'Pulse Number']):
+            cmd2 = cmd.copy()
+            cmd2[i1:i2] += amp
+            cmds.append(cmd2)
+        
+        times = self.clamp.queue_commands(cmds, self.dt)
+        for t in times:
+            self.triggers.append([t, 0, np.empty((len(cmd), 2))])
+        self.plot_win.show()
+        
+    def new_result(self, result):
+        if len(self.triggers) == 0:
+            return
+        try:
+            vm = result['soma.Vm']
+            ip = result['Patch Clamp.I']
+            t = result['t']
+        except KeyError:
+            return
+        self.plot_triggered(vm, ip, t)
+        
+    def plot_triggered(self, vm, ip, t):
+        if len(self.triggers) == 0:
+            return
+        tt, ptr, data = self.triggers[0]
+        if tt > t[-1]:
+            # no triggers ready
+            return
+        
+        # Copy data from result to trigger buffer
+        i = max(0, np.round((tt - t[0]) / self.dt)) # index of trigger within new data
+        npts = min(len(data)-ptr, len(vm)-i) # number of samples to copy from new data
+        data[ptr:ptr+npts, 0] = vm[i:i+npts] 
+        data[ptr:ptr+npts, 1] = ip[i:i+npts]
+            
+        ptr += npts
+        if ptr >= data.shape[0]:
+            # If the trigger buffer is full, plot and remove
+            self.plot_win.plot(np.arange(data.shape[0])*self.dt, data[:,0], data[:,1])
+            self.triggers.pop(0)
+            if len(vm) > npts:
+                # If there is data left over, try feeding it to the next trigger
+                self.plot_triggered(vm[i+npts:], ip[i+npts:], t[i+npts:])
+        else:
+            # otherwise, update the pointer and wait for the next result
+            self.triggers[0][1] = ptr
 
 
 class ScrollingPlot(pg.PlotWidget):
@@ -307,6 +365,22 @@ class ScrollingPlot(pg.PlotWidget):
         t -= t[-1]
         self.data_curve.setData(t, self.data)
         
+
+class SequencePlotWindow(pg.GraphicsWindow):
+    def __init__(self):
+        pg.GraphicsWindow.__init__(self)
+        self.hide()
+        self.vplot = self.addPlot(0, 0)
+        self.iplot = self.addPlot(1, 0)
+        self.iplot.setXLink(self.vplot)
+        
+    def plot(self, t, v, i):
+        self.vplot.plot(t, v)
+        self.iplot.plot(t, i)
+        
+    def clear(self):
+        self.vplot.clear()
+        self.iplot.clear()
 
         
 if __name__ == '__main__':

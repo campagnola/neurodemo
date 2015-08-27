@@ -12,25 +12,6 @@ import scipy.integrate
 from PyQt4 import QtGui, QtCore
 from .units import *
 
-# alpha synapse
-#Alpha_t0 = 500.  # msec
-#Alpha_tau = 2.0
-#gAlpha = 1e-3 * Area/cm**2
-#EAlpha = -7e-3  # V
-
-
-
-def IAlpha(Vm, t):
-    if t < Alpha_t0:
-        return 0.
-    else:
-        # g = gmax * (t - onset)/tau * exp(-(t - onset - tau)/tau)
-        tn = t - Alpha_t0
-        if tn > 10.0 * Alpha_tau:
-            return 0.
-        else:
-            return gAlpha * (Vm - EAlpha)*(tn/Alpha_tau) * np.exp(-(tn-Alpha_tau)/Alpha_tau)
-
 
 class Sim(object):
     """Simulator for a collection of objects that derive from SimObject
@@ -80,7 +61,7 @@ class Sim(object):
         
         Extra keyword arguments are passed to `scipy.integrate.odeint()`.
         """
-        opts = {'rtol': 1e-6, 'atol': 1e-6, 'hmax': 1e-3, 'full_output': 1}
+        opts = {'rtol': 1e-6, 'atol': 1e-6, 'hmax': 100e-3, 'full_output': 1}
         opts.update(kwds)
         
         self._all_objs = None
@@ -336,6 +317,11 @@ class MultiClamp(Mechanism):
         
         self.cmd_queue.append((start, dt, cmd))
         return start
+    
+    def queue_commands(self, cmds, dt):
+        """Queue multiple commands for execution.
+        """
+        return [self.queue_command(c, dt) for c in cmds]
 
     @property
     def mode(self):
@@ -428,8 +414,6 @@ class MultiClamp(Mechanism):
         
         s = (t - vt1) / (vt2 - vt1)
         return v1 * (1-s) + v2 * s
-                
-
         
 
 class Leak(Channel):
@@ -668,4 +652,24 @@ class LGKslow(Channel):
         dn = q10 * (ninf - n) / ntau
 
         return [dn*1e3]
+
+
+
+
+# alpha synapse
+#Alpha_t0 = 500.  # msec
+#Alpha_tau = 2.0
+#gAlpha = 1e-3 * Area/cm**2
+#EAlpha = -7e-3  # V
+
+def IAlpha(Vm, t):
+    if t < Alpha_t0:
+        return 0.
+    else:
+        # g = gmax * (t - onset)/tau * exp(-(t - onset - tau)/tau)
+        tn = t - Alpha_t0
+        if tn > 10.0 * Alpha_tau:
+            return 0.
+        else:
+            return gAlpha * (Vm - EAlpha)*(tn/Alpha_tau) * np.exp(-(tn-Alpha_tau)/Alpha_tau)
 
