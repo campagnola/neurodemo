@@ -12,7 +12,7 @@ app = pg.mkQApp()
 class DemoWindow(QtGui.QWidget):
     def __init__(self):
         # set up simulation in remote process
-        self.dt = 100*us
+        self.dt = 25*us
         self.proc = mp.QtProcess()
         ndemo = self.proc._import('neurodemo')
         self.sim = ndemo.Sim(temp=6.3, dt=self.dt)
@@ -216,6 +216,7 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
         
     def __init__(self, clamp):
         self.clamp = clamp
+        self.dt = 1e-4
         pt.parameterTypes.GroupParameter.__init__(self, name='Patch Clamp', children=[
             dict(name='Mode', type='list', values={'Current Clamp': 'ic', 'Voltage Clamp': 'vc'}, value='ic'),
             dict(name='Holding', type='float', value=0, suffix='A', siPrefix=True, step=10*pA),
@@ -257,7 +258,7 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
         return self['Mode']
 
     def set_mode(self, mode):
-        self.clamp.mode = mode
+        self.clamp.set_mode(mode)
         suff = {'ic': 'A', 'vc': 'V'}[mode]
         amp, start, stop, step = {'ic': (-10*pA, -100*pA, 100*pA, 10*pA), 
                                   'vc': (-10*mV, -80*mV, 50*mV, 5*mV)}[mode]
@@ -271,7 +272,19 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
             self.sigTreeStateChanged.connect(self.treeChange)
             
     def pulse_once(self):
-        pass
+        d1 = self['Pulse', 'Pre-delay']
+        d2 = self['Pulse', 'Duration']
+        d3 = self['Pulse', 'Post-delay']
+        dur = d1 + d2 + d3
+        npts = dur / self.dt
+        cmd = np.empty(npts)
+        i1 = d1 / self.dt
+        i2 = i1 + d2 / self.dt
+        hold = self['Holding']
+        cmd[:i1] = hold
+        cmd[i1:i2] = hold + self['Pulse', 'Amplitude']
+        cmd[i2:] = hold
+        self.clamp.queue_command(cmd, self.dt)
     
     def pulse_sequence(self):
         pass
