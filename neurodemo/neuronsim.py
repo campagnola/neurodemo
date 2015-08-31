@@ -6,11 +6,20 @@ Also simulates voltage clamp and current clamp with access resistance.
 Luke Campagnola 2015
 """
 
+import sys, platform
 from collections import OrderedDict
 import numpy as np
 import scipy.integrate
-from PyQt4 import QtGui, QtCore
 from .units import *
+
+
+# Disable obnoxious app nap on OSX 
+# Many thanks to https://github.com/minrk/appnope
+if sys.platform == 'darwin':
+    v = [int(x) for x in platform.mac_ver()[0].split('.')]
+    if v[0] >= 10 and v[1] >= 9:
+        from .appnope import nope
+        nope()
 
 
 class Sim(object):
