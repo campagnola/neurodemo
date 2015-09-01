@@ -86,6 +86,9 @@ class DemoWindow(QtGui.QWidget):
             dict(name='Run', type='bool', value=True),
             dict(name='Speed', type='float', value=0.3, limits=[0, 1], step=1, dec=True),
             dict(name='Temp', type='float', value=self.sim.temp, suffix='C', step=1.0),
+            dict(name='Cell Schematic', type='bool', value=True, children=[
+                dict(name='Show Circuit', type='bool', value=False),
+            ]),
             self.clamp_param,
             dict(name='Ion Channels', type='group', children=self.channel_params),
         ])
@@ -116,6 +119,8 @@ class DemoWindow(QtGui.QWidget):
                 self.sim.temp = val
             #elif param is self.params.child('Preset'):
                 #self.load_preset(val)
+            elif param is self.params.child('Cell Schematic'):
+                self.neuronview.setVisible(val)
         
     def plots_changed(self, param, channel, name, plot):
         key = param.name() + '.' + name
