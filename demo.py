@@ -3,7 +3,7 @@
 NeuroDemo - Physiological neuron sandbox for educational purposes
 Luke Campagnola 2015
 """
-from __future__ import unicode_literals
+from __future__ import division, unicode_literals
 import numpy as np
 from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph as pg
@@ -150,7 +150,9 @@ class DemoWindow(QtGui.QWidget):
             self.plot_splitter.addWidget(plt)
             size = self.plot_splitter.height() / (len(sizes) + 1.)
             r = len(sizes) / (len(sizes)+1)
+            print(sizes)
             sizes = [s * r for s in sizes] + [size]
+            print(sizes)
             self.plot_splitter.setSizes(sizes)
         else:
             plt = self.channel_plots.pop(key)
