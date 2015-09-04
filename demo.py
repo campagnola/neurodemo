@@ -338,7 +338,7 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
             return
         try:
             vm = result['soma.Vm'][:-1]
-            ip = result['Patch Clamp.I'][:-1]
+            ip = result['MultiClamp0.I'][:-1]
             t = result['t'][:-1]
         except KeyError:
             return
