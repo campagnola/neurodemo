@@ -1,6 +1,14 @@
+import os, tempfile
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore, QtSvg
 import numpy as np
+
+
+# for storing dynamically-generated svg files
+tmpdir = tempfile.mkdtemp()
+
+def svg_file(name):
+    return os.path.join(os.path.dirname(__file__), 'images', name+'.svg')
 
 
 class NeuronView(pg.GraphicsLayoutWidget):
@@ -23,14 +31,20 @@ class NeuronView(pg.GraphicsLayoutWidget):
         #self.grid = pg.GridItem()
         #self.view.addItem(self.grid)
         
-        self.svg = QtSvg.QGraphicsSvgItem("neurodemo/images/cell.svg")
+        self.svg = QtSvg.QGraphicsSvgItem(svg_file('cell'))
         self.svg.translate(-200, -150)
         self.view.addItem(self.svg)
         
-        self.channel = Channel('soma.INa')
-        self.channel.rotate(30)
-        self.channel.translate(0, 50)
-        self.view.addItem(self.channel)
+        self.channels = []
+        angle = 0
+        for key, color in [('soma.INa', 'dd0000'), 
+                           ('soma.IK', '0000dd')]:
+            channel = Channel(key, color)
+            channel.rotate(angle)
+            angle += 30
+            channel.translate(0, 50)
+            self.view.addItem(channel)
+            self.channels.append(channel)
         
     def update_state(self, state):
         vm = state['soma.Vm']
@@ -40,15 +54,28 @@ class NeuronView(pg.GraphicsLayoutWidget):
             (-65e-3 - vm) * 10e3], 0, 205) + 50
         self.soma.setBrush(pg.mkBrush((rgb[0], rgb[1], rgb[2], 100)))
         
-        self.channel.update_state(state)
+        for ch in self.channels:
+            ch.update_state(state)
 
         
 class Channel(QtGui.QGraphicsItemGroup):
-    def __init__(self, key):
+    
+    @staticmethod
+    def get_svg(color):
+        """Return a new copy of the channel SVG with the color modified.
+        """
+        svg = open(svg_file('channel')).read()
+        svg = svg.replace('fill:#dc0000', 'fill:#'+color)
+        fname = os.path.join(tmpdir, 'channel_' + color + '.svg')
+        open(fname, 'w').write(svg)
+        return fname
+    
+    def __init__(self, key, color):
         self.key = key
         QtGui.QGraphicsItemGroup.__init__(self)
-        self.svg = [QtSvg.QGraphicsSvgItem("neurodemo/images/channel.svg"),
-                    QtSvg.QGraphicsSvgItem("neurodemo/images/channel.svg")]
+        svg = self.get_svg(color)
+        self.svg = [QtSvg.QGraphicsSvgItem(svg),
+                    QtSvg.QGraphicsSvgItem(svg)]
         self.svg[1].scale(-1, 1)
         
         for svg in self.svg:
