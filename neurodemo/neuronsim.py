@@ -182,7 +182,8 @@ class SimState(object):
         clip = not np.isscalar(self['t'])
         if clip:
             # only get results for the last timepoint
-            s.set_state(self.state[-1])
+            s.set_state(self.state[:, -1])
+        
         for k in self.difeq_vars:
             state[k] = s[k]
         for k in self.dep_vars:

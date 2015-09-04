@@ -53,11 +53,16 @@ class Channel(QtGui.QGraphicsItemGroup):
         
         for svg in self.svg:
             svg.setParentItem(self)
-            svg.translate(-12, -10.5)
+            svg.translate(-9, -10.5)
+            
+        self.bg = QtGui.QGraphicsRectItem(QtCore.QRectF(-5, -10, 10, 20))
+        self.bg.setParentItem(self)
+        self.bg.setZValue(-1)
+        self.bg.setBrush(pg.mkBrush(100, 0, 0))
     
     def update_state(self, state):
         op = state[self.key + '.OP']
-        self.svg[0].setPos(op * 10, 0)
-        self.svg[1].setPos(op * -10, 0)
+        self.svg[0].setPos(op * -15, 0)
+        self.svg[1].setPos(op * 15, 0)
             
 
