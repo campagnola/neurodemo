@@ -96,8 +96,8 @@ class DemoWindow(QtGui.QWidget):
         self.params.sigTreeStateChanged.connect(self.params_changed)
         
         self.runner = ndemo.SimRunner(self.sim)
-        self.runner.add_request('soma.Vm', (self.neuron, 'Vm')) 
-        self.runner.add_request('t', 't') 
+        self.runner.add_request('soma.Vm') 
+        self.runner.add_request('t') 
         self.runner.new_result.connect(mp.proxy(self.new_result, autoProxy=False, callSync='off'))
         self.start()
 
@@ -123,7 +123,7 @@ class DemoWindow(QtGui.QWidget):
                 self.neuronview.setVisible(val)
         
     def plots_changed(self, param, channel, name, plot):
-        key = param.name() + '.' + name
+        key = channel.name + '.' + name
         if plot:
             # decide on y range, label, and units for new plot
             yranges = {
@@ -148,16 +148,14 @@ class DemoWindow(QtGui.QWidget):
             
             # register this plot for later..
             self.channel_plots[key] = plt
-            self.runner.add_request(key, (channel, name))
+            self.runner.add_request(key)
             
             # add new plot to splitter and resize all accordingly
             sizes = self.plot_splitter.sizes()
             self.plot_splitter.addWidget(plt)
             size = self.plot_splitter.height() / (len(sizes) + 1.)
             r = len(sizes) / (len(sizes)+1)
-            print(sizes)
             sizes = [s * r for s in sizes] + [size]
-            print(sizes)
             self.plot_splitter.setSizes(sizes)
         else:
             plt = self.channel_plots.pop(key)
@@ -172,7 +170,7 @@ class DemoWindow(QtGui.QWidget):
     def stop(self):
         self.runner.stop()
         
-    def new_result(self, result, state):
+    def new_result(self, final_state, result):
         self.last_result = result
         vm = result['soma.Vm'][1:]
         self.vm_plot.append(vm)
@@ -216,7 +214,7 @@ class ChannelParameter(pt.parameterTypes.SimpleParameter):
             dict(name='Plot G', type='bool', value=False),
             dict(name='Plot OP', type='bool', value=False),
         ]
-        for sv in channel.state_vars:
+        for sv in channel.difeq_state():
             ch_params.append(dict(name='Plot ' + sv, type='bool', value=False))
         
         pt.parameterTypes.SimpleParameter.__init__(self, name=name, type='bool', 

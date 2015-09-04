@@ -8,8 +8,12 @@ from pyqtgraph.Qt import QtGui, QtCore
 
 class SimRunner(QtCore.QObject):
     """Run a simulation continuously and emit signals whenever results are ready.
+    
+    Results are emitted with a dictionary containing all state variables for the
+    final timepoint in the simulation, as well as the complete time-record for
+    any variables that have been requested using add_request().
     """
-    new_result = QtCore.Signal(object, object)  # last_record, current_state
+    new_result = QtCore.Signal(object, object)  # final_state, requested_records
     
     def __init__(self, sim):
         QtCore.QObject.__init__(self)
@@ -24,15 +28,15 @@ class SimRunner(QtCore.QObject):
         
         self.sim = sim
         self.speed = 1.0
-        self.requests = {}
+        self.requests = []
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.run_once)
         
-    def add_request(self, key, req):
-        self.requests[key] = req
+    def add_request(self, key):
+        self.requests.append(key)
 
     def remove_request(self, key):
-        self.requests.pop(key)
+        self.requests.remove(key)
         
     def start(self, blocksize=500, **kwds):
         self.blocksize = blocksize
@@ -47,27 +51,17 @@ class SimRunner(QtCore.QObject):
         result = self.sim.run(blocksize, **self.run_args)
         
         rec = {}
-        for key, req in self.requests.items():
+        for key in self.requests:
             try:
-                if isinstance(req, tuple):
-                    if req[1] == 'I':
-                        data = req[0].current(result)
-                    elif req[1] == 'G':
-                        data = req[0].conductance(result)
-                    elif req[1] == 'OP':
-                        data = req[0].open_probability(result)
-                    else:
-                        data = result[req]
-                else:
-                    data = result[req]
+                data = result[key]
             except KeyError:
                 print("Key '%s' not found in sim result; skipping." % key)
                 continue
             rec[key] = data
         
-        state = result.state()
+        state = result.get_final_state()
         
-        self.new_result.emit(rec, state)
+        self.new_result.emit(state, rec)
         
     def set_speed(self, speed):
         self.speed = speed

@@ -48,9 +48,9 @@ class Sim(object):
             for o in self._objects:
                 if not o.enabled:
                     continue
-                for k,v in o.all_objects():
+                for k,v in o.all_objects().items():
                     if k in objs:
-                        raise NameError("Multiple objects with same name "%s": %s, %s" % (k, objs[k], v))
+                        raise NameError('Multiple objects with same name "%s": %s, %s' % (k, objs[k], v))
                     objs[k] = v
             self._all_objs = objs
         return self._all_objs
@@ -69,20 +69,23 @@ class Sim(object):
         
         # reset all_objs cache in case some part of the sim has changed
         self._all_objs = None
+        all_objs = self.all_objects().values()
         
         # check that there is something to simulate
-        if len(self.all_objects()) == 0:
+        if len(all_objs) == 0:
             raise RuntimeError("No objects added to simulation.")
         
         # Collect / prepare state variables for integration
         init_state = []
         difeq_vars = []
         dep_vars = {}
-        for o in self.all_objects():
+        for o in all_objs:
+            pfx = o.name + '.'
             for k,v in o.difeq_state().items():
-                difeq_vars.append(k)
+                difeq_vars.append(pfx + k)
                 init_state.append(v)
-            dep_vars.update(o.dep_state_vars)
+            for k,v in o.dep_state_vars.items():
+                dep_vars[pfx + k] = v
         self._simstate = SimState(difeq_vars, dep_vars)
         t = np.arange(0, samples) * self.dt + self._time
 
@@ -91,9 +94,9 @@ class Sim(object):
         
         # Update current state variables
         p = 0
-        for o in self.all_objects():
-            nvar = len(o.difeq_state_vars)
-            o.update_result(result[:, p:p+nvar])
+        for o in all_objs:
+            nvar = len(o.difeq_state())
+            o.update_state(result[-1, p:p+nvar])
             p += nvar
             
         self._time = t[-1]
@@ -101,7 +104,7 @@ class Sim(object):
         return SimState(difeq_vars, dep_vars, result.T, t=t)
 
     def derivatives(self, state, t):
-        objs = self.all_objects()
+        objs = self.all_objects().values()
         self._simstate.state = state
         self._simstate.extra['t'] = t
         d = []
@@ -127,6 +130,17 @@ class SimState(object):
     During simulation runs, this is used to carry information about all
     variables at the current timepoint. After the simulation finishes, this is
     used to carry all state variable data collected during the simulation.
+    
+    Parameters
+    ==========
+        difeq_vars: list
+            Names of all diff. eq. state variables
+        dep_vars: dict
+            Name:function pairs for all dependent variables that may be computed
+        difeq_state: list
+            Initial values for all dif. eq. state variables
+        extra:
+            Extra name:value pairs that may be accessed from this object
     """
     def __init__(self, difeq_vars, dep_vars=None, difeq_state=None, **extra):
         self.difeq_vars = difeq_vars
@@ -165,13 +179,24 @@ class SimState(object):
         """
         state = {}
         s = self.copy()
-        s.set_state(self.state[-1])
+        clip = not np.isscalar(self['t'])
+        if clip:
+            # only get results for the last timepoint
+            s.set_state(self.state[-1])
         for k in self.difeq_vars:
             state[k] = s[k]
         for k in self.dep_vars:
             state[k] = s[k]
-        for k,v in self.extra:
-            state[k] = v[-1]
+        for k,v in self.extra.items():
+            if clip:
+                state[k] = v[-1]
+            else:
+                state[k] = v
+        return state
+
+    def copy(self):
+        return SimState(self.difeq_vars, self.dep_vars, self.state, **self.extra)
+            
 
 class SimObject(object):
     """
@@ -186,7 +211,7 @@ class SimObject(object):
             i = self.instance_count
             type(self).instance_count = i + 1
             name = type(self).__name__ + '%d' % i
-        self.name = name
+        self._name = name
         self.enabled = True
         self._init_state = init_state.copy()  # in case we want to reset
         self._current_state = init_state.copy()
@@ -198,6 +223,10 @@ class SimObject(object):
         # a SimState instance.   
         self.dep_state_vars = {}
 
+    @property
+    def name(self):
+        return self._name
+        
     def all_objects(self):
         """SimObjects are organized in a hierarchy. This method returns an ordered
         dictionary of all enabled SimObjects in this branch of the hierarchy, beginning
@@ -223,7 +252,7 @@ class SimObject(object):
         begins.
         """
         for i,k in enumerate(self._current_state.keys()):
-            self._current_state[k] = result[:-1][i]
+            self._current_state[k] = result[i]
 
     def derivatives(self, state, t):
         """Return derivatives of all state variables.
@@ -245,9 +274,9 @@ class Mechanism(SimObject):
     membrane--channels, electrodes, etc.
     """
     def __init__(self, init_state, section=None, **kwds):
+        self._name = kwds.pop('name', None)
         SimObject.__init__(self, init_state, **kwds)
         self._section = section
-        self._name = None
         self.dep_state_vars['I'] = self.current
         
     def current(self, state):
