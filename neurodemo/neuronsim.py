@@ -41,12 +41,17 @@ class Sim(object):
         return obj
 
     def all_objects(self):
+        """Ordered dictionary of all objects to be simulated, keyed by their names.
+        """
         if self._all_objs is None:
-            objs = []
+            objs = OrderedDict()
             for o in self._objects:
                 if not o.enabled:
                     continue
-                objs.extend(o.all_objects())
+                for k,v in o.all_objects():
+                    if k in objs:
+                        raise NameError("Multiple objects with same name "%s": %s, %s" % (k, objs[k], v))
+                    objs[k] = v
             self._all_objs = objs
         return self._all_objs
     
@@ -62,18 +67,23 @@ class Sim(object):
         opts = {'rtol': 1e-6, 'atol': 1e-6, 'hmax': 5e-3, 'full_output': 1}
         opts.update(kwds)
         
+        # reset all_objs cache in case some part of the sim has changed
         self._all_objs = None
-        svars = []
+        
+        # check that there is something to simulate
         if len(self.all_objects()) == 0:
             raise RuntimeError("No objects added to simulation.")
         
         # Collect / prepare state variables for integration
         init_state = []
+        difeq_vars = []
+        dep_vars = {}
         for o in self.all_objects():
-            for k,v in o.state().items():
-                svars.append((o, k))
+            for k,v in o.difeq_state().items():
+                difeq_vars.append(k)
                 init_state.append(v)
-        self._simstate = SimState(svars)
+            dep_vars.update(o.dep_state_vars)
+        self._simstate = SimState(difeq_vars, dep_vars)
         t = np.arange(0, samples) * self.dt + self._time
 
         # Run the simulation
@@ -82,13 +92,13 @@ class Sim(object):
         # Update current state variables
         p = 0
         for o in self.all_objects():
-            nvar = len(o.state_vars)
+            nvar = len(o.difeq_state_vars)
             o.update_result(result[:, p:p+nvar])
             p += nvar
             
         self._time = t[-1]
         self._last_run_time = t
-        return SimState(svars, result.T, t=t) 
+        return SimState(difeq_vars, dep_vars, result.T, t=t)
 
     def derivatives(self, state, t):
         objs = self.all_objects()
@@ -99,40 +109,49 @@ class Sim(object):
             d.extend(o.derivatives(self._simstate, t))
             
         return d
-    
-    def get_current_state(self):
+
+    def state(self):
         """Return dictionary of all dependent and independent state
         variables.
         """
         state = {}
         for o in self.all_objects():
-            name = o.name
-            for k,v in o.state().items():
-                state[name + '.' + k] = v
+            for k,v in o.state(self._simstate).items():
+                state[k] = v
         return state
         
-
+    
 class SimState(object):
-    """Contains the state of all variables in the simulation.
+    """Contains the state of all diff. eq. variables in the simulation.
     
     During simulation runs, this is used to carry information about all
     variables at the current timepoint. After the simulation finishes, this is
     used to carry all state variable data collected during the simulation.
     """
-    def __init__(self, keys, state=None, **extra):
-        self.keys = keys
-        self.indexes = {}
-        for i, k in enumerate(keys):
-            self.indexes[k] = i
-            self.indexes[(k[0].name, k[1])] = i
-        self.state = state
+    def __init__(self, difeq_vars, dep_vars=None, difeq_state=None, **extra):
+        self.difeq_vars = difeq_vars
+        # record indexes of difeq vars for fast retrieval
+        self.indexes = dict([(k, i) for i,k in enumerate(difeq_vars)])
+            
+        self.dep_vars = dep_vars
+        self.state = difeq_state
         self.extra = extra
         
+    def set_state(self, difeq_state):
+        self.state = difeq_state
+        
     def __getitem__(self, key):
-        if key in self.indexes:
+        # allow lookup by (object, var)
+        if isinstance(key, tuple):
+            key = key[0].name + '.' + key[1]
+        try:
+            # try this first for speed
             return self.state[self.indexes[key]]
-        else:
-            return self.extra[key]
+        except KeyError:
+            if key in self.dep_vars:
+                return self.dep_vars[key](self)
+            else:
+                return self.extra[key]
 
     def __repr__(self):
         rep = 'SimState:\n'
@@ -140,6 +159,19 @@ class SimState(object):
             rep += '  %s.%s = %s\n' % (k[0].name, k[1], self.state[i])
         return rep
 
+    def get_final_state(self):
+        """Return a dictionary of all diff. eq. state variables and dependent
+        variables for all objects in the simulation.
+        """
+        state = {}
+        s = self.copy()
+        s.set_state(self.state[-1])
+        for k in self.difeq_vars:
+            state[k] = s[k]
+        for k in self.dep_vars:
+            state[k] = s[k]
+        for k,v in self.extra:
+            state[k] = v[-1]
 
 class SimObject(object):
     """
@@ -156,45 +188,55 @@ class SimObject(object):
             name = type(self).__name__ + '%d' % i
         self.name = name
         self.enabled = True
-        self._init_state = init_state
-        self._state_vars = tuple(init_state.keys())
+        self._init_state = init_state.copy()  # in case we want to reset
         self._current_state = init_state.copy()
         self._sub_objs = []
         self.records = []
         self._rec_dtype = [(sv, float) for sv in init_state.keys()]
-    
-    def state(self):
-        return self._current_state
+        
+        # maps name:function for computing state vars that can be computed from
+        # a SimState instance.   
+        self.dep_state_vars = {}
 
     def all_objects(self):
-        objs = [self]
+        """SimObjects are organized in a hierarchy. This method returns an ordered
+        dictionary of all enabled SimObjects in this branch of the hierarchy, beginning
+        with self.
+        """
+        objs = OrderedDict()
+        objs[self.name] = self
         for o in self._sub_objs:
             if not o.enabled:
                 continue
-            objs.extend(o.all_objects())
+            objs.update(o.all_objects())
         return objs
-        
-    @property
-    def state_vars(self):
-        return self._state_vars
+    
+    def difeq_state(self):
+        """An ordered dictionary of all variables required to solve the
+        diff. eq. for this object.
+        """
+        return self._current_state
 
-    def update_result(self, result):
-        self._last_result = result
-        self.set_current_state(result[-1])
-
-    def set_current_state(self, state):
-        for i,k in enumerate(self.state_vars):
-            self._current_state[k] = state[i]
+    def update_state(self, result):
+        """Update diffeq state variables with their last simulated values.
+        These will be used to initialize the solver when the next simulation
+        begins.
+        """
+        for i,k in enumerate(self._current_state.keys()):
+            self._current_state[k] = result[:-1][i]
 
     def derivatives(self, state, t):
         """Return derivatives of all state variables.
         
-        Must be reimplemented in subclasses.
+        Must be reimplemented in subclasses. This is used by the ODE solver
+        to integrate during the simulation; should be as fast as possible.
         """
         raise NotImplementedError()
-    
+
     @property
     def sim(self):
+        """The Sim instance in which this object is being used.
+        """
         return self._sim
 
 
@@ -205,13 +247,29 @@ class Mechanism(SimObject):
     def __init__(self, init_state, section=None, **kwds):
         SimObject.__init__(self, init_state, **kwds)
         self._section = section
+        self._name = None
+        self.dep_state_vars['I'] = self.current
         
-    def current(self):
+    def current(self, state):
         """Return the membrane current being passed by this mechanism.
         
         Must be implemented in subclasses.
         """
         raise NotImplementedError()
+
+    @property
+    def name(self):
+        if self._name is None:
+            # pick a name that is unique to the section we live in
+            names = [o.name for o in self._section.mechanisms]
+            pfx = self._section.name + '.'
+            name = pfx + self.type
+            i = 1
+            while name in names:
+                name = pfx + self.type + str(i)
+                i += 1
+            self._name = name
+        return self._name
 
     @property
     def section(self):
@@ -237,6 +295,8 @@ class Channel(Mechanism):
         self.gbar = gbar
         if self.rates is None:
             type(self).compute_rates()
+        self.dep_state_vars['G'] = self.conductance
+        self.dep_state_vars['OP'] = self.open_probability
     
     @property
     def g(self):
@@ -271,13 +331,17 @@ class Channel(Mechanism):
 class Section(SimObject):
     def __init__(self, radius=10*um, vm=-65*mV, **kwds):
         self.area = 4 * 3.1415926 * radius**2
-        self.cm = self.area * (1 * uF / cm**2)
+        self.cm_bar = 1 * uF/cm**2
         self.ek = -77*mV
         self.ena = 50*mV
         self.ecl = -70*mV
         init_state = OrderedDict([('Vm', vm)])
         SimObject.__init__(self, init_state, **kwds)
         self.mechanisms = []
+
+    @property
+    def cm(self):
+        return self.area * self.cm_bar
 
     def add(self, mech):
         assert mech._section is None
@@ -351,13 +415,6 @@ class MultiClamp(Mechanism):
         if mode not in self.holding:
             raise ValueError("Mode must be 'ic' or 'vc'")
         self.holding[mode] = val
-
-    def pipette_current(self):
-        """Compute current through pipette from most recent simulation run.
-        """
-        ve = self._last_result[:,0]
-        vm = self.section._last_result[:,0]
-        return (ve-vm) / self.ra
 
     def current(self, state, t=None):
         # Compute current through tip of pipette at this timestep

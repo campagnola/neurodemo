@@ -65,7 +65,7 @@ class SimRunner(QtCore.QObject):
                 continue
             rec[key] = data
         
-        state = self.sim.get_current_state()
+        state = result.state()
         
         self.new_result.emit(rec, state)
         
