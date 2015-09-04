@@ -33,7 +33,7 @@ class DemoWindow(QtGui.QWidget):
         self.dexh = self.neuron.add(ndemo.IH())
         self.dexh.enabled = False
         
-        self.clamp = self.neuron.add(ndemo.MultiClamp(mode='ic'))
+        self.clamp = self.neuron.add(ndemo.PatchClamp(mode='ic'))
         #cmd = np.zeros(int(1/self.dt))
         #cmd[int(0.4/self.dt):int(0.8/self.dt)] = 200e-12
         #self.clamp.set_command(cmd, dt=self.dt)
@@ -171,7 +171,6 @@ class DemoWindow(QtGui.QWidget):
         self.runner.stop()
         
     def new_result(self, final_state, result):
-        self.last_result = result
         vm = result['soma.Vm'][1:]
         self.vm_plot.append(vm)
         
@@ -180,9 +179,12 @@ class DemoWindow(QtGui.QWidget):
                 continue
             plt.append(result[k][1:])
             
+        # Let the clamp decide which triggered regions of the data to extract
+        # for pulse plots
         self.clamp_param.new_result(result)
         
-        self.neuronview.update(vm[-1])
+        # update the schematic
+        self.neuronview.update_state(final_state)
 
     def load_preset(self, preset):
         if preset == 'Basic Membrane':
@@ -338,7 +340,7 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
             return
         try:
             vm = result['soma.Vm'][:-1]
-            ip = result['MultiClamp0.I'][:-1]
+            ip = result['soma.PatchClamp.I'][:-1]
             t = result['t'][:-1]
         except KeyError:
             return

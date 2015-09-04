@@ -192,6 +192,7 @@ class SimState(object):
                 state[k] = v[-1]
             else:
                 state[k] = v
+        
         return state
 
     def copy(self):
@@ -210,7 +211,10 @@ class SimObject(object):
         if name is None:
             i = self.instance_count
             type(self).instance_count = i + 1
-            name = type(self).__name__ + '%d' % i
+            if i == 0:
+                name = self.type
+            else:
+                name = self.type + '%d' % i
         self._name = name
         self.enabled = True
         self._init_state = init_state.copy()  # in case we want to reset
@@ -274,8 +278,8 @@ class Mechanism(SimObject):
     membrane--channels, electrodes, etc.
     """
     def __init__(self, init_state, section=None, **kwds):
-        self._name = kwds.pop('name', None)
         SimObject.__init__(self, init_state, **kwds)
+        self._name = kwds.pop('name', None)  # overwrite auto-generated name
         self._section = section
         self.dep_state_vars['I'] = self.current
         
@@ -290,7 +294,18 @@ class Mechanism(SimObject):
     def name(self):
         if self._name is None:
             # pick a name that is unique to the section we live in
-            names = [o.name for o in self._section.mechanisms]
+            
+            # first collect all names
+            names = []
+            if self._section is None:
+                return None
+            for o in self._section.mechanisms:
+                if isinstance(o, Mechanism) and o._name is None:
+                    # skip to avoid recursion
+                    continue
+                names.append(o.name)
+                
+            # iterate until we find an unused name
             pfx = self._section.name + '.'
             name = pfx + self.type
             i = 1
@@ -358,6 +373,8 @@ class Channel(Mechanism):
 
 
 class Section(SimObject):
+    type = 'section'
+    
     def __init__(self, radius=10*um, vm=-65*mV, **kwds):
         self.area = 4 * 3.1415926 * radius**2
         self.cm_bar = 1 * uF/cm**2
@@ -390,7 +407,9 @@ class Section(SimObject):
         return [dv]
         
 
-class MultiClamp(Mechanism):
+class PatchClamp(Mechanism):
+    type = 'PatchClamp'
+    
     def __init__(self, mode='ic', ra=5*MOhm, cpip=3*pF, **kwds):
         self.ra = ra
         self.cpip = cpip
