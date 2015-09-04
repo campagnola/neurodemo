@@ -20,7 +20,7 @@ class DemoWindow(QtGui.QWidget):
     def __init__(self):
         # set up simulation in remote process
         self.dt = 25*us
-        self.proc = mp.QtProcess()
+        self.proc = mp.QtProcess(debug=False)
         ndemo = self.proc._import('neurodemo')
         self.sim = ndemo.Sim(temp=6.3, dt=self.dt)
         self.sim._setProxyOptions(deferGetattr=True)
@@ -69,10 +69,10 @@ class DemoWindow(QtGui.QWidget):
         self.show()
         
         self.channel_params = [
-            ChannelParameter(self.leak, 'Ileak'),
-            ChannelParameter(self.hhna, 'INa'),
-            ChannelParameter(self.hhk, 'IK'),
-            ChannelParameter(self.dexh, 'IH'),
+            ChannelParameter(self.leak),
+            ChannelParameter(self.hhna),
+            ChannelParameter(self.hhk),
+            ChannelParameter(self.dexh),
         ]
         for ch in self.channel_params:
             ch.plots_changed.connect(self.plots_changed)
@@ -98,7 +98,7 @@ class DemoWindow(QtGui.QWidget):
         self.runner = ndemo.SimRunner(self.sim)
         self.runner.add_request('soma.Vm', (self.neuron, 'Vm')) 
         self.runner.add_request('t', 't') 
-        self.runner.new_result.connect(mp.proxy(self.new_result, autoProxy=False))
+        self.runner.new_result.connect(mp.proxy(self.new_result, autoProxy=False, callSync='off'))
         self.start()
 
         self.clamp_param['Plot Current'] = True
@@ -172,7 +172,7 @@ class DemoWindow(QtGui.QWidget):
     def stop(self):
         self.runner.stop()
         
-    def new_result(self, result):
+    def new_result(self, result, state):
         self.last_result = result
         vm = result['soma.Vm'][1:]
         self.vm_plot.append(vm)
@@ -206,8 +206,9 @@ class ChannelParameter(pt.parameterTypes.SimpleParameter):
     # emitted when a plot should be shown or hidden
     plots_changed = QtCore.Signal(object, object, object, object)  # self, channel, name, on/off
     
-    def __init__(self, channel, name):
+    def __init__(self, channel):
         self.channel = channel
+        name = channel.name
         ch_params = [
             dict(name='ḡ', type='float', value=channel.gbar*cm**2, suffix='S/cm²', siPrefix=True, step=0.1, dec=True),
             dict(name='Erev', type='float', value=channel.erev, suffix='V', siPrefix=True, step=5*mV),
@@ -240,7 +241,7 @@ class ChannelParameter(pt.parameterTypes.SimpleParameter):
 class ClampParameter(pt.parameterTypes.GroupParameter):
     # emitted when a plot should be shown or hidden
     plots_changed = QtCore.Signal(object, object, object, object)  # self, channel, name, on/off
-        
+    
     def __init__(self, clamp, dt):
         self.clamp = clamp
         self.dt = dt
@@ -338,9 +339,9 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
         if len(self.triggers) == 0:
             return
         try:
-            vm = result['soma.Vm']
-            ip = result['Patch Clamp.I']
-            t = result['t']
+            vm = result['soma.Vm'][:-1]
+            ip = result['Patch Clamp.I'][:-1]
+            t = result['t'][:-1]
         except KeyError:
             return
         self.plot_triggered(vm, ip, t)

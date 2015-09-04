@@ -9,10 +9,19 @@ from pyqtgraph.Qt import QtGui, QtCore
 class SimRunner(QtCore.QObject):
     """Run a simulation continuously and emit signals whenever results are ready.
     """
-    new_result = QtCore.Signal(object)
+    new_result = QtCore.Signal(object, object)  # last_record, current_state
     
     def __init__(self, sim):
         QtCore.QObject.__init__(self)
+        
+        # dumps profiling data to prof.pstat
+        # view with: python gprof2dot/gprof2dot.py -f pstats prof.pstat  | dot -Tpng -o prof.png && gwenview prof.png
+        #from cProfile import Profile
+        #self.prof = Profile()
+        #import atexit
+        #atexit.register(lambda: self.prof.dump_stats('prof.pstat'))
+        #self.prof.enable()
+        
         self.sim = sim
         self.speed = 1.0
         self.requests = {}
@@ -37,7 +46,7 @@ class SimRunner(QtCore.QObject):
         blocksize = int(max(2, self.blocksize * self.speed))
         result = self.sim.run(blocksize, **self.run_args)
         
-        ret = {}
+        rec = {}
         for key, req in self.requests.items():
             try:
                 if isinstance(req, tuple):
@@ -54,9 +63,11 @@ class SimRunner(QtCore.QObject):
             except KeyError:
                 print("Key '%s' not found in sim result; skipping." % key)
                 continue
-            ret[key] = data
+            rec[key] = data
         
-        self.new_result.emit(ret)
+        state = self.sim.get_current_state()
+        
+        self.new_result.emit(rec, state)
         
     def set_speed(self, speed):
         self.speed = speed

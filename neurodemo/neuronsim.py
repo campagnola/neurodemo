@@ -50,17 +50,6 @@ class Sim(object):
             self._all_objs = objs
         return self._all_objs
     
-    def state(self):
-        s = OrderedDict()
-        for o in self.all_objects():
-            for k,v in o.state().items():
-                s[(o,k)] = v
-        return s
-    
-    @property
-    def state_vars(self):
-        return list(self.state().keys())
-
     @property
     def time(self):
         return self._time
@@ -77,16 +66,20 @@ class Sim(object):
         svars = []
         if len(self.all_objects()) == 0:
             raise RuntimeError("No objects added to simulation.")
-            
+        
+        # Collect / prepare state variables for integration
+        init_state = []
         for o in self.all_objects():
-            for k in o.state_vars:
+            for k,v in o.state().items():
                 svars.append((o, k))
+                init_state.append(v)
         self._simstate = SimState(svars)
-        t = np.arange(1, samples+1) * self.dt + self._time
+        t = np.arange(0, samples) * self.dt + self._time
 
         # Run the simulation
-        init_state = list(self.state().values())
         result, info = scipy.integrate.odeint(self.derivatives, init_state, t, **opts)
+        
+        # Update current state variables
         p = 0
         for o in self.all_objects():
             nvar = len(o.state_vars)
@@ -107,6 +100,17 @@ class Sim(object):
             
         return d
     
+    def get_current_state(self):
+        """Return dictionary of all dependent and independent state
+        variables.
+        """
+        state = {}
+        for o in self.all_objects():
+            name = o.name
+            for k,v in o.state().items():
+                state[name + '.' + k] = v
+        return state
+        
 
 class SimState(object):
     """Contains the state of all variables in the simulation.
@@ -426,6 +430,8 @@ class MultiClamp(Mechanism):
         
 
 class Leak(Channel):
+    type = 'Ileak'
+    
     def __init__(self, gbar=0.1*mS/cm**2, erev=-55*mV, **kwds):
         Channel.__init__(self, gbar, {}, **kwds)
         self.erev = erev
@@ -444,6 +450,8 @@ class Leak(Channel):
 class HHK(Channel):
     """Hodgkin-Huxley K channel.
     """
+    type = 'IK'
+    
     @classmethod
     def compute_rates(cls):
         cls.rates_vmin = -100
@@ -487,6 +495,8 @@ class HHK(Channel):
 class HHNa(Channel):
     """Hodgkin-Huxley Na channel.
     """
+    type = 'INa'
+    
     @classmethod
     def compute_rates(cls):
         cls.rates_vmin = -100
@@ -537,6 +547,8 @@ class HHNa(Channel):
 class IH(Channel):
     """Ih from Destexhe 1993
     """
+    type = 'IH'
+    
     def __init__(self, gbar=30*mS/cm**2, **kwds):
         init_state = OrderedDict([('f', 0), ('s', 0)]) 
         Channel.__init__(self, gbar, init_state, **kwds)
@@ -564,6 +576,8 @@ class IH(Channel):
 class LGNa(Channel):
     """Cortical sodium channel (Lewis & Gerstner 2002, p.124)
     """
+    type = 'INa'
+    
     def __init__(self, gbar=112.5*mS/cm**2, **kwds):
         init_state = OrderedDict([('m', 0.019), ('h', 0.876)]) 
         Channel.__init__(self, gbar, init_state, **kwds)
@@ -605,6 +619,8 @@ class LGNa(Channel):
 class LGKfast(Channel):
     """Cortical fast potassium channel (Lewis & Gerstner 2002, p.124)
     """
+    type = 'IKf'
+    
     def __init__(self, gbar=225*mS/cm**2, **kwds):
         init_state = OrderedDict([('n', 0.00024)]) 
         Channel.__init__(self, gbar, init_state, **kwds)
@@ -635,6 +651,8 @@ class LGKfast(Channel):
 class LGKslow(Channel):
     """Cortical slow potassium channel (Lewis & Gerstner 2002, p.124)
     """
+    type = 'IKs'
+    
     def __init__(self, gbar=0.225*mS/cm**2, **kwds):
         init_state = OrderedDict([('n', 0.0005)]) 
         Channel.__init__(self, gbar, init_state, **kwds)
