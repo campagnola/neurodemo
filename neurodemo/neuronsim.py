@@ -109,7 +109,7 @@ class Sim(object):
         self._simstate.extra['t'] = t
         d = []
         for o in objs:
-            d.extend(o.derivatives(self._simstate, t))
+            d.extend(o.derivatives(self._simstate))
             
         return d
 
@@ -259,7 +259,7 @@ class SimObject(object):
         for i,k in enumerate(self._current_state.keys()):
             self._current_state[k] = result[i]
 
-    def derivatives(self, state, t):
+    def derivatives(self, state):
         """Return derivatives of all state variables.
         
         Must be reimplemented in subclasses. This is used by the ODE solver
@@ -351,7 +351,7 @@ class Channel(Mechanism):
         op = self.open_probability(state)
         return self.g * op
 
-    def current(self, state, t=None):
+    def current(self, state):
         vm = state[self.section, 'Vm']
         g = self.conductance(state)
         return -g * (vm - self.erev)
@@ -384,6 +384,7 @@ class Section(SimObject):
         self.ecl = -70*mV
         init_state = OrderedDict([('Vm', vm)])
         SimObject.__init__(self, init_state, **kwds)
+        self.dep_state_vars['I'] = self.current
         self.mechanisms = []
 
     @property
@@ -397,15 +398,20 @@ class Section(SimObject):
         self._sub_objs.append(mech)
         return mech
 
-    def derivatives(self, state, t):
+    def derivatives(self, state):
         Im = 0
         for mech in self.mechanisms:
             if not mech.enabled:
                 continue
-            Im += mech.current(state, t)
+            Im += mech.current(state)
             
         dv = Im / self.cm
         return [dv]
+    
+    def current(self, state):
+        """Return the current flowing across the membrane capacitance.
+        """
+        return self.cm * state[self.name + '.Vm']
         
 
 class PatchClamp(Mechanism):
@@ -465,13 +471,14 @@ class PatchClamp(Mechanism):
             raise ValueError("Mode must be 'ic' or 'vc'")
         self.holding[mode] = val
 
-    def current(self, state, t=None):
+    def current(self, state):
         # Compute current through tip of pipette at this timestep
         vm = state[self.section, 'Vm']
         ve = state[self, 'Ve']
         return (ve - vm) / self.ra
     
-    def derivatives(self, state, t):
+    def derivatives(self, state):
+        t = state['t']
         self.last_time = t
         ## Select between VC and CC
         cmd = self.get_cmd(t)
@@ -549,7 +556,7 @@ class Leak(Channel):
         else:
             return 1
 
-    def derivatives(self, state, t):
+    def derivatives(self, state):
         return []
 
 
@@ -579,7 +586,7 @@ class HHK(Channel):
     def open_probability(self, state):
         return state[self, 'n']**4
 
-    def derivatives(self, state, t):
+    def derivatives(self, state):
         # temperature dependence of rate constants
         q10 = 3 ** ((self.sim.temp-6.3) / 10.)
         vm = state[self.section, 'Vm'] - self.shift
@@ -626,7 +633,7 @@ class HHNa(Channel):
     def open_probability(self, state):
         return state[self, 'm']**3 * state[self, 'h']
 
-    def derivatives(self, state, t):
+    def derivatives(self, state):
         # temperature dependence of rate constants
         q10 = 3 ** ((self.sim.temp-6.3) / 10.)
         vm = state[self.section, 'Vm'] - self.shift
@@ -664,7 +671,7 @@ class IH(Channel):
     def open_probability(self, state):
         return state[self, 'f'] * state[self, 's']
     
-    def derivatives(self, state, t):
+    def derivatives(self, state):
         vm = state[self.section, 'Vm'] - self.shift
         f = state[self, 'f']
         s = state[self, 's']
@@ -692,7 +699,7 @@ class LGNa(Channel):
     def open_probability(self, state):
         return state[self, 'm']**3 * state[self, 'h']
 
-    def derivatives(self, state, t):
+    def derivatives(self, state):
         # temperature dependence of rate constants
         # TODO: not sure about the base temp:
         q10 = 3 ** ((self.sim.temp - 37.) / 10.)
@@ -735,7 +742,7 @@ class LGKfast(Channel):
     def open_probability(self, state):
         return state[self, 'n']**2
 
-    def derivatives(self, state, t):
+    def derivatives(self, state):
         # temperature dependence of rate constants
         # TODO: not sure about the base temp:
         q10 = 3 ** ((self.sim.temp - 37.) / 10.)
@@ -767,7 +774,7 @@ class LGKslow(Channel):
     def open_probability(self, state):
         return state[self, 'n']**4
 
-    def derivatives(self, state, t):
+    def derivatives(self, state):
         # temperature dependence of rate constants
         # TODO: not sure about the base temp:
         q10 = 3 ** ((self.sim.temp - 37.) / 10.)

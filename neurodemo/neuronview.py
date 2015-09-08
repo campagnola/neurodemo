@@ -24,12 +24,9 @@ class NeuronView(pg.GraphicsLayoutWidget):
         
         self.cell = Cell('soma')
         self.view.addItem(self.cell)
+        self.cell.rotate(90)
         #self.grid = pg.GridItem()
         #self.view.addItem(self.grid)
-        
-        #self.svg = QtSvg.QGraphicsSvgItem(svg_file('cell'))
-        #self.svg.translate(-200, -150)
-        #self.view.addItem(self.svg)
         
         self.pipette = Pipette('soma.PatchClamp')
         self.view.addItem(self.pipette)
@@ -66,6 +63,9 @@ class Cell(QtGui.QGraphicsItemGroup):
         self.soma2 = QtGui.QGraphicsEllipseItem(QtCore.QRectF(-52, -52, 104, 104))
         self.soma2.setPen(pg.mkPen(0.5, width=1, cosmetic=False))
         self.soma2.setParentItem(self)
+        
+        self.current = Current(self.key)
+        self.current.setParentItem(self)
 
     def update_state(self, state):
         vm = state[self.key + '.Vm']
@@ -74,6 +74,7 @@ class Cell(QtGui.QGraphicsItemGroup):
             (vm + 30e-3) * 5e3,
             (-65e-3 - vm) * 10e3], 0, 205) + 50
         self.soma.setBrush(pg.mkBrush((rgb[0], rgb[1], rgb[2], 100)))
+        self.current.update_state(state)
 
         
 class Channel(QtGui.QGraphicsItemGroup):
