@@ -121,6 +121,8 @@ class DemoWindow(QtGui.QWidget):
                 #self.load_preset(val)
             elif param is self.params.child('Cell Schematic'):
                 self.neuronview.setVisible(val)
+            elif param is self.params.child('Cell Schematic', 'Show Circuit'):
+                self.neuronview.showCircuit(val)
         
     def plots_changed(self, param, channel, name, plot):
         key = channel.name + '.' + name
