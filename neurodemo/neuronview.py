@@ -1,8 +1,8 @@
 import os, tempfile
+import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore, QtSvg
-import numpy as np
-
+from .arrow import ArrowItem
 
 # for storing dynamically-generated svg files
 tmpdir = tempfile.mkdtemp()
@@ -20,10 +20,10 @@ class NeuronView(pg.GraphicsLayoutWidget):
         self.setRenderHint(QtGui.QPainter.Antialiasing)
         self.view = self.addViewBox(0, 0)
         self.view.invertY()  # because svg +y points downward
-        self.soma = QtGui.QGraphicsEllipseItem(QtCore.QRectF(-10, -10, 20, 20))
-        self.soma.setPen(pg.mkPen(0.5))
-        self.soma2 = QtGui.QGraphicsEllipseItem(QtCore.QRectF(-10.5, -10.5, 21, 21))
-        self.soma2.setPen(pg.mkPen(0.5))
+        self.soma = QtGui.QGraphicsEllipseItem(QtCore.QRectF(-50, -50, 100, 100))
+        self.soma.setPen(pg.mkPen(0.5, width=1, cosmetic=False))
+        self.soma2 = QtGui.QGraphicsEllipseItem(QtCore.QRectF(-52, -52, 104, 104))
+        self.soma2.setPen(pg.mkPen(0.5, width=1, cosmetic=False))
         self.view.addItem(self.soma2)
         self.view.addItem(self.soma)
         self.view.setAspectLocked()
@@ -31,9 +31,9 @@ class NeuronView(pg.GraphicsLayoutWidget):
         #self.grid = pg.GridItem()
         #self.view.addItem(self.grid)
         
-        self.svg = QtSvg.QGraphicsSvgItem(svg_file('cell'))
-        self.svg.translate(-200, -150)
-        self.view.addItem(self.svg)
+        #self.svg = QtSvg.QGraphicsSvgItem(svg_file('cell'))
+        #self.svg.translate(-200, -150)
+        #self.view.addItem(self.svg)
         
         self.channels = []
         angle = 0
@@ -70,8 +70,8 @@ class Channel(QtGui.QGraphicsItemGroup):
         open(fname, 'w').write(svg)
         return fname
     
-    def __init__(self, key, color):
-        self.key = key
+    def __init__(self, channel_name, color):
+        self.key = channel_name + '.OP'
         QtGui.QGraphicsItemGroup.__init__(self)
         svg = self.get_svg(color)
         self.svg = [QtSvg.QGraphicsSvgItem(svg),
@@ -86,10 +86,37 @@ class Channel(QtGui.QGraphicsItemGroup):
         self.bg.setParentItem(self)
         self.bg.setZValue(-1)
         self.bg.setBrush(pg.mkBrush(100, 0, 0))
+        
+        self.current = Current(channel_name)
+        self.current.setParentItem(self)
     
     def update_state(self, state):
-        op = state[self.key + '.OP']
+        op = state[self.key]
         self.svg[0].setPos(op * -15, 0)
         self.svg[1].setPos(op * 15, 0)
-            
+        self.current.update_state(state)
 
+
+class Current(QtGui.QGraphicsItemGroup):
+    
+    def __init__(self, channel_name, color='y'):
+        QtGui.QGraphicsItemGroup.__init__(self)
+        self.key = channel_name + '.I'
+        self.arrow = ArrowItem(brush=(255, 255, 0, 200), angle=90, tailLen=20, pxMode=False, 
+                               pen={'color': 'k', 'width': 1, 'cosmetic': False})
+        self.arrow.setParentItem(self)
+
+    def update_state(self, state):
+        I = state[self.key]
+        idir = I / abs(I)
+        amp = np.clip((abs(I) / 10e-9), 0, 1) ** 0.2  # normalize to 10 nA range
+        self.arrow.setStyle(
+            angle=90 * idir,
+            tailLen=20,
+            tailWidth=5,
+            headLen=20,
+            headWidth=10,
+        )
+        self.resetTransform()
+        self.scale(amp, amp)
+        self.arrow.setPos(0, -20 * idir)
