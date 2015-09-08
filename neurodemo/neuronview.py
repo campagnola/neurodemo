@@ -19,7 +19,6 @@ class NeuronView(pg.GraphicsLayoutWidget):
         pg.GraphicsLayoutWidget.__init__(self)
         self.setRenderHint(QtGui.QPainter.Antialiasing)
         self.view = self.addViewBox(0, 0)
-        self.view.invertY()  # because svg +y points downward
         self.view.setAspectLocked()
         
         self.cell = Cell('soma')
@@ -31,7 +30,7 @@ class NeuronView(pg.GraphicsLayoutWidget):
         self.pipette = Pipette('soma.PatchClamp')
         self.view.addItem(self.pipette)
         self.pipette.setZValue(1)
-        self.pipette.setPos(0, -50)
+        self.pipette.setPos(0, 50)
         
         self.channels = []
         angle = 180
@@ -40,7 +39,7 @@ class NeuronView(pg.GraphicsLayoutWidget):
             channel = Channel(key, color)
             channel.rotate(angle)
             angle += 30
-            channel.translate(0, -50)
+            channel.translate(0, 50)
             self.view.addItem(channel)
             self.channels.append(channel)
         
@@ -75,7 +74,13 @@ class Cell(QtGui.QGraphicsItemGroup):
         
         self.current = Current(self.key, center=False)
         self.current.setParentItem(self)
-        self.current.setPos(0, -50)
+        self.current.setPos(0, 50)
+        self.current.setZValue(2)
+        
+        self.cap = Capacitor(l1=50, l2=50)
+        self.cap.setParentItem(self)
+        self.cap.setZValue(1)
+        
 
     def update_state(self, state):
         vm = state[self.key + '.Vm']
@@ -101,7 +106,8 @@ class Channel(QtGui.QGraphicsItemGroup):
         svg = self.get_svg(color)
         self.svg = [QtSvg.QGraphicsSvgItem(svg),
                     QtSvg.QGraphicsSvgItem(svg)]
-        self.svg[1].scale(-1, 1)
+        self.svg[0].scale(1, -1)
+        self.svg[1].scale(-1, -1)
         
         for svg in self.svg:
             svg.setParentItem(self)
@@ -123,7 +129,6 @@ class Channel(QtGui.QGraphicsItemGroup):
 
 
 class Current(QtGui.QGraphicsItemGroup):
-    
     def __init__(self, channel_name, color='y', center=True):
         QtGui.QGraphicsItemGroup.__init__(self)
         self.key = channel_name + '.I'
@@ -142,7 +147,7 @@ class Current(QtGui.QGraphicsItemGroup):
         idir = 1 if I > 0 else -1
         amp = np.clip((abs(I) / 10e-9), 0, 1) ** 0.2  # normalize to 10 nA range
         self.arrow.setStyle(
-            angle=-90 * idir,
+            angle=90 * idir,
             tailLen=20,
             tailWidth=5,
             headLen=20,
@@ -151,12 +156,12 @@ class Current(QtGui.QGraphicsItemGroup):
         self.resetTransform()
         self.scale(amp, amp)
         if self.center:
-            self.arrow.setPos(0, 20 * idir)
+            self.arrow.setPos(0, -20 * idir)
         else:
-            if idir > 0:
-                self.arrow.setPos(0, 40)
-            else:
+            if idir < 0:
                 self.arrow.setPos(0, 0)
+            else:
+                self.arrow.setPos(0, -40)
 
 
 class Pipette(QtGui.QGraphicsItemGroup):
@@ -165,8 +170,10 @@ class Pipette(QtGui.QGraphicsItemGroup):
         QtGui.QGraphicsItemGroup.__init__(self)
         self.key = key
         self.svg = QtSvg.QGraphicsSvgItem(svg_file('pipette'))
+        self.svg.scale(1, -1)
         self.svg.translate(-50, -255.67)
         self.svg.setParentItem(self)
+        
         
         self.current = Current(key)
         self.current.setParentItem(self)
@@ -180,12 +187,70 @@ class Pipette(QtGui.QGraphicsItemGroup):
         
         self.voltage = QtGui.QGraphicsPathItem(path)
         self.voltage.setPen(pg.mkPen(None))
-        self.voltage.scale(1, -1)
         self.voltage.translate(-50, -5)
         self.voltage.setParentItem(self)
         self.voltage.setZValue(-1)
+        
+        self.res = Resistor(l1=50, l2=150)
+        self.res.setParentItem(self)
+        self.res.setZValue(1)
+        self.res.translate(0, -50)
+        
+        self.cap = Capacitor(l1=15, l2=30)
+        self.cap.translate(0, 40)
+        self.cap.rotate(-90)
+        self.cap.setParentItem(self)
+        self.cap.setZValue(1)
+        
         
     def update_state(self, state):
         ve = state[self.key + '.Ve']
         self.voltage.setBrush(pg.mkBrush(v_color(ve)))
         self.current.update_state(state)
+
+
+class Capacitor(QtGui.QGraphicsItemGroup):
+    def __init__(self, l1, l2, w1=10, w2=10):
+        QtGui.QGraphicsItemGroup.__init__(self)
+        
+        path = QtGui.QPainterPath()
+        path.moveTo(0, 0)
+        path.lineTo(0, l1-3)
+        path.moveTo(-w1/2, l1-3)
+        path.lineTo(w1/2, l1-3)
+        path.moveTo(-w2/2, l1+3)
+        path.lineTo(w2/2, l1+3)
+        path.moveTo(0, l1+3)
+        path.lineTo(0, l1+l2)
+        
+        self.line = QtGui.QGraphicsPathItem(path)
+        self.line.setBrush(pg.mkBrush(None))
+        self.line.setPen(pg.mkPen('w', width=2))
+        self.line.setParentItem(self)
+
+
+class Resistor(QtGui.QGraphicsItemGroup):
+    def __init__(self, l1, l2):
+        QtGui.QGraphicsItemGroup.__init__(self)
+        
+        w = 3
+        h = w / 3**0.5
+        
+        path = QtGui.QPainterPath()
+        path.moveTo(0, 0)
+        y = l1 - h*6
+        path.lineTo(0, y)
+        y += h
+        for i in range(3):
+            path.lineTo(-w, y)
+            path.lineTo(w, y+h*2)
+            y += h*4
+        path.lineTo(0, y-h)
+        path.lineTo(0, l1+l2)
+        
+        self.line = QtGui.QGraphicsPathItem(path)
+        self.line.setBrush(pg.mkBrush(None))
+        self.line.setPen(pg.mkPen('w', width=2))
+        self.line.setParentItem(self)
+    
+    
