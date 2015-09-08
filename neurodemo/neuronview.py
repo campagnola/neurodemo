@@ -20,14 +20,10 @@ class NeuronView(pg.GraphicsLayoutWidget):
         self.setRenderHint(QtGui.QPainter.Antialiasing)
         self.view = self.addViewBox(0, 0)
         self.view.invertY()  # because svg +y points downward
-        self.soma = QtGui.QGraphicsEllipseItem(QtCore.QRectF(-50, -50, 100, 100))
-        self.soma.setPen(pg.mkPen(0.5, width=1, cosmetic=False))
-        self.soma2 = QtGui.QGraphicsEllipseItem(QtCore.QRectF(-52, -52, 104, 104))
-        self.soma2.setPen(pg.mkPen(0.5, width=1, cosmetic=False))
-        self.view.addItem(self.soma2)
-        self.view.addItem(self.soma)
         self.view.setAspectLocked()
         
+        self.cell = Cell('soma')
+        self.view.addItem(self.cell)
         #self.grid = pg.GridItem()
         #self.view.addItem(self.grid)
         
@@ -52,17 +48,32 @@ class NeuronView(pg.GraphicsLayoutWidget):
             self.channels.append(channel)
         
     def update_state(self, state):
-        vm = state['soma.Vm']
+        self.cell.update_state(state)
+        self.pipette.update_state(state)
+        for ch in self.channels:
+            ch.update_state(state)
+
+
+class Cell(QtGui.QGraphicsItemGroup):
+    
+    def __init__(self, cell_name):
+        self.key = cell_name
+        QtGui.QGraphicsItemGroup.__init__(self)
+
+        self.soma = QtGui.QGraphicsEllipseItem(QtCore.QRectF(-50, -50, 100, 100))
+        self.soma.setPen(pg.mkPen(0.5, width=1, cosmetic=False))
+        self.soma.setParentItem(self)
+        self.soma2 = QtGui.QGraphicsEllipseItem(QtCore.QRectF(-52, -52, 104, 104))
+        self.soma2.setPen(pg.mkPen(0.5, width=1, cosmetic=False))
+        self.soma2.setParentItem(self)
+
+    def update_state(self, state):
+        vm = state[self.key + '.Vm']
         rgb = np.clip([
             (vm + 65e-3) * 5e3,
             (vm + 30e-3) * 5e3,
             (-65e-3 - vm) * 10e3], 0, 205) + 50
         self.soma.setBrush(pg.mkBrush((rgb[0], rgb[1], rgb[2], 100)))
-        
-        self.pipette.update_state(state)
-        
-        for ch in self.channels:
-            ch.update_state(state)
 
         
 class Channel(QtGui.QGraphicsItemGroup):
