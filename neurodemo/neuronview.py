@@ -1,3 +1,4 @@
+from __future__ import division
 import os, tempfile
 import numpy as np
 import pyqtgraph as pg
@@ -120,6 +121,14 @@ class Channel(QtGui.QGraphicsItemGroup):
         
         self.current = Current(channel_name)
         self.current.setParentItem(self)
+        
+        self.batt = Capacitor(l1=30, l2=5, w1=7, w2=11, gap=3)
+        self.batt.setParentItem(self)
+        self.batt.translate(0, -50)
+        
+        self.res = Resistor(l1=15, l2=50)
+        self.res.setParentItem(self)
+        self.res.translate(0, -15)
     
     def update_state(self, state):
         op = state[self.key]
@@ -202,7 +211,6 @@ class Pipette(QtGui.QGraphicsItemGroup):
         self.cap.setParentItem(self)
         self.cap.setZValue(1)
         
-        
     def update_state(self, state):
         ve = state[self.key + '.Ve']
         self.voltage.setBrush(pg.mkBrush(v_color(ve)))
@@ -210,22 +218,23 @@ class Pipette(QtGui.QGraphicsItemGroup):
 
 
 class Capacitor(QtGui.QGraphicsItemGroup):
-    def __init__(self, l1, l2, w1=10, w2=10):
+    def __init__(self, l1, l2, w1=10, w2=10, gap=6):
         QtGui.QGraphicsItemGroup.__init__(self)
         
+        g2 = gap / 2
         path = QtGui.QPainterPath()
         path.moveTo(0, 0)
-        path.lineTo(0, l1-3)
-        path.moveTo(-w1/2, l1-3)
-        path.lineTo(w1/2, l1-3)
-        path.moveTo(-w2/2, l1+3)
-        path.lineTo(w2/2, l1+3)
-        path.moveTo(0, l1+3)
+        path.lineTo(0, l1-g2)
+        path.moveTo(-w1/2, l1-g2)
+        path.lineTo(w1/2, l1-g2)
+        path.moveTo(-w2/2, l1+g2)
+        path.lineTo(w2/2, l1+g2)
+        path.moveTo(0, l1+g2)
         path.lineTo(0, l1+l2)
         
         self.line = QtGui.QGraphicsPathItem(path)
         self.line.setBrush(pg.mkBrush(None))
-        self.line.setPen(pg.mkPen('w', width=2))
+        self.line.setPen(pg.mkPen('w', width=1, cosmetic=False))
         self.line.setParentItem(self)
 
 
@@ -250,7 +259,7 @@ class Resistor(QtGui.QGraphicsItemGroup):
         
         self.line = QtGui.QGraphicsPathItem(path)
         self.line.setBrush(pg.mkBrush(None))
-        self.line.setPen(pg.mkPen('w', width=2))
+        self.line.setPen(pg.mkPen('w', width=1, cosmetic=False))
         self.line.setParentItem(self)
     
     
