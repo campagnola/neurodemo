@@ -411,7 +411,8 @@ class Section(SimObject):
     def current(self, state):
         """Return the current flowing across the membrane capacitance.
         """
-        return self.cm * state[self.name + '.Vm']
+        dv = self.derivatives(state)[0]
+        return - self.cm * dv
         
 
 class PatchClamp(Mechanism):

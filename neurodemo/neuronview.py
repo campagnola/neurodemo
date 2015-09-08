@@ -52,7 +52,6 @@ class NeuronView(pg.GraphicsLayoutWidget):
 
 
 class Cell(QtGui.QGraphicsItemGroup):
-    
     def __init__(self, cell_name):
         self.key = cell_name
         QtGui.QGraphicsItemGroup.__init__(self)
@@ -64,8 +63,9 @@ class Cell(QtGui.QGraphicsItemGroup):
         self.soma2.setPen(pg.mkPen(0.5, width=1, cosmetic=False))
         self.soma2.setParentItem(self)
         
-        self.current = Current(self.key)
+        self.current = Current(self.key, center=False)
         self.current.setParentItem(self)
+        self.current.setPos(0, -50)
 
     def update_state(self, state):
         vm = state[self.key + '.Vm']
@@ -118,15 +118,21 @@ class Channel(QtGui.QGraphicsItemGroup):
 
 class Current(QtGui.QGraphicsItemGroup):
     
-    def __init__(self, channel_name, color='y'):
+    def __init__(self, channel_name, color='y', center=True):
         QtGui.QGraphicsItemGroup.__init__(self)
         self.key = channel_name + '.I'
+        self.center = center
         self.arrow = ArrowItem(brush=(255, 255, 0, 200), angle=90, tailLen=20, pxMode=False, 
                                pen={'color': 'k', 'width': 1, 'cosmetic': False})
         self.arrow.setParentItem(self)
 
     def update_state(self, state):
         I = state[self.key]
+        if abs(I) < 100e-15:
+            self.setVisible(False)
+            return
+        else:
+            self.setVisible(True)
         idir = 1 if I > 0 else -1
         amp = np.clip((abs(I) / 10e-9), 0, 1) ** 0.2  # normalize to 10 nA range
         self.arrow.setStyle(
@@ -138,7 +144,13 @@ class Current(QtGui.QGraphicsItemGroup):
         )
         self.resetTransform()
         self.scale(amp, amp)
-        self.arrow.setPos(0, 20 * idir)
+        if self.center:
+            self.arrow.setPos(0, 20 * idir)
+        else:
+            if idir > 0:
+                self.arrow.setPos(0, 40)
+            else:
+                self.arrow.setPos(0, 0)
 
 
 class Pipette(QtGui.QGraphicsItemGroup):
