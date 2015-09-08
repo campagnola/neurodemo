@@ -35,6 +35,11 @@ class NeuronView(pg.GraphicsLayoutWidget):
         #self.svg.translate(-200, -150)
         #self.view.addItem(self.svg)
         
+        self.pipette = Pipette('soma.PatchClamp')
+        self.view.addItem(self.pipette)
+        self.pipette.setZValue(1)
+        self.pipette.setPos(0, -50)
+        
         self.channels = []
         angle = 0
         for key, color in [('soma.INa', 'dd0000'), 
@@ -53,6 +58,8 @@ class NeuronView(pg.GraphicsLayoutWidget):
             (vm + 30e-3) * 5e3,
             (-65e-3 - vm) * 10e3], 0, 205) + 50
         self.soma.setBrush(pg.mkBrush((rgb[0], rgb[1], rgb[2], 100)))
+        
+        self.pipette.update_state(state)
         
         for ch in self.channels:
             ch.update_state(state)
@@ -108,7 +115,7 @@ class Current(QtGui.QGraphicsItemGroup):
 
     def update_state(self, state):
         I = state[self.key]
-        idir = I / abs(I)
+        idir = 1 if I > 0 else -1
         amp = np.clip((abs(I) / 10e-9), 0, 1) ** 0.2  # normalize to 10 nA range
         self.arrow.setStyle(
             angle=90 * idir,
@@ -120,3 +127,19 @@ class Current(QtGui.QGraphicsItemGroup):
         self.resetTransform()
         self.scale(amp, amp)
         self.arrow.setPos(0, -20 * idir)
+
+
+class Pipette(QtGui.QGraphicsItemGroup):
+    
+    def __init__(self, key, color='y'):
+        QtGui.QGraphicsItemGroup.__init__(self)
+        
+        self.svg = QtSvg.QGraphicsSvgItem(svg_file('pipette'))
+        self.svg.translate(-50, -255.67)
+        self.svg.setParentItem(self)
+        
+        self.current = Current(key)
+        self.current.setParentItem(self)
+        
+    def update_state(self, state):
+        self.current.update_state(state)
