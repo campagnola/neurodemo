@@ -51,6 +51,16 @@ class NeuronView(pg.GraphicsLayoutWidget):
             ch.update_state(state)
 
 
+def v_color(v):
+    """Return a color corresponding to voltage.
+    """
+    return np.clip([
+        (v + 65e-3) * 5e3,
+        (v + 30e-3) * 5e3,
+        (-65e-3 - v) * 10e3,
+        255], 0, 205) + 50
+
+
 class Cell(QtGui.QGraphicsItemGroup):
     def __init__(self, cell_name):
         self.key = cell_name
@@ -69,11 +79,7 @@ class Cell(QtGui.QGraphicsItemGroup):
 
     def update_state(self, state):
         vm = state[self.key + '.Vm']
-        rgb = np.clip([
-            (vm + 65e-3) * 5e3,
-            (vm + 30e-3) * 5e3,
-            (-65e-3 - vm) * 10e3], 0, 205) + 50
-        self.soma.setBrush(pg.mkBrush((rgb[0], rgb[1], rgb[2], 100)))
+        self.soma.setBrush(pg.mkBrush(v_color(vm)))
         self.current.update_state(state)
 
         
@@ -157,7 +163,7 @@ class Pipette(QtGui.QGraphicsItemGroup):
     
     def __init__(self, key, color='y'):
         QtGui.QGraphicsItemGroup.__init__(self)
-        
+        self.key = key
         self.svg = QtSvg.QGraphicsSvgItem(svg_file('pipette'))
         self.svg.translate(-50, -255.67)
         self.svg.setParentItem(self)
@@ -165,5 +171,21 @@ class Pipette(QtGui.QGraphicsItemGroup):
         self.current = Current(key)
         self.current.setParentItem(self)
         
+        path = QtGui.QPainterPath()
+        path.moveTo(42, 4)
+        path.lineTo(58, 4)
+        path.lineTo(80, 260)
+        path.lineTo(14, 260)
+        path.closeSubpath()
+        
+        self.voltage = QtGui.QGraphicsPathItem(path)
+        self.voltage.setPen(pg.mkPen(None))
+        self.voltage.scale(1, -1)
+        self.voltage.translate(-50, -5)
+        self.voltage.setParentItem(self)
+        self.voltage.setZValue(-1)
+        
     def update_state(self, state):
+        ve = state[self.key + '.Ve']
+        self.voltage.setBrush(pg.mkBrush(v_color(ve)))
         self.current.update_state(state)

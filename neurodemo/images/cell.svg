@@ -66,16 +66,6 @@
     </clipPath>
     <linearGradient
        inkscape:collect="always"
-       xlink:href="#linearGradient3850"
-       id="linearGradient14006"
-       gradientUnits="userSpaceOnUse"
-       x1="206.34531"
-       y1="387.4411"
-       x2="206.36855"
-       y2="387.09167"
-       gradientTransform="matrix(0,558.36566,-558.36566,0,216754.36,-115491.75)" />
-    <linearGradient
-       inkscape:collect="always"
        id="linearGradient3850">
       <stop
          style="stop-color:#8f8f8f;stop-opacity:1;"
@@ -94,16 +84,6 @@
          offset="1"
          id="stop3854" />
     </linearGradient>
-    <linearGradient
-       inkscape:collect="always"
-       xlink:href="#linearGradient3850"
-       id="linearGradient14008"
-       gradientUnits="userSpaceOnUse"
-       x1="206.08711"
-       y1="387.64438"
-       x2="206.13867"
-       y2="388.09055"
-       gradientTransform="matrix(0,558.36566,-558.36566,0,216754.36,-115491.75)" />
     <linearGradient
        inkscape:collect="always"
        xlink:href="#linearGradient3850"
@@ -134,7 +114,7 @@
      inkscape:pageshadow="2"
      inkscape:zoom="2.8284271"
      inkscape:cx="201.38385"
-     inkscape:cy="150.21787"
+     inkscape:cy="291.63923"
      inkscape:document-units="px"
      inkscape:current-layer="layer2"
      showgrid="false"
@@ -323,6 +303,12 @@
            inkscape:connector-curvature="0" />
       </g>
     </g>
+    <path
+       sodipodi:nodetypes="zsssz"
+       inkscape:connector-curvature="0"
+       id="path4024-0"
+       d="m 192.94576,199.19428 c -0.19405,11.06124 2.91086,12.48432 -3.75176,12.22557 -7.69179,-0.2987 -3.1754,-7.82294 -2.07575,-10.99254 0.8082,-2.32948 -2.27327,-10.42993 3.18566,-9.77333 2.936,0.35314 2.83591,-2.52095 2.64185,8.5403 z"
+       style="fill:#dc0000;fill-opacity:1;stroke:#ffffff;stroke-width:0.71247345;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0" />
   </g>
   <g
      inkscape:groupmode="layer"
