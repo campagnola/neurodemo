@@ -41,13 +41,13 @@ class NeuronView(pg.GraphicsLayoutWidget):
         self.pipette.setPos(0, -50)
         
         self.channels = []
-        angle = 0
+        angle = 180
         for key, color in [('soma.INa', 'dd0000'), 
                            ('soma.IK', '0000dd')]:
             channel = Channel(key, color)
             channel.rotate(angle)
             angle += 30
-            channel.translate(0, 50)
+            channel.translate(0, -50)
             self.view.addItem(channel)
             self.channels.append(channel)
         
@@ -118,7 +118,7 @@ class Current(QtGui.QGraphicsItemGroup):
         idir = 1 if I > 0 else -1
         amp = np.clip((abs(I) / 10e-9), 0, 1) ** 0.2  # normalize to 10 nA range
         self.arrow.setStyle(
-            angle=90 * idir,
+            angle=-90 * idir,
             tailLen=20,
             tailWidth=5,
             headLen=20,
@@ -126,7 +126,7 @@ class Current(QtGui.QGraphicsItemGroup):
         )
         self.resetTransform()
         self.scale(amp, amp)
-        self.arrow.setPos(0, -20 * idir)
+        self.arrow.setPos(0, 20 * idir)
 
 
 class Pipette(QtGui.QGraphicsItemGroup):
