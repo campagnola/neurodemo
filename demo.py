@@ -103,6 +103,9 @@ class DemoWindow(QtGui.QWidget):
 
         self.clamp_param['Plot Current'] = True
         self.plot_splitter.setSizes([300, 500, 200])
+        
+        self.pause_shortcut = QtGui.QShortcut(QtGui.QKeySequence('Space'), self)
+        self.pause_shortcut.activated.connect(self.pause)
 
     def params_changed(self, root, changes):
         for param, change, val in changes:
@@ -171,6 +174,9 @@ class DemoWindow(QtGui.QWidget):
         
     def stop(self):
         self.runner.stop()
+        
+    def pause(self):
+        self.params['Run'] = not self.params['Run']
         
     def new_result(self, final_state, result):
         vm = result['soma.Vm'][1:]
@@ -241,7 +247,7 @@ class ChannelParameter(pt.parameterTypes.SimpleParameter):
                 self.plots_changed.emit(self, self.channel, param.name()[5:], val)
 
 
-class ClampParameter(pt.parameterTypes.GroupParameter):
+class ClampParameter(pt.parameterTypes.SimpleParameter):
     # emitted when a plot should be shown or hidden
     plots_changed = QtCore.Signal(object, object, object, object)  # self, channel, name, on/off
     
@@ -250,7 +256,7 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
         self.dt = dt
         self.plot_win = SequencePlotWindow()
         self.triggers = []  # items are (trigger_time, pointer, trigger_buffer, (mode, amp, cmd, seq_ind, seq_len))
-        pt.parameterTypes.GroupParameter.__init__(self, name='Patch Clamp', children=[
+        pt.parameterTypes.SimpleParameter.__init__(self, name='Patch Clamp', type='bool', value=True, children=[
             dict(name='Mode', type='list', values={'Current Clamp': 'ic', 'Voltage Clamp': 'vc'}, value='ic'),
             dict(name='Holding', type='float', value=0, suffix='A', siPrefix=True, step=10*pA),
             dict(name='Pipette Capacitance', type='float', value=clamp.cpip, limits=[0.01*pF, None], suffix='F', siPrefix=True, dec=True, step=0.5),
@@ -276,7 +282,9 @@ class ClampParameter(pt.parameterTypes.GroupParameter):
         for param, change, val in changes:
             if change != 'value':
                 continue
-            if param is self.child('Mode'):
+            if param is self:
+                self.clamp.enabled = val
+            elif param is self.child('Mode'):
                 self.set_mode(val)
             elif param is self.child('Holding'):
                 self.clamp.set_holding(self.mode(), val)

@@ -100,6 +100,9 @@ class NeuronItem(QtGui.QGraphicsItemGroup):
         QtGui.QGraphicsItemGroup.translate(self, x, y)
         self.circuit.translate(x, y)
         
+    def setVisible(self, v):
+        QtGui.QGraphicsItemGroup.setVisible(self, v)
+        self.circuit.setVisible(v)
 
 
 class Cell(NeuronItem):
@@ -185,11 +188,9 @@ class Channel(NeuronItem):
         try:
             op = state[self.key]
             self.setVisible(True)
-            self.circuit.setVisible(True)
         except KeyError:
             # channel is disabled
             self.setVisible(False)
-            self.circuit.setVisible(False)
             return
         nop = np.clip(op / self.maxop, 0, 1)
         self.svg[0].setPos(nop * -4, 0)
@@ -275,7 +276,12 @@ class Pipette(NeuronItem):
         self.cap.setParentItem(self.circuit)
         
     def update_state(self, state):
-        ve = state[self.key + '.Ve']
+        try:
+            ve = state[self.key + '.Ve']
+            self.setVisible(True)
+        except KeyError:
+            self.setVisible(False)
+            return
         self.voltage.setBrush(pg.mkBrush(v_color(ve)))
         self.current.update_state(state)
 
