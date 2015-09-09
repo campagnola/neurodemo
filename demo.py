@@ -40,6 +40,8 @@ class DemoWindow(QtGui.QWidget):
         #cmd[int(0.4/self.dt):int(0.8/self.dt)] = 200e-12
         #self.clamp.set_command(cmd, dt=self.dt)
         
+        mechanisms = [self.clamp, self.hhna, self.leak, self.hhk, self.dexh]
+        
         # set up GUI
         QtGui.QWidget.__init__(self)
         self.resize(1024, 768)
@@ -55,7 +57,7 @@ class DemoWindow(QtGui.QWidget):
         self.plot_splitter = QtGui.QSplitter(QtCore.Qt.Vertical)
         self.splitter.addWidget(self.plot_splitter)
         
-        self.neuronview = NeuronView()
+        self.neuronview = NeuronView(self.neuron, mechanisms)
         self.plot_splitter.addWidget(self.neuronview)
         
         self.vm_plot = ScrollingPlot(dt=self.dt, npts=int(1.0/self.dt),

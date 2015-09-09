@@ -331,6 +331,9 @@ class Channel(Mechanism):
     # precomputed rate constant tables
     rates = None
     
+    # maximum open probability (to be redefined by subclasses)
+    max_op = 1.0
+    
     @classmethod
     def compute_rates(cls):
         return
@@ -566,6 +569,8 @@ class HHK(Channel):
     """
     type = 'IK'
     
+    max_op = 0.55
+    
     @classmethod
     def compute_rates(cls):
         cls.rates_vmin = -100
@@ -610,6 +615,8 @@ class HHNa(Channel):
     """Hodgkin-Huxley Na channel.
     """
     type = 'INa'
+    
+    max_op = 0.2
     
     @classmethod
     def compute_rates(cls):
@@ -662,6 +669,8 @@ class IH(Channel):
     """Ih from Destexhe 1993
     """
     type = 'IH'
+    
+    max_op = 0.3
     
     def __init__(self, gbar=30*mS/cm**2, **kwds):
         init_state = OrderedDict([('f', 0), ('s', 0)]) 

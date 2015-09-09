@@ -21,47 +21,46 @@ class NeuronView(pg.GraphicsLayoutWidget):
     """Displays a graphical representation of the neuron and its attached
     mechanisms.
     """
-    def __init__(self):
+    def __init__(self, soma, mechanisms):
         pg.GraphicsLayoutWidget.__init__(self)
+        self.soma = soma
         self.setRenderHint(QtGui.QPainter.Antialiasing)
         self.view = self.addViewBox(0, 0)
         self.view.setAspectLocked()
         self.view.setRange(QtCore.QRectF(-70, -70, 140, 140))
         
-        self.cell = Cell('soma')
+        self.cell = Cell(soma)
         self.view.addItem(self.cell)
         self.cell.rotate(90)
         #self.grid = pg.GridItem()
         #self.view.addItem(self.grid)
         
-        self.pipette = Pipette('soma.PatchClamp')
-        self.view.addItem(self.pipette)
-        self.pipette.setZValue(1)
-        self.pipette.translate(0, 50)
-        
+        self.items = [self.cell]
         self.channels = []
         angle = 180
-        chan = [
-            ('soma.INa', 'dd0000', 0.1), 
-            ('soma.IK', '0000dd', 0.1),
-            ('soma.Ileak', '00dd00', 1.0),
-            ('soma.IH', 'aa00aa', 0.05)
-        ]
-        for key, color, maxop in chan:
-            channel = Channel(key, color, maxop)
-            channel.rotate(angle)
-            angle += 45
-            channel.translate(0, 50)
-            self.view.addItem(channel)
-            self.channels.append(channel)
+        for mech in mechanisms:
+            if mech.type == 'PatchClamp':
+                item = Pipette(mech)
+                self.view.addItem(item)
+                item.setZValue(1)
+                item.translate(0, 50)
+            else:
+                item = Channel(mech)
+                item.rotate(angle)
+                angle += 45
+                item.translate(0, 50)
+                self.view.addItem(item)
+                self.channels.append(item)
+                
+            self.items.append(item)
         
-        self.items = [self.cell, self.pipette] + self.channels
-        
+        # translucent mask to obscure cell when circuit is visible
         self.mask = QtGui.QGraphicsRectItem(QtCore.QRectF(-1000, -1000, 2000, 2000))
         self.view.addItem(self.mask)
         self.mask.setBrush(pg.mkBrush(0, 0, 0, 180))
         self.mask.setZValue(5)
         
+        # circuit items are added separately so they appear above the mask
         self.circuit = QtGui.QGraphicsItemGroup()
         self.view.addItem(self.circuit)
         self.circuit.setZValue(10)
@@ -70,10 +69,8 @@ class NeuronView(pg.GraphicsLayoutWidget):
         self.show_circuit(False)
         
     def update_state(self, state):
-        self.cell.update_state(state)
-        self.pipette.update_state(state)
-        for ch in self.channels:
-            ch.update_state(state)
+        for item in self.items:
+            item.update_state(state)
 
     def show_circuit(self, show):
         self.mask.setVisible(show)
@@ -111,8 +108,8 @@ class NeuronItem(QtGui.QGraphicsItemGroup):
 
 
 class Cell(NeuronItem):
-    def __init__(self, cell_name):
-        self.key = cell_name
+    def __init__(self, section):
+        self.key = section.name
         NeuronItem.__init__(self)
 
         self.soma = QtGui.QGraphicsEllipseItem(QtCore.QRectF(-50, -50, 100, 100))
@@ -155,9 +152,16 @@ class Channel(NeuronItem):
         open(fname, 'w').write(svg)
         return fname
     
-    def __init__(self, channel_name, color, maxop):
-        self.key = channel_name + '.OP'
-        self.maxop = maxop
+    def __init__(self, channel):
+        self.channel = channel
+        self.key = channel.name + '.OP'
+        self.maxop = channel.max_op
+        color = {
+            'INa': 'dd0000',
+            'IK': '0000dd',
+            'Ileak': '00dd00',
+            'IH': 'aa00aa',            
+        }.get(channel.type, '999999')
         NeuronItem.__init__(self)
         svg = self.get_svg(color)
         self.svg = [QtSvg.QGraphicsSvgItem(svg),
@@ -177,7 +181,7 @@ class Channel(NeuronItem):
         
         self.circuit = QtGui.QGraphicsItemGroup()
         
-        self.current = Current(channel_name)
+        self.current = Current(channel.name)
         self.current.setParentItem(self.circuit)
         self.current.setZValue(2)
         
@@ -244,9 +248,10 @@ class Current(QtGui.QGraphicsItemGroup):
 
 
 class Pipette(NeuronItem):
-    def __init__(self, key, color='y'):
+    def __init__(self, clamp):
+        self.clamp = clamp
         NeuronItem.__init__(self)
-        self.key = key
+        self.key = clamp.name
         self.svg = QtSvg.QGraphicsSvgItem(svg_file('pipette'))
         self.svg.scale(1, -1)
         self.svg.translate(-50, -255.67)
@@ -267,7 +272,7 @@ class Pipette(NeuronItem):
         
         self.circuit = QtGui.QGraphicsItemGroup()
         
-        self.current = Current(key)
+        self.current = Current(self.key)
         self.current.setParentItem(self.circuit)
         self.current.setZValue(2)
         
