@@ -94,7 +94,8 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         cmd[i1:i2] += amp
         t = self.clamp.queue_command(cmd, self.dt)
         if self['Pulse', 'Capture Results']:
-            self.triggers.append([t, 0, np.empty((len(cmd), 2)), (self.mode(), amp, cmd, 0, 0)]) 
+            info = {'mode': self.mode(), 'amp': amp, 'cmd': cmd, 'seq_ind': 0, 'seq_len': 0}
+            self.triggers.append([t, 0, np.empty((len(cmd), 2)), info]) 
     
     def pulse_sequence(self):
         cmd, i1, i2 = self.pulse_template()
@@ -109,7 +110,8 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         
         times = self.clamp.queue_commands(cmds, self.dt)
         for i, t in enumerate(times):
-            self.triggers.append([t, 0, np.empty((len(cmd), 2)), (self.mode(), amps[i], cmds[i], i, len(amps))])
+            info = {'mode': self.mode(), 'amp': amps[i], 'cmd': cmds[i], 'seq_ind': i, 'seq_len': len(amps)}
+            self.triggers.append([t, 0, np.empty((len(cmd), 2)), info])
         
     def new_result(self, result):
         if len(self.triggers) == 0:
