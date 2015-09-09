@@ -263,6 +263,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
             dict(name='Access Resistance', type='float', value=clamp.ra, limits=[10*kOhm, None], suffix='Ω', siPrefix=True, step=0.5, dec=True),
             dict(name='Plot Current', type='bool', value=False),
             dict(name='Pulse', type='group', children=[
+                dict(name='Capture Results', type='bool', value=False),
                 dict(name='Pulse Once', type='action'),
                 dict(name='Amplitude', type='float', value=50*pA, suffix='A', siPrefix=True),
                 dict(name='Pre-delay', type='float', value=20*ms, suffix='s', siPrefix=True, limits=[0, None]),
@@ -329,7 +330,8 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         amp = self['Pulse', 'Amplitude']
         cmd[i1:i2] += amp
         t = self.clamp.queue_command(cmd, self.dt)
-        self.triggers.append([t, 0, np.empty((len(cmd), 2)), (self.mode(), amp, cmd, 0, 0)]) 
+        if self['Pulse', 'Capture Results']:
+            self.triggers.append([t, 0, np.empty((len(cmd), 2)), (self.mode(), amp, cmd, 0, 0)]) 
     
     def pulse_sequence(self):
         cmd, i1, i2 = self.pulse_template()

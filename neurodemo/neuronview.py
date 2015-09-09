@@ -176,14 +176,14 @@ class Channel(NeuronItem):
         self.current.setParentItem(self.circuit)
         self.current.setZValue(2)
         
-        self.batt = Capacitor(l1=30, l2=5, w1=7, w2=11, gap=3)
-        self.batt.setParentItem(self.circuit)
-        self.batt.translate(0, -50)
-        
-        self.res = Resistor(l1=15, l2=50)
+        self.res = Resistor(l1=50, l2=15)
         self.res.setParentItem(self.circuit)
-        self.res.translate(0, -15)
+        self.res.translate(0, -50)
     
+        self.batt = Capacitor(l1=10, l2=40, w1=7, w2=11, gap=3)
+        self.batt.setParentItem(self.circuit)
+        self.batt.translate(0, 15)
+        
     def update_state(self, state):
         try:
             op = state[self.key]
