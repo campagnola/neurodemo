@@ -283,11 +283,16 @@ class Pipette(NeuronItem):
     def update_state(self, state):
         try:
             ve = state[self.key + '.Ve']
+            vm = state['.'.join(self.key.split('.')[:-1]) + '.Vm']
             self.setVisible(True)
         except KeyError:
             self.setVisible(False)
             return
-        self.voltage.setBrush(pg.mkBrush(v_color(ve)))
+        y = self.voltage.boundingRect().top()
+        grad = QtGui.QLinearGradient(QtCore.QPointF(0, y), QtCore.QPointF(0, y+25))
+        grad.setColorAt(0, pg.mkColor(v_color(vm)))
+        grad.setColorAt(1, pg.mkColor(v_color(ve)))
+        self.voltage.setBrush(QtGui.QBrush(grad))
         self.current.update_state(state)
 
     def show_circuit(self, show):

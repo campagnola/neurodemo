@@ -55,7 +55,7 @@ class SimRunner(QtCore.QObject):
             try:
                 data = result[key]
             except KeyError:
-                print("Key '%s' not found in sim result; skipping." % key)
+                #print("Key '%s' not found in sim result; skipping." % key)
                 continue
             rec[key] = data
         
