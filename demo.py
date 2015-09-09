@@ -64,7 +64,7 @@ class DemoWindow(QtGui.QWidget):
         self.vm_plot.addLine(y=self.neuron.ek)
         self.vm_plot.addLine(y=self.neuron.ena)
         self.plot_splitter.addWidget(self.vm_plot)
-        self.splitter.setSizes([300, 700])
+        self.splitter.setSizes([350, 650])
 
         self.show()
         
@@ -82,7 +82,7 @@ class DemoWindow(QtGui.QWidget):
         self.clamp_param.plots_changed.connect(self.plots_changed)
         
         self.params = pt.Parameter.create(name='params', type='group', children=[
-            #dict(name='Preset', type='list', values=['', 'Basic Membrane', 'Hodgkin & Huxley']),
+            dict(name='Preset', type='list', values=['', 'Passive Membrane', 'Hodgkin & Huxley']),
             dict(name='Run', type='bool', value=True),
             dict(name='Speed', type='float', value=0.3, limits=[0, 1], step=1, dec=True),
             dict(name='Temp', type='float', value=self.sim.temp, suffix='C', step=1.0),
@@ -117,12 +117,12 @@ class DemoWindow(QtGui.QWidget):
                 self.runner.set_speed(val)
             elif param is self.params.child('Temp'):
                 self.sim.temp = val
-            #elif param is self.params.child('Preset'):
-                #self.load_preset(val)
+            elif param is self.params.child('Preset'):
+                self.load_preset(val)
             elif param is self.params.child('Cell Schematic'):
                 self.neuronview.setVisible(val)
             elif param is self.params.child('Cell Schematic', 'Show Circuit'):
-                self.neuronview.showCircuit(val)
+                self.neuronview.show_circuit(val)
         
     def plots_changed(self, param, channel, name, plot):
         key = channel.name + '.' + name
@@ -189,12 +189,13 @@ class DemoWindow(QtGui.QWidget):
         self.neuronview.update_state(final_state)
 
     def load_preset(self, preset):
-        if preset == 'Basic Membrane':
+        if preset == 'Passive Membrane':
             self.params['Temp'] = 6.3
-            for p in self.params.child('Hodgkin & Huxley').children():
-                p.setValue(False)
-            for p in self.params.child('Lewis & Gerstner').children():
-                p.setValue(False)
+            chans = self.params.child('Ion Channels')
+            chans['soma.Ileak'] = True
+            chans['soma.INa'] = False
+            chans['soma.IK'] = False
+            chans['soma.IH'] = False
             self.params['Preset'] = ''
 
     def closeEvent(self, ev):

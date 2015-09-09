@@ -36,9 +36,13 @@ class NeuronView(pg.GraphicsLayoutWidget):
         
         self.channels = []
         angle = 180
-        for key, color, maxop in [('soma.INa', 'dd0000', 0.1), 
-                           ('soma.IK', '0000dd', 0.1),
-                           ('soma.Ileak', '00dd00', 1.0)]:
+        chan = [
+            ('soma.INa', 'dd0000', 0.1), 
+            ('soma.IK', '0000dd', 0.1),
+            ('soma.Ileak', '00dd00', 1.0),
+            ('soma.IH', 'aa00aa', 0.05)
+        ]
+        for key, color, maxop in chan:
             channel = Channel(key, color, maxop)
             channel.rotate(angle)
             angle += 45
@@ -58,7 +62,7 @@ class NeuronView(pg.GraphicsLayoutWidget):
         self.circuit.setZValue(10)
         for i in self.items:
             i.circuit.setParentItem(self.circuit)
-        self.showCircuit(False)
+        self.show_circuit(False)
         
     def update_state(self, state):
         self.cell.update_state(state)
@@ -66,10 +70,10 @@ class NeuronView(pg.GraphicsLayoutWidget):
         for ch in self.channels:
             ch.update_state(state)
 
-    def showCircuit(self, show):
+    def show_circuit(self, show):
         self.mask.setVisible(show)
         for i in self.items:
-            i.showCircuit(show)
+            i.show_circuit(show)
 
 
 def v_color(v):
@@ -127,7 +131,7 @@ class Cell(NeuronItem):
         self.soma.setBrush(pg.mkBrush(v_color(vm)))
         self.current.update_state(state)
 
-    def showCircuit(self, show):
+    def show_circuit(self, show):
         self.cap.setVisible(show)
 
         
@@ -178,12 +182,21 @@ class Channel(NeuronItem):
         self.res.translate(0, -15)
     
     def update_state(self, state):
-        op = state[self.key]
-        self.svg[0].setPos(op/self.maxop * -4, 0)
-        self.svg[1].setPos(op/self.maxop * 4, 0)
+        try:
+            op = state[self.key]
+            self.setVisible(True)
+            self.circuit.setVisible(True)
+        except KeyError:
+            # channel is disabled
+            self.setVisible(False)
+            self.circuit.setVisible(False)
+            return
+        nop = np.clip(op / self.maxop, 0, 1)
+        self.svg[0].setPos(nop * -4, 0)
+        self.svg[1].setPos(nop * 4, 0)
         self.current.update_state(state)
 
-    def showCircuit(self, show):
+    def show_circuit(self, show):
         self.batt.setVisible(show)
         self.res.setVisible(show)
 
@@ -266,7 +279,7 @@ class Pipette(NeuronItem):
         self.voltage.setBrush(pg.mkBrush(v_color(ve)))
         self.current.update_state(state)
 
-    def showCircuit(self, show):
+    def show_circuit(self, show):
         self.cap.setVisible(show)
         self.res.setVisible(show)
 
