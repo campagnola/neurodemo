@@ -44,6 +44,7 @@ class DemoWindow(QtGui.QWidget):
         
         # set up GUI
         QtGui.QWidget.__init__(self)
+        self.fullscreen_widget = None
         self.resize(1024, 768)
         self.layout = QtGui.QGridLayout()
         self.setLayout(self.layout)
@@ -114,6 +115,9 @@ class DemoWindow(QtGui.QWidget):
         self.slow_shortcut.activated.connect(self.slower)
         self.fast_shortcut = QtGui.QShortcut(QtGui.QKeySequence('='), self)
         self.fast_shortcut.activated.connect(self.faster)
+        self.fullscreen_shortcut = QtGui.QShortcut(QtGui.QKeySequence('F11'), self)
+        self.fullscreen_shortcut.activated.connect(self.fullscreen)
+        self.fullscreen_shortcut.setContext(QtCore.Qt.ApplicationShortcut)
 
     def params_changed(self, root, changes):
         for param, change, val in changes:
@@ -191,6 +195,21 @@ class DemoWindow(QtGui.QWidget):
         
     def faster(self):
         self.params['Speed'] = min(self.params['Speed'] * 2.0, 10)
+
+    def fullscreen(self):
+        if self.fullscreen_widget is None:
+            w = QtGui.QApplication.focusWidget()
+            ind = self.plot_splitter.indexOf(w)
+            if ind < 0:
+                return
+            self.fs_widget_index = ind
+            w.setParent(None)
+            w.showFullScreen()
+            self.fullscreen_widget = w
+        else:
+            self.fullscreen_widget.showNormal()
+            self.plot_splitter.insertWidget(self.fs_widget_index, self.fullscreen_widget)
+            self.fullscreen_widget = None
         
     def new_result(self, final_state, result):
         vm = result['soma.Vm'][1:]
