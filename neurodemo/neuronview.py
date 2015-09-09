@@ -1,4 +1,9 @@
-from __future__ import division
+# -*- coding: utf-8 -*-
+"""
+NeuroDemo - Physiological neuron sandbox for educational purposes
+Luke Campagnola 2015
+"""
+from __future__ import division, unicode_literals
 import os, tempfile
 import numpy as np
 import pyqtgraph as pg
