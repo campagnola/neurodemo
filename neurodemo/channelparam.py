@@ -18,7 +18,7 @@ class ChannelParameter(pt.parameterTypes.SimpleParameter):
         self.channel = channel
         name = channel.name
         ch_params = [
-            dict(name='ḡ', type='float', value=channel.gbar*cm**2, suffix='S/cm²', siPrefix=True, step=0.1, dec=True),
+            dict(name='Gmax', type='float', value=channel.gmax, suffix='S', siPrefix=True, step=0.1, dec=True),
             dict(name='Erev', type='float', value=channel.erev, suffix='V', siPrefix=True, step=5*mV),
             dict(name='Plot I', type='bool', value=False),
             dict(name='Plot G', type='bool', value=False),
@@ -38,8 +38,8 @@ class ChannelParameter(pt.parameterTypes.SimpleParameter):
                 continue
             if param is self:
                 self.channel.enabled = val
-            elif param is self.child('ḡ'):
-                self.channel.gbar = val/cm**2
+            elif param is self.child('Gmax'):
+                self.channel.gmax = val
             elif param is self.child('Erev'):
                 self.channel.erev = val
             elif param.name().startswith('Plot'):

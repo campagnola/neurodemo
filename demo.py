@@ -91,6 +91,7 @@ class DemoWindow(QtGui.QWidget):
             dict(name='Run', type='bool', value=True),
             dict(name='Speed', type='float', value=0.3, limits=[0, 10], step=1, dec=True),
             dict(name='Temp', type='float', value=self.sim.temp, suffix='C', step=1.0),
+            dict(name='Capacitance', type='float', value=self.neuron.cap, suffix='F', siPrefix=True, dec=True),
             dict(name='Cell Schematic', type='bool', value=True, children=[
                 dict(name='Show Circuit', type='bool', value=False),
             ]),
@@ -132,6 +133,8 @@ class DemoWindow(QtGui.QWidget):
                 self.runner.set_speed(val)
             elif param is self.params.child('Temp'):
                 self.sim.temp = val
+            elif param is self.params.child('Capacitance'):
+                self.neuron.cap = val
             elif param is self.params.child('Preset'):
                 self.load_preset(val)
             elif param is self.params.child('Cell Schematic'):

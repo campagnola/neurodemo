@@ -338,21 +338,43 @@ class Channel(Mechanism):
     def compute_rates(cls):
         return
         
-    def __init__(self, gbar, init_state, **kwds):
+    def __init__(self, gmax=None, gbar=None, init_state=None, **kwds):
         Mechanism.__init__(self, init_state, **kwds)
-        self.gbar = gbar
+        self._gmax = gmax
+        self._gbar = gbar
+            
         if self.rates is None:
             type(self).compute_rates()
         self.dep_state_vars['G'] = self.conductance
         self.dep_state_vars['OP'] = self.open_probability
-    
+
     @property
-    def g(self):
-        return self.gbar * self.section.area
+    def gmax(self):
+        if self._gmax is not None:
+            return self._gmax
+        else:
+            return self._gbar * self.section.area
+            
+    @gmax.setter
+    def gmax(self, v):
+        self._gmax = v
+        self._gbar = None
+        
+    @property
+    def gbar(self):
+        if self._gbar is not None:
+            return self._gbar
+        else:
+            return self._gmax / self.section.area
+        
+    @gbar.setter
+    def gbar(self, v):
+        self._gbar = v
+        self._gmax = None
 
     def conductance(self, state):
         op = self.open_probability(state)
-        return self.g * op
+        return self.gmax * op
 
     def current(self, state):
         vm = state[self.section, 'Vm']
@@ -379,9 +401,14 @@ class Channel(Mechanism):
 class Section(SimObject):
     type = 'section'
     
-    def __init__(self, radius=10*um, vm=-65*mV, **kwds):
-        self.area = 4 * 3.1415926 * radius**2
-        self.cm_bar = 1 * uF/cm**2
+    def __init__(self, radius=None, cap=10*pF, vm=-65*mV, **kwds):
+        self.cap_bar = 1 * uF/cm**2
+        if radius is None:
+            self.cap = cap
+            self.area = cap / self.cap_bar
+        else:
+            self.cap = self.area * self.cap_bar
+            self.area = 4 * 3.1415926 * radius**2
         self.ek = -77*mV
         self.ena = 50*mV
         self.ecl = -70*mV
@@ -389,10 +416,6 @@ class Section(SimObject):
         SimObject.__init__(self, init_state, **kwds)
         self.dep_state_vars['I'] = self.current
         self.mechanisms = []
-
-    @property
-    def cm(self):
-        return self.area * self.cm_bar
 
     def add(self, mech):
         assert mech._section is None
@@ -408,14 +431,14 @@ class Section(SimObject):
                 continue
             Im += mech.current(state)
             
-        dv = Im / self.cm
+        dv = Im / self.cap
         return [dv]
     
     def current(self, state):
         """Return the current flowing across the membrane capacitance.
         """
         dv = self.derivatives(state)[0]
-        return - self.cm * dv
+        return - self.cap * dv
         
 
 class PatchClamp(Mechanism):
@@ -550,7 +573,7 @@ class Leak(Channel):
     type = 'Ileak'
     
     def __init__(self, gbar=0.1*mS/cm**2, erev=-55*mV, **kwds):
-        Channel.__init__(self, gbar, {}, **kwds)
+        Channel.__init__(self, gbar=gbar, init_state={}, **kwds)
         self.erev = erev
 
     def open_probability(self, state):
@@ -582,7 +605,7 @@ class HHK(Channel):
         
     def __init__(self, gbar=12*mS/cm**2, **kwds):
         init_state = OrderedDict([('n', 0.3)]) 
-        Channel.__init__(self, gbar, init_state, **kwds)
+        Channel.__init__(self, gbar=gbar, init_state=init_state, **kwds)
         self.shift = 0
         
     @property
@@ -631,7 +654,7 @@ class HHNa(Channel):
         
     def __init__(self, gbar=40*mS/cm**2, **kwds):
         init_state = OrderedDict([('m', 0.05), ('h', 0.6)]) 
-        Channel.__init__(self, gbar, init_state, **kwds)
+        Channel.__init__(self, gbar=gbar, init_state=init_state, **kwds)
         self.shift = 0
         
     @property
@@ -674,7 +697,7 @@ class IH(Channel):
     
     def __init__(self, gbar=30*mS/cm**2, **kwds):
         init_state = OrderedDict([('f', 0), ('s', 0)]) 
-        Channel.__init__(self, gbar, init_state, **kwds)
+        Channel.__init__(self, gbar=gbar, init_state=init_state, **kwds)
         self.erev = -43*mV
         self.shift = 0
         
@@ -703,7 +726,7 @@ class LGNa(Channel):
     
     def __init__(self, gbar=112.5*mS/cm**2, **kwds):
         init_state = OrderedDict([('m', 0.019), ('h', 0.876)]) 
-        Channel.__init__(self, gbar, init_state, **kwds)
+        Channel.__init__(self, gbar=gbar, init_state=init_state, **kwds)
         self.erev = 74*mV
         
     def open_probability(self, state):
@@ -746,7 +769,7 @@ class LGKfast(Channel):
     
     def __init__(self, gbar=225*mS/cm**2, **kwds):
         init_state = OrderedDict([('n', 0.00024)]) 
-        Channel.__init__(self, gbar, init_state, **kwds)
+        Channel.__init__(self, gbar=gbar, init_state=init_state, **kwds)
         self.erev = -90*mV
         
     def open_probability(self, state):
@@ -778,7 +801,7 @@ class LGKslow(Channel):
     
     def __init__(self, gbar=0.225*mS/cm**2, **kwds):
         init_state = OrderedDict([('n', 0.0005)]) 
-        Channel.__init__(self, gbar, init_state, **kwds)
+        Channel.__init__(self, gbar=gbar, init_state=init_state, **kwds)
         self.erev = -90*mV
         
     def open_probability(self, state):
