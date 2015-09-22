@@ -444,7 +444,7 @@ class Section(SimObject):
 class PatchClamp(Mechanism):
     type = 'PatchClamp'
     
-    def __init__(self, mode='ic', ra=5*MOhm, cpip=3*pF, **kwds):
+    def __init__(self, mode='ic', ra=2*MOhm, cpip=0.5*pF, **kwds):
         self.ra = ra
         self.cpip = cpip
         self._mode = mode

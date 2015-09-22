@@ -16,6 +16,7 @@ class TraceAnalyzer(QtGui.QWidget):
         self.plotter = seq_plotter
         
         self.layout = QtGui.QGridLayout()
+        self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
         self.vsplitter = QtGui.QSplitter(QtCore.Qt.Vertical)
         self.hsplitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
@@ -25,7 +26,7 @@ class TraceAnalyzer(QtGui.QWidget):
         self.analysis_plot = EvalPlotter()
         self.vsplitter.addWidget(self.analysis_plot)
         
-        self.ptree = pt.ParameterTree()
+        self.ptree = pt.ParameterTree(showHeader=False)
         self.hsplitter.addWidget(self.ptree)
         
         self.table = pg.TableWidget()

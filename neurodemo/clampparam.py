@@ -25,19 +25,21 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         pt.parameterTypes.SimpleParameter.__init__(self, name='Patch Clamp', type='bool', value=True, children=[
             dict(name='Mode', type='list', values={'Current Clamp': 'ic', 'Voltage Clamp': 'vc'}, value='ic'),
             dict(name='Holding', type='float', value=0, suffix='A', siPrefix=True, step=10*pA),
+            #dict(name='Ideal', type='bool', value=True),
             dict(name='Pipette Capacitance', type='float', value=clamp.cpip, limits=[0.01*pF, None], suffix='F', siPrefix=True, dec=True, step=0.5),
             dict(name='Access Resistance', type='float', value=clamp.ra, limits=[10*kOhm, None], suffix='Ω', siPrefix=True, step=0.5, dec=True),
             dict(name='Plot Current', type='bool', value=False),
+            dict(name='Plot Voltage', type='bool', value=False),
             dict(name='Pulse', type='group', children=[
                 dict(name='Capture Results', type='bool', value=False),
                 dict(name='Pulse Once', type='action'),
-                dict(name='Amplitude', type='float', value=50*pA, suffix='A', siPrefix=True),
-                dict(name='Pre-delay', type='float', value=20*ms, suffix='s', siPrefix=True, limits=[0, None]),
-                dict(name='Duration', type='float', value=50*ms, suffix='s', siPrefix=True, limits=[0, None]),
-                dict(name='Post-delay', type='float', value=50*ms, suffix='s', siPrefix=True, limits=[0, None]),
+                dict(name='Amplitude', type='float', value=50*pA, suffix='A', siPrefix=True, dec=True),
+                dict(name='Pre-delay', type='float', value=20*ms, suffix='s', siPrefix=True, limits=[0, None], step=5e-3),
+                dict(name='Duration', type='float', value=50*ms, suffix='s', siPrefix=True, limits=[0, None], step=5e-3),
+                dict(name='Post-delay', type='float', value=50*ms, suffix='s', siPrefix=True, limits=[0, None], step=5e-3),
                 dict(name='Pulse Sequence', type='action'),
-                dict(name='Start Amplitude', type='float', value=-50*pA, suffix='A', siPrefix=True),
-                dict(name='Stop Amplitude', type='float', value=50*pA, suffix='A', siPrefix=True),
+                dict(name='Start Amplitude', type='float', value=-50*pA, suffix='A', siPrefix=True, dec=True),
+                dict(name='Stop Amplitude', type='float', value=50*pA, suffix='A', siPrefix=True, dec=True),
                 dict(name='Pulse Number', type='int', value=11, limits=[2,None]),
             ]),
         ])
@@ -59,8 +61,14 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                 self.clamp.cpip = val
             elif param is self.child('Access Resistance'):
                 self.clamp.ra = val
-            elif param.name().startswith('Plot'):
+            elif param is self.child('Plot Current'):
                 self.plots_changed.emit(self, self.clamp, 'I', val)
+            elif param is self.child('Plot Voltage'):
+                self.plots_changed.emit(self, self.clamp, 'V', val)
+            #elif param is self.child('Ideal'):
+                #self.child('Pipette Capacitance').setOpts(visible=not val)
+                #self.child('Access Resistance').setOpts(visible=not val)
+                #self.clamp.set_ideal(val)
 
     def mode(self):
         return self['Mode']

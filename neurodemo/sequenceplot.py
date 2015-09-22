@@ -16,6 +16,7 @@ class SequencePlotWindow(QtGui.QWidget):
         QtGui.QWidget.__init__(self)
         self.mode = 'ic'
         self.layout = QtGui.QGridLayout()
+        self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
         self.hold_check = QtGui.QCheckBox("Hold data")
         self.hold_check.setChecked(True)

@@ -54,12 +54,13 @@ class DemoWindow(QtGui.QWidget):
         self.fullscreen_widget = None
         self.resize(1024, 768)
         self.layout = QtGui.QGridLayout()
+        self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
         
         self.splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
         self.layout.addWidget(self.splitter, 0, 0)
         
-        self.ptree = pt.ParameterTree()
+        self.ptree = pt.ParameterTree(showHeader=False)
         self.splitter.addWidget(self.ptree)
         
         self.plot_splitter = QtGui.QSplitter(QtCore.Qt.Vertical)
@@ -100,7 +101,7 @@ class DemoWindow(QtGui.QWidget):
 
         
         self.params = pt.Parameter.create(name='params', type='group', children=[
-            dict(name='Preset', type='list', values=['', 'Passive Membrane', 'Hodgkin & Huxley']),
+            dict(name='Preset', type='list', values=['', 'Passive Membrane', 'Action Potential']),
             dict(name='Run', type='bool', value=True),
             dict(name='Speed', type='float', value=0.3, limits=[0, 10], step=1, dec=True),
             dict(name='Temp', type='float', value=self.sim.temp, suffix='C', step=1.0),
@@ -253,15 +254,26 @@ class DemoWindow(QtGui.QWidget):
     def load_preset(self, preset):
         if preset == 'Passive Membrane':
             self.params['Temp'] = 6.3
-            self.params['Speed'] = 0.1
+            self.params['Speed'] = 0.05
+            self.params['Patch Clamp', 'Plot Current'] = False
+            self.params['Patch Clamp', 'Plot Voltage'] = False
             chans = self.params.child('Ion Channels')
             chans['soma.Ileak'] = True
             chans['soma.Ileak', 'Erev'] = 0
             chans['soma.INa'] = False
             chans['soma.IK'] = False
             chans['soma.IH'] = False
+        elif preset == 'Action Potential':
+            self.params['Temp'] = 6.3
+            self.params['Speed'] = 0.05
+            chans = self.params.child('Ion Channels')
+            chans['soma.Ileak'] = True
+            chans['soma.Ileak', 'Erev'] = -55*mV
+            chans['soma.INa'] = True
+            chans['soma.IK'] = True
+            chans['soma.IH'] = False
             
-            self.params['Preset'] = ''
+        self.params['Preset'] = ''
 
     def closeEvent(self, ev):
         self.runner.stop()
