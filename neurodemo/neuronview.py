@@ -189,7 +189,7 @@ class Channel(NeuronItem):
         self.res.setParentItem(self.circuit)
         self.res.translate(0, -50)
     
-        self.batt = Capacitor(l1=10, l2=40, w1=7, w2=11, gap=3)
+        self.batt = Capacitor(l1=10, l2=40, w1=11, w2=7, gap=4)
         self.batt.setParentItem(self.circuit)
         self.batt.translate(0, 15)
         

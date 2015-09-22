@@ -158,8 +158,8 @@ class EvalPlotter(QtGui.QWidget):
         self.layout.addWidget(self.xCode, 0, 0)
         self.layout.addWidget(self.yCode, 0, 1)
         self.layout.addWidget(self.plot, 1, 0, 1, 2)
-        self.xCode.textChanged.connect(self.replot)
-        self.yCode.textChanged.connect(self.replot)
+        self.xCode.editingFinished.connect(self.replot)
+        self.yCode.editingFinished.connect(self.replot)
         
     def update_data(self, data):
         self.data = data
@@ -170,15 +170,30 @@ class EvalPlotter(QtGui.QWidget):
         ns = {}
         for k in data.dtype.names:
             ns[k] = data[k]
+        xcode = str(self.xCode.text())
+        ycode = str(self.yCode.text())
+        if xcode == '' or ycode == '':
+            return
+        
         try:
-            xcode = str(self.xCode.text())
-            ycode = str(self.yCode.text())
-            if xcode == '' or ycode == '':
-                return
             x = eval(xcode, ns)
+        except:
+            pg.debug.printExc('Error evaluating plot x values:')
+            self.xCode.setStyleSheet("QLineEdit { border: 2px solid red; }")
+            return
+        else:
+            self.xCode.setStyleSheet("")
+            
+        try:
             y = eval(ycode, ns)
         except:
-            pg.debug.printExc('Error evaluating plot fields:')
+            pg.debug.printExc('Error evaluating plot y values:')
+            self.yCode.setStyleSheet("QLineEdit { border: 2px solid red; }")
+            return
+        else:
+            self.yCode.setStyleSheet("")
+            
+            
         self.plot.plot(x, y, symbol='o', clear=True)
         
     
