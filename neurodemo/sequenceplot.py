@@ -37,7 +37,7 @@ class SequencePlotWindow(QtGui.QWidget):
         #self.iplot.setXLink(self.vplot)
         self.plots = {}
         
-        self.analyzer = TraceAnalyzer()
+        self.analyzer = TraceAnalyzer(self)
         self.splitter.addWidget(self.analyzer)
         
         #self.analyzer = AnalysisPlot()
@@ -45,6 +45,9 @@ class SequencePlotWindow(QtGui.QWidget):
 
     def add_plot(self, key, label):
         plot = self.plot_layout.addPlot(labels={'left': label, 'bottom': ('Time', 's')})
+        if 'soma.V' in self.plots:
+            plot.setXLink(self.plots['soma.V'])
+            
         self.plot_layout.nextRow()
         self.plots[key] = plot
 
