@@ -14,11 +14,14 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
     # emitted when a plot should be shown or hidden
     plots_changed = QtCore.Signal(object, object, object, object)  # self, channel, name, on/off
     
-    def __init__(self, clamp, dt):
+    def __init__(self, clamp, sim):
         self.clamp = clamp
-        self.dt = dt
+        self.sim = sim
+        self.dt = sim.dt
         self.plot_win = SequencePlotWindow()
+        
         self.triggers = []  # items are (trigger_time, pointer, trigger_buffer, (mode, amp, cmd, seq_ind, seq_len))
+        self.plot_keys = []
         pt.parameterTypes.SimpleParameter.__init__(self, name='Patch Clamp', type='bool', value=True, children=[
             dict(name='Mode', type='list', values={'Current Clamp': 'ic', 'Voltage Clamp': 'vc'}, value='ic'),
             dict(name='Holding', type='float', value=0, suffix='A', siPrefix=True, step=10*pA),
@@ -95,7 +98,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         t = self.clamp.queue_command(cmd, self.dt)
         if self['Pulse', 'Capture Results']:
             info = {'mode': self.mode(), 'amp': amp, 'cmd': cmd, 'seq_ind': 0, 'seq_len': 0}
-            self.triggers.append([t, 0, np.empty((len(cmd), 2)), info]) 
+            self.add_trigger(len(cmd), t, info)
     
     def pulse_sequence(self):
         cmd, i1, i2 = self.pulse_template()
@@ -111,41 +114,46 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         times = self.clamp.queue_commands(cmds, self.dt)
         for i, t in enumerate(times):
             info = {'mode': self.mode(), 'amp': amps[i], 'cmd': cmds[i], 'seq_ind': i, 'seq_len': len(amps)}
-            self.triggers.append([t, 0, np.empty((len(cmd), 2)), info])
+            self.add_trigger(len(cmd), t, info)
+    
+    def add_trigger(self, n, t, info):
+        buf = np.empty(n, dtype=[(str(k), float) for k in self.plot_keys + ['t']])
+        self.triggers.append([t, 0, buf, info])
+    
+    def add_plot(self, key, label):
+        self.plot_keys.append(key)
+        self.triggers = []
+        self.plot_win.add_plot(key, label)
         
+    def remove_plot(self, key):
+        self.plot_keys.remove(key)
+        self.triggers = []
+        self.plot_win.remove_plot(key)
+    
     def new_result(self, result):
         if len(self.triggers) == 0:
             return
-        try:
-            vm = result['soma.Vm'][:-1]
-            ip = result['soma.PatchClamp.I'][:-1]
-            t = result['t'][:-1]
-        except KeyError:
-            return
-        self.plot_triggered(vm, ip, t)
-        
-    def plot_triggered(self, vm, ip, t):
-        if len(self.triggers) == 0:
-            return
-        tt, ptr, data, info = self.triggers[0]
+        t = result['t']
+        tt, ptr, buf, info = self.triggers[0]
         if tt > t[-1]:
             # no triggers ready
             return
         
         # Copy data from result to trigger buffer
         i = max(0, np.round((tt - t[0]) / self.dt)) # index of trigger within new data
-        npts = min(len(data)-ptr, len(vm)-i) # number of samples to copy from new data
-        data[ptr:ptr+npts, 0] = vm[i:i+npts] 
-        data[ptr:ptr+npts, 1] = ip[i:i+npts]
+        npts = min(len(buf)-ptr, len(t)-i) # number of samples to copy from new data
+        for k in self.plot_keys:
+            buf[k][ptr:ptr+npts] = result[k][i:i+npts] 
             
         ptr += npts
-        if ptr >= data.shape[0]:
+        if ptr >= buf.shape[0]:
             # If the trigger buffer is full, plot and remove
-            self.plot_win.plot(np.arange(data.shape[0])*self.dt, data[:,0], data[:,1], info)
+            self.plot_win.plot(np.arange(buf.shape[0])*self.dt, buf, info)
             self.triggers.pop(0)
-            if len(vm) > npts:
+            if len(t) > npts:
                 # If there is data left over, try feeding it to the next trigger
-                self.plot_triggered(vm[i+npts:], ip[i+npts:], t[i+npts:])
+                result = dict([(k, result[k][i+npts:]) for k in result])
+                self.new_result(result)
         else:
             # otherwise, update the pointer and wait for the next result
             self.triggers[0][1] = ptr

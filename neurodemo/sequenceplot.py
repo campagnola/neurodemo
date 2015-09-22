@@ -32,17 +32,29 @@ class SequencePlotWindow(QtGui.QWidget):
         
         self.plot_layout = pg.GraphicsLayoutWidget()
         self.splitter.addWidget(self.plot_layout)
-        self.vplot = self.plot_layout.addPlot(0, 0, labels={'left': ('Membrane Voltage', 'V'), 'bottom': ('Time', 's')})
-        self.iplot = self.plot_layout.addPlot(1, 0, labels={'left': ('Pipette Current', 'A'), 'bottom': ('Time', 's')})
-        self.iplot.setXLink(self.vplot)
+        #self.vplot = self.plot_layout.addPlot(0, 0, labels={'left': ('Membrane Voltage', 'V'), 'bottom': ('Time', 's')})
+        #self.iplot = self.plot_layout.addPlot(1, 0, labels={'left': ('Pipette Current', 'A'), 'bottom': ('Time', 's')})
+        #self.iplot.setXLink(self.vplot)
+        self.plots = {}
         
         #self.analyzer = TraceAnalyzer()
         #self.splitter.addWidget(self.analyzer)
         
         self.analyzer = AnalysisPlot()
         self.splitter.addWidget(self.analyzer)
+
+    def add_plot(self, key, label):
+        plot = self.plot_layout.addPlot(labels={'left': label, 'bottom': ('Time', 's')})
+        self.plot_layout.nextRow()
+        self.plots[key] = plot
+
+    def remove_plot(self, key):
+        plot = self.plots.pop(key)
+        self.plot_layout.removeItem(plot)
+        plot.hide()
+        plot.setParentItem(None)
         
-    def plot(self, t, v, i, info):
+    def plot(self, t, data, info):
         if not self.hold_check.isChecked():
             self.clear_data()
         if self.mode != info['mode']:
@@ -54,20 +66,16 @@ class SequencePlotWindow(QtGui.QWidget):
         else:
             pen = (info['seq_ind'], info['seq_len'] * 4./3.)
         
-        if self.mode == 'ic':
-            self.vplot.plot(t, v, pen=pen)
-            self.iplot.plot(t, info['cmd'], pen=pen)
-        else:
-            self.vplot.plot(t, info['cmd'], pen=pen)
-            self.iplot.plot(t, i, pen=pen)
+        for k, plt in self.plots.items():
+            plt.plot(t, data[k], pen=pen)
         
-        try:
-            self.analyzer.add_data(t, v, i, info)
-        except:
-            pg.debug.printExc('Error analyzing data:')
+        #try:
+            #self.analyzer.add_data(t, data, info)
+        #except:
+            #pg.debug.printExc('Error analyzing data:')
         self.show()
         
     def clear_data(self):
-        self.vplot.clear()
-        self.iplot.clear()
+        for plt in self.plots.values():
+            plt.clear()
         self.analyzer.clear()

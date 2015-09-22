@@ -35,7 +35,7 @@ class TraceAnalyzer(QtGui.QWidget):
         self.data = np.empty(0, dtype=[(str('command'), float)]) # note: no unicode allowed in py2/numpy dtypes
         self.table.clear()
         
-    def add_data(self, t, v, i, info):
+    def add_data(self, t, data, info):
         mode, amp, cmd, seq_ind, seq_len = info
         rec = np.array([(amp,)], dtype=self.data.dtype)
         self.data = np.append(self.data, rec)

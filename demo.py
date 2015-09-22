@@ -41,6 +41,13 @@ class DemoWindow(QtGui.QWidget):
         #self.clamp.set_command(cmd, dt=self.dt)
         
         mechanisms = [self.clamp, self.hhna, self.leak, self.hhk, self.dexh]
+
+        # loop to run the simulation indefinitely
+        self.runner = ndemo.SimRunner(self.sim)
+        #self.runner.add_request('soma.Vm') 
+        self.runner.add_request('t') 
+        self.runner.new_result.connect(mp.proxy(self.new_result, autoProxy=False, callSync='off'))
+
         
         # set up GUI
         QtGui.QWidget.__init__(self)
@@ -61,17 +68,16 @@ class DemoWindow(QtGui.QWidget):
         self.neuronview = NeuronView(self.neuron, mechanisms)
         self.plot_splitter.addWidget(self.neuronview)
         
-        self.vm_plot = ScrollingPlot(dt=self.dt, npts=int(1.0/self.dt),
-                                         parent=self, labels={'left': ('Membrane Potential', 'V'), 
-                                                              'bottom': ('Time', 's')})
-        self.vm_plot.setYRange(-90*mV, 50*mV)
-        self.vm_plot.setXRange(-1000*ms, 0*ms)
-        self.vm_plot.addLine(y=self.neuron.ek)
-        self.vm_plot.addLine(y=self.neuron.ena)
-        self.plot_splitter.addWidget(self.vm_plot)
-        self.splitter.setSizes([350, 650])
-
-        self.show()
+        #self.vm_plot = ScrollingPlot(dt=self.dt, npts=int(1.0/self.dt),
+                                         #parent=self, labels={'left': ('Membrane Potential', 'V'), 
+                                                              #'bottom': ('Time', 's')})
+        #self.vm_plot.setYRange(-90*mV, 50*mV)
+        #self.vm_plot.setXRange(-1000*ms, 0*ms)
+        #self.vm_plot.addLine(y=self.neuron.ek)
+        #self.vm_plot.addLine(y=self.neuron.ena)
+        #self.plot_splitter.addWidget(self.vm_plot)
+        self.channel_plots = {}
+        
         
         self.channel_params = [
             ChannelParameter(self.leak),
@@ -81,10 +87,17 @@ class DemoWindow(QtGui.QWidget):
         ]
         for ch in self.channel_params:
             ch.plots_changed.connect(self.plots_changed)
-        self.channel_plots = {}
-        
-        self.clamp_param = ClampParameter(self.clamp, self.dt)
+
+        self.clamp_param = ClampParameter(self.clamp, self)
         self.clamp_param.plots_changed.connect(self.plots_changed)
+
+
+        self.vm_plot = self.add_plot('soma.V', 'Membrane Potential', 'V')
+        
+        self.splitter.setSizes([350, 650])
+
+        self.show()
+
         
         self.params = pt.Parameter.create(name='params', type='group', children=[
             dict(name='Preset', type='list', values=['', 'Passive Membrane', 'Hodgkin & Huxley']),
@@ -101,10 +114,6 @@ class DemoWindow(QtGui.QWidget):
         self.ptree.setParameters(self.params)
         self.params.sigTreeStateChanged.connect(self.params_changed)
         
-        self.runner = ndemo.SimRunner(self.sim)
-        self.runner.add_request('soma.Vm') 
-        self.runner.add_request('t') 
-        self.runner.new_result.connect(mp.proxy(self.new_result, autoProxy=False, callSync='off'))
         self.start()
 
         self.clamp_param['Plot Current'] = True
@@ -145,44 +154,58 @@ class DemoWindow(QtGui.QWidget):
     def plots_changed(self, param, channel, name, plot):
         key = channel.name + '.' + name
         if plot:
-            # decide on y range, label, and units for new plot
-            yranges = {
-                'I': (-1*nA, 1*nA),
-                'G': (0, 100*nS),
-                'OP': (0, 1),
-                'm': (0, 1),
-                'h': (0, 1),
-                'n': (0, 1),
-            }
-            color = {'I': 'c', 'G': 'y', 'OP': 'g'}.get(name, 0.7)
-            units = {'I': 'A', 'G': 'S'}
-            label = param.name() + ' ' + name
-            if name in units:
-                label = (label, units[name])
-                
-            # create new plot
-            plt = ScrollingPlot(dt=self.vm_plot.dt, npts=self.vm_plot.npts,
-                                labels={'left': label}, pen=color)
-            plt.setXLink(self.vm_plot)
-            plt.setYRange(*yranges.get(name, (0, 1)))
-            
-            # register this plot for later..
-            self.channel_plots[key] = plt
-            self.runner.add_request(key)
-            
-            # add new plot to splitter and resize all accordingly
-            sizes = self.plot_splitter.sizes()
-            self.plot_splitter.addWidget(plt)
-            size = self.plot_splitter.height() / (len(sizes) + 1.)
-            r = len(sizes) / (len(sizes)+1)
-            sizes = [s * r for s in sizes] + [size]
-            self.plot_splitter.setSizes(sizes)
+            self.add_plot(key, param.name(), name)
         else:
-            plt = self.channel_plots.pop(key)
-            self.runner.remove_request(key)
-            #self.plot_splitter.removeWidget(plt)
-            plt.setParent(None)
-            plt.close()
+            self.remove_plot(key)
+
+    def add_plot(self, key, pname, name):
+        # decide on y range, label, and units for new plot
+        yranges = {
+            'V': (-100*mV, 50*mV),
+            'I': (-1*nA, 1*nA),
+            'G': (0, 100*nS),
+            'OP': (0, 1),
+            'm': (0, 1),
+            'h': (0, 1),
+            'n': (0, 1),
+        }
+        color = {'I': 'c', 'G': 'y', 'OP': 'g', 'V': 'w'}.get(name, 0.7)
+        units = {'I': 'A', 'G': 'S', 'V': 'V'}
+        label = pname + ' ' + name
+        if name in units:
+            label = (label, units[name])
+            
+        # create new plot
+        plt = ScrollingPlot(dt=self.dt, npts=int(1.0 / self.dt),
+                            labels={'left': label}, pen=color)
+        if hasattr(self, 'vm_plot'):
+            plt.setXLink(self.vm_plot)
+        else:
+            plt.setXRange(-1, 0)
+        plt.setYRange(*yranges.get(name, (0, 1)))
+        
+        # register this plot for later..
+        self.channel_plots[key] = plt
+        self.runner.add_request(key)
+        
+        # add new plot to splitter and resize all accordingly
+        sizes = self.plot_splitter.sizes()
+        self.plot_splitter.addWidget(plt)
+        size = self.plot_splitter.height() / (len(sizes) + 1.)
+        r = len(sizes) / (len(sizes)+1)
+        sizes = [s * r for s in sizes] + [size]
+        self.plot_splitter.setSizes(sizes)
+        
+        # Ask sequence plotter to update as well
+        self.clamp_param.add_plot(key, label)
+        return plt
+            
+    def remove_plot(self, key):
+        plt = self.channel_plots.pop(key)
+        self.runner.remove_request(key)
+        self.clamp_param.remove_plot(key)
+        plt.setParent(None)
+        plt.close()
         
     def start(self):
         self.runner.start(blocksize=100)
@@ -215,9 +238,6 @@ class DemoWindow(QtGui.QWidget):
             self.fullscreen_widget = None
         
     def new_result(self, final_state, result):
-        vm = result['soma.Vm'][1:]
-        self.vm_plot.append(vm)
-        
         for k, plt in self.channel_plots.items():
             if k not in result:
                 continue
@@ -233,11 +253,14 @@ class DemoWindow(QtGui.QWidget):
     def load_preset(self, preset):
         if preset == 'Passive Membrane':
             self.params['Temp'] = 6.3
+            self.params['Speed'] = 0.1
             chans = self.params.child('Ion Channels')
             chans['soma.Ileak'] = True
+            chans['soma.Ileak', 'Erev'] = 0
             chans['soma.INa'] = False
             chans['soma.IK'] = False
             chans['soma.IH'] = False
+            
             self.params['Preset'] = ''
 
     def closeEvent(self, ev):

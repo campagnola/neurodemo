@@ -16,8 +16,8 @@ from .editor import Editor
 analysis_code = '''
 base = data['Time': 0.0:0.01]
 pulse = data['Time': 0.04:0.06]
-vbase = base['Vm'].mean(axis='Time')
-vpulse = pulse['Vm'].mean(axis='Time')
+vbase = base['V'].mean(axis='Time')
+vpulse = pulse['V'].mean(axis='Time')
 ipulse = pulse['Ipip'].mean(axis='Time')
 x = ipulse
 y = vpulse - vbase
@@ -55,7 +55,9 @@ class AnalysisPlot(QtGui.QSplitter):
         
         self.clear()
         
-    def add_data(self, t, v, i, info):
+    def add_data(self, t, data, info):
+        v = data['soma.V']
+        i = data['soma.PatchClamp.I']
         data = np.vstack([v, i])[:, np.newaxis, :]
         if self.ns['data'] is None:
             cols = [

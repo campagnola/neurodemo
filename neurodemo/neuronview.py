@@ -132,7 +132,7 @@ class Cell(NeuronItem):
         
 
     def update_state(self, state):
-        vm = state[self.key + '.Vm']
+        vm = state[self.key + '.V']
         self.soma.setBrush(pg.mkBrush(v_color(vm)))
         self.current.update_state(state)
 
@@ -287,8 +287,8 @@ class Pipette(NeuronItem):
         
     def update_state(self, state):
         try:
-            ve = state[self.key + '.Ve']
-            vm = state['.'.join(self.key.split('.')[:-1]) + '.Vm']
+            ve = state[self.key + '.V']
+            vm = state['.'.join(self.key.split('.')[:-1]) + '.V']
             self.setVisible(True)
         except KeyError:
             self.setVisible(False)
