@@ -6,12 +6,12 @@ Luke Campagnola 2015
 from __future__ import division, unicode_literals
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore
-from .analysisplot import AnalysisPlot
+#from .analysisplot import AnalysisPlot
 
 # Alternate approach to analysis: a much more user-friendly interface. This is
 # incomplete because it was too much effort compared to AnalysisPlot, and also
 # robs students of the opportunity to get a little code exposure. 
-#from .traceanalyzer import TraceAnalyzer
+from .traceanalyzer import TraceAnalyzer
 
 
 class SequencePlotWindow(QtGui.QWidget):
@@ -37,11 +37,11 @@ class SequencePlotWindow(QtGui.QWidget):
         #self.iplot.setXLink(self.vplot)
         self.plots = {}
         
-        #self.analyzer = TraceAnalyzer()
-        #self.splitter.addWidget(self.analyzer)
-        
-        self.analyzer = AnalysisPlot()
+        self.analyzer = TraceAnalyzer()
         self.splitter.addWidget(self.analyzer)
+        
+        #self.analyzer = AnalysisPlot()
+        #self.splitter.addWidget(self.analyzer)
 
     def add_plot(self, key, label):
         plot = self.plot_layout.addPlot(labels={'left': label, 'bottom': ('Time', 's')})
@@ -69,10 +69,10 @@ class SequencePlotWindow(QtGui.QWidget):
         for k, plt in self.plots.items():
             plt.plot(t, data[k], pen=pen)
         
-        #try:
-            #self.analyzer.add_data(t, data, info)
-        #except:
-            #pg.debug.printExc('Error analyzing data:')
+        try:
+            self.analyzer.add_data(t, data, info)
+        except:
+            pg.debug.printExc('Error analyzing data:')
         self.show()
         
     def clear_data(self):

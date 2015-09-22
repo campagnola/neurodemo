@@ -29,18 +29,18 @@ class TraceAnalyzer(QtGui.QWidget):
         
         self.params = TraceAnalyzerGroup(name='analyzers')
         self.ptree.setParameters(self.params)
-        self.params.update_inputs(['Vm', 'Ipip'])
 
     def clear(self):
         self.data = np.empty(0, dtype=[(str('command'), float)]) # note: no unicode allowed in py2/numpy dtypes
         self.table.clear()
         
     def add_data(self, t, data, info):
-        mode, amp, cmd, seq_ind, seq_len = info
-        rec = np.array([(amp,)], dtype=self.data.dtype)
-        self.data = np.append(self.data, rec)
-        self.table.setData(self.data)
-        self.update_analysis()
+        self.params.set_inputs(data.dtype.names)
+        #mode, amp, cmd, seq_ind, seq_len = info
+        #rec = np.array([(amp,)], dtype=self.data.dtype)
+        #self.data = np.append(self.data, rec)
+        #self.table.setData(self.data)
+        #self.update_analysis()
         
     def update_analysis(self):
         pass
@@ -53,24 +53,19 @@ class TraceAnalyzerGroup(pt.parameterTypes.GroupParameter):
 
     def __init__(self, **kwds):
         analyses = ['min', 'max', 'mean', 'exp tau', 'spike count', 'spike latency']
+        self.inputs = []
         pt.parameterTypes.GroupParameter.__init__(self, addText='Add analysis..', addList=analyses, **kwds)
 
     def addNew(self, typ):
-        param_classes = {
-            'min': MinAnalyzer,
-            'max': MaxAnalyzer,
-            'mean': MeanAnalyzer,
-            'exp tau': ExpTauAnalyzer,
-            'spike count': SpikeCountAnalyzer,
-            'spike latency': SpikeLatencyAnalyzer,
-        }
-        param = param_classes[typ](name=typ, autoIncrementName=True)
+        param = TraceAnalyzerParameter(name=typ, analysis_type=typ, inputs=self.inputs, autoIncrementName=True)
         self.addChild(param)
         param.need_update.connect(self.need_update)
         param.input_changed.connect(self.inputs_changed)
         self.analyzers_changed.emit()
         
-    def update_inputs(self, inputs):
+    def set_inputs(self, inputs):
+        self.inputs = list(inputs)
+        self.inputs.remove('t')
         for ch in self.children():
             ch.set_input_list(inputs)
 
@@ -82,7 +77,8 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
     def __init__(self, **kwds):
         kwds.update({'removable': True, 'renamable': True})
         childs = [
-            dict(name='Input', type='list', values=[]),
+            dict(name='Input', type='list', values=kwds.pop('inputs')),
+            dict(name='Type', type='list', value=kwds.pop('analysis_type'), values=['mean', 'min', 'max']),
             dict(name='Start', type='float', value=0, suffix='s', siPrefix=True),
             dict(name='End', type='float', value=10e-3, suffix='s', siPrefix=True),
         ]
@@ -109,58 +105,9 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
         self.need_update.emit(self)
             
     def set_input_list(self, inputs):
-        self.child('Input').setValues(inputs)
+        self.child('Input').setLimits(inputs)
 
     def process(self, data):
-        raise NotImplementedError()
-
-
-class MinAnalyzer(TraceAnalyzerParameter):
-    def __init__(self, **kwds):
-        TraceAnalyzerParameter.__init__(self, **kwds)
-
-    def process(self, data):
-        return data.min()
-
-
-class MaxAnalyzer(TraceAnalyzerParameter):
-    def __init__(self, **kwds):
-        TraceAnalyzerParameter.__init__(self, **kwds)
-
-    def process(self, data):
-        return data.max()
-
-
-class MeanAnalyzer(TraceAnalyzerParameter):
-    def __init__(self, **kwds):
-        TraceAnalyzerParameter.__init__(self, **kwds)
-
-    def process(self, data):
-        return data.mean()
-
-
-class ExpTauAnalyzer(TraceAnalyzerParameter):
-    def __init__(self, **kwds):
-        TraceAnalyzerParameter.__init__(self, **kwds)
-
-    #def process(self, data):
-        #return data.mean()
-
-
-class SpikeCountAnalyzer(TraceAnalyzerParameter):
-    def __init__(self, **kwds):
-        TraceAnalyzerParameter.__init__(self, **kwds)
-
-    def process(self, data):
-        return data.mean()
-
-
-class SpikeLatencyAnalyzer(TraceAnalyzerParameter):
-    def __init__(self, **kwds):
-        TraceAnalyzerParameter.__init__(self, **kwds)
-
-    def process(self, data):
-        return data.mean()
-
+        return None
 
 
