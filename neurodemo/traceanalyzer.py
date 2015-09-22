@@ -17,21 +17,28 @@ class TraceAnalyzer(QtGui.QWidget):
         
         self.layout = QtGui.QGridLayout()
         self.setLayout(self.layout)
-        self.splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
-        self.layout.addWidget(self.splitter)
+        self.vsplitter = QtGui.QSplitter(QtCore.Qt.Vertical)
+        self.hsplitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
+        self.layout.addWidget(self.vsplitter)
+        self.vsplitter.addWidget(self.hsplitter)
+        
+        self.analysis_plot = EvalPlotter()
+        self.vsplitter.addWidget(self.analysis_plot)
         
         self.ptree = pt.ParameterTree()
-        self.splitter.addWidget(self.ptree)
+        self.hsplitter.addWidget(self.ptree)
         
         self.table = pg.TableWidget()
-        self.splitter.addWidget(self.table)
-        self.splitter.setSizes([200, 600])
+        self.hsplitter.addWidget(self.table)
+        
+        self.hsplitter.setSizes([200, 300, 300])
         
         self.clear()
         
         self.params = TraceAnalyzerGroup(name='analyzers')
         self.params.need_update.connect(self.update_analyzers)
         self.ptree.setParameters(self.params)
+        
 
     def clear(self):
         self.data = []
@@ -56,7 +63,7 @@ class TraceAnalyzer(QtGui.QWidget):
             for anal in self.params.children():
                 data[anal.name()][i] = anal.process(t, d)
         self.table.setData(data)
-            
+        self.analysis_plot.update_data(data)
         
 
 class TraceAnalyzerGroup(pt.parameterTypes.GroupParameter):
@@ -145,4 +152,38 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
             return data.max()
         
 
-
+class EvalPlotter(QtGui.QWidget):
+    def __init__(self):
+        QtGui.QWidget.__init__(self)
+        self.layout = QtGui.QGridLayout()
+        self.setLayout(self.layout)
+        self.xCode = QtGui.QLineEdit('cmd')
+        self.yCode = QtGui.QLineEdit()
+        self.plot = pg.PlotWidget()
+        self.layout.addWidget(self.xCode, 0, 0)
+        self.layout.addWidget(self.yCode, 0, 1)
+        self.layout.addWidget(self.plot, 1, 0, 1, 2)
+        self.xCode.textChanged.connect(self.replot)
+        self.yCode.textChanged.connect(self.replot)
+        
+    def update_data(self, data):
+        self.data = data
+        self.replot()
+        
+    def replot(self):
+        data = self.data
+        ns = {}
+        for k in data.dtype.names:
+            ns[k] = data[k]
+        try:
+            xcode = str(self.xCode.text())
+            ycode = str(self.yCode.text())
+            if xcode == '' or ycode == '':
+                return
+            x = eval(xcode, ns)
+            y = eval(ycode, ns)
+        except:
+            pg.debug.printExc('Error evaluating plot fields:')
+        self.plot.plot(x, y, symbol='o', clear=True)
+        
+    
