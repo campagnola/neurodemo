@@ -6,12 +6,9 @@ Luke Campagnola 2015
 from __future__ import division, unicode_literals
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore
-#from .analysisplot import AnalysisPlot
 
-# Alternate approach to analysis: a much more user-friendly interface. This is
-# incomplete because it was too much effort compared to AnalysisPlot, and also
-# robs students of the opportunity to get a little code exposure. 
-from .traceanalyzer import TraceAnalyzer
+#from .analysisplot import AnalysisPlot   # simpler code-based analyzer
+from .traceanalyzer import TraceAnalyzer  # user friendly analyzer
 
 
 class SequencePlotWindow(QtGui.QWidget):
@@ -32,9 +29,6 @@ class SequencePlotWindow(QtGui.QWidget):
         
         self.plot_layout = pg.GraphicsLayoutWidget()
         self.splitter.addWidget(self.plot_layout)
-        #self.vplot = self.plot_layout.addPlot(0, 0, labels={'left': ('Membrane Voltage', 'V'), 'bottom': ('Time', 's')})
-        #self.iplot = self.plot_layout.addPlot(1, 0, labels={'left': ('Pipette Current', 'A'), 'bottom': ('Time', 's')})
-        #self.iplot.setXLink(self.vplot)
         self.plots = {}
         
         self.analyzer = TraceAnalyzer(self)

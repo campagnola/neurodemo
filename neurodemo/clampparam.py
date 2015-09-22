@@ -69,7 +69,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         self.clamp.set_mode(mode)
         suff = {'ic': 'A', 'vc': 'V'}[mode]
         amp, start, stop, step = {'ic': (-10*pA, -100*pA, 100*pA, 10*pA), 
-                                  'vc': (-10*mV, -80*mV, 50*mV, 5*mV)}[mode]
+                                  'vc': (-10*mV, -40*mV, 100*mV, 5*mV)}[mode]
         self.sigTreeStateChanged.disconnect(self.treeChange)
         try:
             self.child('Holding').setOpts(suffix=suff, value=self.clamp.holding[mode], step=step)

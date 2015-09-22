@@ -51,7 +51,7 @@ class TraceAnalyzer(QtGui.QWidget):
 
     def update_analyzers(self):
         for anal in self.params.children():
-            self.plotter.plots[anal['Input']].addItem(anal.rgn)
+            self.plotter.plots[anal['Input']].addItem(anal.rgn, ignoreBounds=True)
         self.update_analysis()
         
     def update_analysis(self):
@@ -67,8 +67,6 @@ class TraceAnalyzer(QtGui.QWidget):
         
 
 class TraceAnalyzerGroup(pt.parameterTypes.GroupParameter):
-    #inputs_changed = QtCore.Signal()
-    #analyzers_changed = QtCore.Signal()
     need_update = QtCore.Signal()
 
     def __init__(self, **kwds):
@@ -80,8 +78,6 @@ class TraceAnalyzerGroup(pt.parameterTypes.GroupParameter):
         param = TraceAnalyzerParameter(name=typ, analysis_type=typ, inputs=self.inputs, autoIncrementName=True)
         self.addChild(param)
         param.need_update.connect(self.need_update)
-        #param.input_changed.connect(self.inputs_changed)
-        #self.analyzers_changed.emit()
         self.need_update.emit()
         
     def set_inputs(self, inputs):
@@ -92,7 +88,6 @@ class TraceAnalyzerGroup(pt.parameterTypes.GroupParameter):
 
 
 class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
-    #input_changed = QtCore.Signal(object, object)  # self, input
     need_update = QtCore.Signal(object)  # self
 
     def __init__(self, **kwds):
@@ -100,8 +95,8 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
         childs = [
             dict(name='Input', type='list', values=kwds.pop('inputs')),
             dict(name='Type', type='list', value=kwds.pop('analysis_type'), values=['mean', 'min', 'max']),
-            dict(name='Start', type='float', value=0, suffix='s', siPrefix=True),
-            dict(name='End', type='float', value=10e-3, suffix='s', siPrefix=True),
+            dict(name='Start', type='float', value=0, suffix='s', siPrefix=True, step=5e-3),
+            dict(name='End', type='float', value=10e-3, suffix='s', siPrefix=True, step=5e-3),
         ]
         kwds['children'] = childs + kwds.get('children', [])
         
