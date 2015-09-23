@@ -18,28 +18,26 @@ class TraceAnalyzer(QtGui.QWidget):
         self.layout = QtGui.QGridLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
-        self.vsplitter = QtGui.QSplitter(QtCore.Qt.Vertical)
         self.hsplitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
-        self.layout.addWidget(self.vsplitter)
-        self.vsplitter.addWidget(self.hsplitter)
-        
-        self.analysis_plot = EvalPlotter()
-        self.vsplitter.addWidget(self.analysis_plot)
+        self.layout.addWidget(self.hsplitter)
         
         self.ptree = pt.ParameterTree(showHeader=False)
         self.hsplitter.addWidget(self.ptree)
         
         self.table = pg.TableWidget()
         self.hsplitter.addWidget(self.table)
+        self.table.verticalHeader().hide()
         
-        self.hsplitter.setSizes([200, 300, 300])
+        self.analysis_plot = EvalPlotter()
+        self.hsplitter.addWidget(self.analysis_plot)
+        
+        self.hsplitter.setSizes([300, 200, 400])
         
         self.clear()
         
         self.params = TraceAnalyzerGroup(name='analyzers')
         self.params.need_update.connect(self.update_analyzers)
         self.ptree.setParameters(self.params)
-        
 
     def clear(self):
         self.data = []
@@ -121,7 +119,6 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
             elif param is self.child('Type'):
                 needs_threshold = val in ['spike count', 'spike latency']
                 self.child('Threshold').setOpts(visible=needs_threshold)
-            self.setName(self['Input'] + ': ' + self['Type'], autoIncrement=True)
             self.need_update.emit(self)
         
     def region_changed(self):
@@ -176,27 +173,47 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
 
 class EvalPlotter(QtGui.QWidget):
     def __init__(self):
+        self.held_plots = []
+        self.last_curve = None
+        self.held_index = 0
+        
         QtGui.QWidget.__init__(self)
         self.layout = QtGui.QGridLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
+        
+        self.x_label = QtGui.QLabel('X data')
+        self.y_label = QtGui.QLabel('Y data')
+        self.layout.addWidget(self.x_label, 0, 0)
+        self.layout.addWidget(self.y_label, 1, 0)
+        
         self.x_code = QtGui.QLineEdit('cmd')
         self.y_code = QtGui.QLineEdit()
+        self.layout.addWidget(self.x_code, 0, 1)
+        self.layout.addWidget(self.y_code, 1, 1)
+        
+        self.x_units_label = QtGui.QLabel('units')
+        self.y_units_label = QtGui.QLabel('units')
+        self.layout.addWidget(self.x_units_label, 0, 2)
+        self.layout.addWidget(self.y_units_label, 1, 2)
+        
+        self.x_units_text = QtGui.QLineEdit('A')
+        self.y_units_text = QtGui.QLineEdit()
+        self.layout.addWidget(self.x_units_text, 0, 3)
+        self.layout.addWidget(self.y_units_text, 1, 3)
+
         self.plot = pg.PlotWidget()
-        self.layout.addWidget(self.x_code, 0, 0)
-        self.layout.addWidget(self.y_code, 0, 1)
-        self.layout.addWidget(self.plot, 1, 0, 1, 2)
-        self.x_code.editingFinished.connect(self.replot)
-        self.y_code.editingFinished.connect(self.replot)
+        self.layout.addWidget(self.plot, 2, 0, 1, 4)
 
         self.hold_plot_btn = QtGui.QPushButton('Hold Plot')
-        self.layout.addWidget(self.hold_plot_btn, 2, 0)
+        self.layout.addWidget(self.hold_plot_btn, 3, 0, 1, 2)
         self.clear_plot_btn = QtGui.QPushButton('Clear Plot')
-        self.layout.addWidget(self.clear_plot_btn, 2, 1)
+        self.layout.addWidget(self.clear_plot_btn, 3, 2, 1, 2)
         
-        self.held_plots = []
-        self.last_curve = None
-        self.held_index = 0
+        self.x_code.editingFinished.connect(self.replot)
+        self.y_code.editingFinished.connect(self.replot)
+        self.x_units_text.editingFinished.connect(self.replot)
+        self.y_units_text.editingFinished.connect(self.replot)
         self.hold_plot_btn.clicked.connect(self.hold_plot)
         self.clear_plot_btn.clicked.connect(self.clear_plot)
         
@@ -236,6 +253,9 @@ class EvalPlotter(QtGui.QWidget):
             self.last_curve = self.plot.plot(x, y, symbol='o', symbolBrush=(self.held_index, 10))
         else:
             self.last_curve.setData(x, y)
+            
+        self.plot.setLabels(bottom=(xcode, self.x_units_text.text()),
+                            left=(ycode, self.y_units_text.text()))
         
     def hold_plot(self):
         if self.last_curve is None:
