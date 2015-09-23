@@ -5,6 +5,10 @@ Luke Campagnola 2015
 """
 from __future__ import division, unicode_literals
 import numpy as np
+
+# make sure we get the right pyqtgraph..
+import os, sys
+sys.path.insert(0, os.path.dirname(__file__))
 from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph as pg
 import pyqtgraph.multiprocess as mp
