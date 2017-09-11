@@ -92,10 +92,10 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         d2 = self['Pulse', 'Duration']
         d3 = self['Pulse', 'Post-delay']
         dur = d1 + d2 + d3
-        npts = dur / self.dt
+        npts = int(dur / self.dt)
         cmd = np.empty(npts)
-        i1 = d1 / self.dt
-        i2 = i1 + d2 / self.dt
+        i1 = int(d1 / self.dt)
+        i2 = i1 + int(d2 / self.dt)
         cmd[:] = self['Holding']
         return cmd, i1, i2
         
