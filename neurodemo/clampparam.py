@@ -93,9 +93,9 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         d3 = self['Pulse', 'Post-delay']
         dur = d1 + d2 + d3
         npts = dur / self.dt
-        cmd = np.empty(npts)
-        i1 = d1 / self.dt
-        i2 = i1 + d2 / self.dt
+        cmd = np.empty(int(npts))
+        i1 = int(d1 / self.dt)
+        i2 = int(i1 + d2 / self.dt)
         cmd[:] = self['Holding']
         return cmd, i1, i2
         
@@ -148,7 +148,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
             return
         
         # Copy data from result to trigger buffer
-        i = max(0, np.round((tt - t[0]) / self.dt)) # index of trigger within new data
+        i = max(0, int(np.round((tt - t[0]) / self.dt))) # index of trigger within new data
         npts = min(len(buf)-ptr, len(t)-i) # number of samples to copy from new data
         for k in self.plot_keys:
             buf[k][ptr:ptr+npts] = result[k][i:i+npts] 

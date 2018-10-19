@@ -40,18 +40,13 @@ class DemoWindow(QtGui.QWidget):
         self.dexh.enabled = False
         
         self.clamp = self.neuron.add(ndemo.PatchClamp(mode='ic'))
-        #cmd = np.zeros(int(1/self.dt))
-        #cmd[int(0.4/self.dt):int(0.8/self.dt)] = 200e-12
-        #self.clamp.set_command(cmd, dt=self.dt)
         
         mechanisms = [self.clamp, self.hhna, self.leak, self.hhk, self.dexh]
 
         # loop to run the simulation indefinitely
         self.runner = ndemo.SimRunner(self.sim)
-        #self.runner.add_request('soma.Vm') 
         self.runner.add_request('t') 
         self.runner.new_result.connect(mp.proxy(self.new_result, autoProxy=False, callSync='off'))
-
         
         # set up GUI
         QtGui.QWidget.__init__(self)
@@ -73,14 +68,6 @@ class DemoWindow(QtGui.QWidget):
         self.neuronview = NeuronView(self.neuron, mechanisms)
         self.plot_splitter.addWidget(self.neuronview)
         
-        #self.vm_plot = ScrollingPlot(dt=self.dt, npts=int(1.0/self.dt),
-                                         #parent=self, labels={'left': ('Membrane Potential', 'V'), 
-                                                              #'bottom': ('Time', 's')})
-        #self.vm_plot.setYRange(-90*mV, 50*mV)
-        #self.vm_plot.setXRange(-1000*ms, 0*ms)
-        #self.vm_plot.addLine(y=self.neuron.ek)
-        #self.vm_plot.addLine(y=self.neuron.ena)
-        #self.plot_splitter.addWidget(self.vm_plot)
         self.channel_plots = {}
         
         
@@ -96,19 +83,17 @@ class DemoWindow(QtGui.QWidget):
         self.clamp_param = ClampParameter(self.clamp, self)
         self.clamp_param.plots_changed.connect(self.plots_changed)
 
-
         self.vm_plot = self.add_plot('soma.V', 'Membrane Potential', 'V')
         
         self.splitter.setSizes([350, 650])
 
         self.show()
-
         
         self.params = pt.Parameter.create(name='params', type='group', children=[
             dict(name='Preset', type='list', values=['', 'Passive Membrane', 'Action Potential']),
             dict(name='Run', type='bool', value=True),
             dict(name='Speed', type='float', value=0.3, limits=[0, 10], step=1, dec=True),
-            dict(name='Temp', type='float', value=self.sim.temp, suffix='C', step=1.0),
+            dict(name='Temp', type='float', value=self.sim.temp._getValue(), suffix='C', step=1.0),
             dict(name='Capacitance', type='float', value=self.neuron.cap, suffix='F', siPrefix=True, dec=True),
             dict(name='Cell Schematic', type='bool', value=True, children=[
                 dict(name='Show Circuit', type='bool', value=False),
