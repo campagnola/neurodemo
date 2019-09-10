@@ -2,7 +2,7 @@
 Taken from future modifications to pyqtgraph..
 
 """
-from PyQt4 import QtGui, QtCore
+from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph.functions as fn
 import numpy as np
 
