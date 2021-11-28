@@ -19,9 +19,9 @@ This is an educational simulation of a simple neuron.
 Requirements
 ------------
 
-* Python 2.7 or 3+
+* Python 3.7 or higher
 * NumPy, SciPy
-* PyQt4
+* PyQt5
 * PyQtGraph
 
 
