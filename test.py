@@ -25,7 +25,7 @@ lgkf = neuron.add(LGKfast())
 lgks = neuron.add(LGKslow())
 leak = neuron.add(Leak(gbar=0.25*mS/cm**2, erev=-70*mV))
 
-clamp = MultiClamp(mode='ic')
+clamp = PatchClamp(mode='ic')
 neuron.add(clamp)
 sim.add(neuron)
 
@@ -50,10 +50,10 @@ t = np.arange(npts) * sim.dt
 for i, v in enumerate(x):
     print('V: ', v)
     cmd[i, x1:x2] = v
-    clamp.set_command(cmd[i], sim.dt, start=sim.time)
+    clamp.queue_command(cmd[i], sim.dt)
     #data[i] = run(neuron, mode='ic', dt=dt, cmd=cmd[i])
     result = sim.run(npts)
-    data = result[neuron, 'Vm']
+    data = result[neuron, 'V']
     p1.plot(t, data, pen=(i, 15))
     p2.plot(t, cmd[i], pen=(i, 15))
     #p2.plot(t, clamp.current(result), pen=(i, 15))

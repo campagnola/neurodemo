@@ -167,10 +167,10 @@ class SimState(object):
             else:
                 return self.extra[key]
 
-    def __repr__(self):
+    def __str__(self):
         rep = 'SimState:\n'
-        for i,k in enumerate(self.keys):
-            rep += '  %s.%s = %s\n' % (k[0].name, k[1], self.state[i])
+        for i,k in enumerate(self.difeq_vars):
+            rep += f'  {k} = {self.state[i][-1]}\n'
         return rep
 
     def get_final_state(self):
