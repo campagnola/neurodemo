@@ -41,7 +41,7 @@ class SimRunner(QtCore.QObject):
     def start(self, blocksize=500, **kwds):
         self.blocksize = blocksize
         self.run_args = kwds
-        self.timer.start(16)
+        self.timer.start(20)  # determines the width of the display window/update interval
         
     def stop(self):
         self.timer.stop()

@@ -5,7 +5,9 @@ Luke Campagnola 2015
 """
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui
-from neurodemo import *
+import neurodemo.units as NU
+import neurodemo as ND
+import numpy as np
 
 pg.setConfigOption('antialias', True)
 app = QtGui.QApplication([])
@@ -18,14 +20,14 @@ app = QtGui.QApplication([])
 #hhna = neuron.add(HHNa())
 
 # Lewis & Gerstner cortical neuron
-sim = Sim(temp=37)
-neuron = Section(vm=-70*mV)
-lgna = neuron.add(LGNa())
-lgkf = neuron.add(LGKfast())
-lgks = neuron.add(LGKslow())
-leak = neuron.add(Leak(gbar=0.25*mS/cm**2, erev=-70*mV))
+sim = ND.Sim(temp=37)
+neuron = ND.ection(vm=-70*NU.mV)
+lgna = neuron.add(ND.LGNa())
+lgkf = neuron.add(ND.LGKfast())
+lgks = neuron.add(ND.LGKslow())
+leak = neuron.add(ND.Leak(gbar=0.25*NU.mS/NU.cm**2, erev=-70*NU.mV))
 
-clamp = PatchClamp(mode='ic')
+clamp = ND.PatchClamp(mode='ic')
 neuron.add(clamp)
 sim.add(neuron)
 
@@ -38,11 +40,11 @@ win.ci.layout.setRowFixedHeight(1, 150)
 p3 = win.addPlot(row=2, col=0)
 win.ci.layout.setRowFixedHeight(2, 150)
 
-dur = 100 * ms
+dur = 100 * NU.ms
 npts = int(dur / sim.dt)
-x1 = int(20*ms / sim.dt)
-x2 = int(80*ms / sim.dt)
-x = np.linspace(-200, 200, 11) * pA
+x1 = int(20*NU.ms / sim.dt)
+x2 = int(80*NU.ms / sim.dt)
+x = np.linspace(-200, 200, 11) * NU.pA
 #x = [0*pA]
 cmd = np.zeros((len(x), npts)) #*-65e-3
 data = np.zeros((len(x), npts, 9))

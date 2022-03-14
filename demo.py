@@ -8,12 +8,12 @@ import numpy as np
 
 # make sure we get the right pyqtgraph..
 import os, sys
-sys.path.insert(0, os.path.dirname(__file__))
+# sys.path.insert(0, os.path.dirname(__file__))
 from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph as pg
 import pyqtgraph.multiprocess as mp
 import pyqtgraph.parametertree as pt
-from neurodemo.units import *
+import neurodemo.units as NU
 from neurodemo.neuronview import NeuronView
 from neurodemo.channelparam import ChannelParameter
 from neurodemo.clampparam import ClampParameter
@@ -23,28 +23,28 @@ app = pg.mkQApp()
 
 
 class DemoWindow(QtGui.QWidget):
-    def __init__(self):
+    def __init__(self, proc):
         # set up simulation in remote process
-        self.dt = 25*us
-        self.proc = mp.QtProcess(debug=False)
-        ndemo = self.proc._import('neurodemo')
-        self.sim = ndemo.Sim(temp=6.3, dt=self.dt)
+        self.dt = 25*NU.us
+        self.proc = proc
+        self.ndemo = self.proc._import('neurodemo')
+        self.sim = self.ndemo.Sim(temp=6.3, dt=self.dt)
         self.sim._setProxyOptions(deferGetattr=True)
-        self.neuron = ndemo.Section(name='soma')
+        self.neuron = self.ndemo.Section(name='soma')
         self.sim.add(self.neuron)
         
-        self.hhna = self.neuron.add(ndemo.HHNa())
-        self.leak = self.neuron.add(ndemo.Leak())
-        self.hhk = self.neuron.add(ndemo.HHK())
-        self.dexh = self.neuron.add(ndemo.IH())
+        self.hhna = self.neuron.add(self.ndemo.HHNa())
+        self.leak = self.neuron.add(self.ndemo.Leak())
+        self.hhk = self.neuron.add(self.ndemo.HHK())
+        self.dexh = self.neuron.add(self.ndemo.IH())
         self.dexh.enabled = False
         
-        self.clamp = self.neuron.add(ndemo.PatchClamp(mode='ic'))
+        self.clamp = self.neuron.add(self.ndemo.PatchClamp(mode='ic'))
         
         mechanisms = [self.clamp, self.hhna, self.leak, self.hhk, self.dexh]
 
         # loop to run the simulation indefinitely
-        self.runner = ndemo.SimRunner(self.sim)
+        self.runner = self.ndemo.SimRunner(self.sim)
         self.runner.add_request('t') 
         self.runner.new_result.connect(mp.proxy(self.new_result, autoProxy=False, callSync='off'))
         
@@ -91,7 +91,7 @@ class DemoWindow(QtGui.QWidget):
         
         self.params = pt.Parameter.create(name='params', type='group', children=[
             dict(name='Preset', type='list', values=['', 'Passive Membrane', 'Action Potential']),
-            dict(name='Run', type='bool', value=True),
+            dict(name='Run', type='bool', value=False),
             dict(name='Speed', type='float', value=0.3, limits=[0, 10], step=1, dec=True),
             dict(name='Temp', type='float', value=self.sim.temp._getValue(), suffix='C', step=1.0),
             dict(name='Capacitance', type='float', value=self.neuron.cap, suffix='F', siPrefix=True, dec=True),
@@ -104,7 +104,7 @@ class DemoWindow(QtGui.QWidget):
         self.ptree.setParameters(self.params)
         self.params.sigTreeStateChanged.connect(self.params_changed)
         
-        self.start()
+        # self.start()
 
         self.clamp_param['Plot Current'] = True
         self.plot_splitter.setSizes([300, 500, 200])
@@ -151,9 +151,9 @@ class DemoWindow(QtGui.QWidget):
     def add_plot(self, key, pname, name):
         # decide on y range, label, and units for new plot
         yranges = {
-            'V': (-100*mV, 50*mV),
-            'I': (-1*nA, 1*nA),
-            'G': (0, 100*nS),
+            'V': (-100*NU.mV, 50*NU.mV),
+            'I': (-1*NU.nA, 1*NU.nA),
+            'G': (0, 100*NU.nS),
             'OP': (0, 1),
             'm': (0, 1),
             'h': (0, 1),
@@ -183,7 +183,7 @@ class DemoWindow(QtGui.QWidget):
         self.plot_splitter.addWidget(plt)
         size = self.plot_splitter.height() / (len(sizes) + 1.)
         r = len(sizes) / (len(sizes)+1)
-        sizes = [s * r for s in sizes] + [size]
+        sizes = [int(s * r) for s in sizes] + [int(size)]
         self.plot_splitter.setSizes(sizes)
         
         # Ask sequence plotter to update as well
@@ -257,7 +257,7 @@ class DemoWindow(QtGui.QWidget):
             self.params['Speed'] = 0.05
             chans = self.params.child('Ion Channels')
             chans['soma.Ileak'] = True
-            chans['soma.Ileak', 'Erev'] = -55*mV
+            chans['soma.Ileak', 'Erev'] = -55*NU.mV
             chans['soma.INa'] = True
             chans['soma.IK'] = True
             chans['soma.IH'] = False
@@ -290,6 +290,7 @@ class ScrollingPlot(pg.PlotWidget):
 
 if __name__ == '__main__':
     import sys
-    win = DemoWindow()
+    proc = mp.QtProcess(debug=False)
+    win = DemoWindow(proc)
     if sys.flags.interactive == 0:
         app.exec_()

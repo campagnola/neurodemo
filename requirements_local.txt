@@ -1,0 +1,40 @@
+# neurodemo requirements
+# 09 Feb 2022
+# P.B. Manis
+
+# development utilities
+black==19.10b0
+flake8
+Pint==0.14
+isort==5.0.2
+mypy==0.782
+jupyterlab
+pytest==4.5.0
+
+llvmlite>=0.38.0rc1  # required for numba version to avoid "TypeError: create_target_machine() got an unexpected 
+lmfit==0.9.13
+
+matplotlib>=3.5
+matplotlib-scalebar>=0.5.1
+
+nose==1.3.7
+numpy>=1.21  # was 1.16.3
+
+numba==0.55.1
+openpyxl
+PyOpenGL==3.1.5
+PyOpenGL-accelerate==3.1.5
+pyparsing==2.4.0
+pyqt5>=5.15.4
+pyqt5-sip>=12.9
+pyqtgraph>=0.12.0
+pytest==4.5.0
+python-dateutil>=2.8.0
+pytz>=2020.1
+
+regex==2020.1.8
+
+scipy==1.8.0
+six==1.12.0
+
+
