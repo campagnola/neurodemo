@@ -21,7 +21,7 @@ app = QtGui.QApplication([])
 
 # Lewis & Gerstner cortical neuron
 sim = ND.Sim(temp=37)
-neuron = ND.ection(vm=-70*NU.mV)
+neuron = ND.Section(vm=-70*NU.mV)
 lgna = neuron.add(ND.LGNa())
 lgkf = neuron.add(ND.LGKfast())
 lgks = neuron.add(ND.LGKslow())
