@@ -183,7 +183,7 @@ class DemoWindow(QtGui.QWidget):
         self.plot_splitter.addWidget(plt)
         size = self.plot_splitter.height() / (len(sizes) + 1.)
         r = len(sizes) / (len(sizes)+1)
-        sizes = [s * r for s in sizes] + [size]
+        sizes = [int(s * r) for s in sizes] + [int(size)]
         self.plot_splitter.setSizes(sizes)
         
         # Ask sequence plotter to update as well
