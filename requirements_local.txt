@@ -22,12 +22,14 @@ numpy>=1.21  # was 1.16.3
 
 numba==0.55.1
 openpyxl
-PyOpenGL==3.1.5
-PyOpenGL-accelerate==3.1.5
+#PyOpenGL==3.1.5
+#PyOpenGL-accelerate==3.1.5
 pyparsing==2.4.0
-pyqt5>=5.15.4
-pyqt5-sip>=12.9
-pyqtgraph>=0.12.0
+pyqt6
+pyqt6-sip
+#pyqt5>=5.15.4
+#pyqt5-sip>=12.9
+pyqtgraph>=0.12.4
 pytest==4.5.0
 python-dateutil>=2.8.0
 pytz>=2020.1

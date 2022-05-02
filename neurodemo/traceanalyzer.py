@@ -18,7 +18,7 @@ class TraceAnalyzer(QtGui.QWidget):
         self.layout = QtGui.QGridLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
-        self.hsplitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
+        self.hsplitter = QtGui.QSplitter(QtCore.Qt.Orientation.Horizontal)
         self.layout.addWidget(self.hsplitter)
         
         self.ptree = pt.ParameterTree(showHeader=False)

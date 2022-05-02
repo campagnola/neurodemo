@@ -9,7 +9,7 @@ import numpy as np
 # make sure we get the right pyqtgraph..
 import os, sys
 # sys.path.insert(0, os.path.dirname(__file__))
-from pyqtgraph.Qt import QtGui, QtCore
+from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
 import pyqtgraph as pg
 import pyqtgraph.multiprocess as mp
 import pyqtgraph.parametertree as pt
@@ -52,17 +52,16 @@ class DemoWindow(QtGui.QWidget):
         QtGui.QWidget.__init__(self)
         self.fullscreen_widget = None
         self.resize(1024, 768)
-        self.layout = QtGui.QGridLayout()
+        self.layout = QtWidgets.QGridLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
-        
-        self.splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
+        self.splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
         self.layout.addWidget(self.splitter, 0, 0)
         
         self.ptree = pt.ParameterTree(showHeader=False)
         self.splitter.addWidget(self.ptree)
         
-        self.plot_splitter = QtGui.QSplitter(QtCore.Qt.Vertical)
+        self.plot_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
         self.splitter.addWidget(self.plot_splitter)
         
         self.neuronview = NeuronView(self.neuron, mechanisms)
@@ -117,7 +116,8 @@ class DemoWindow(QtGui.QWidget):
         self.fast_shortcut.activated.connect(self.faster)
         self.fullscreen_shortcut = QtGui.QShortcut(QtGui.QKeySequence('F11'), self)
         self.fullscreen_shortcut.activated.connect(self.fullscreen)
-        self.fullscreen_shortcut.setContext(QtCore.Qt.ApplicationShortcut)
+
+        #self.fullscreen_shortcut.setContext().Qt.ShortcutContext(QtCore.Qt.ApplicationShortcut)
 
     def params_changed(self, root, changes):
         for param, change, val in changes:
@@ -293,4 +293,4 @@ if __name__ == '__main__':
     proc = mp.QtProcess(debug=False)
     win = DemoWindow(proc)
     if sys.flags.interactive == 0:
-        app.exec_()
+        app.exec()

@@ -83,7 +83,6 @@ class ArrowItem(QtGui.QGraphicsPathItem):
         
         self.setPen(fn.mkPen(self.opts['pen']))
         self.setBrush(fn.mkBrush(self.opts['brush']))
-        
         if self.opts['pxMode']:
             self.setFlags(self.flags() | self.ItemIgnoresTransformations)
         else:
@@ -91,7 +90,7 @@ class ArrowItem(QtGui.QGraphicsPathItem):
 
 
     def paint(self, p, *args):
-        p.setRenderHint(QtGui.QPainter.Antialiasing)
+        p.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         QtGui.QGraphicsPathItem.paint(self, p, *args)
         
         #p.setPen(fn.mkPen('r'))

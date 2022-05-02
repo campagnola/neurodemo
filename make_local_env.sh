@@ -11,7 +11,7 @@ then
 else
     echo "No previous environment to remove."
 fi
-python3.9 -m venv $ENVNAME || exit 1
+python3.10 -m venv $ENVNAME || exit 1
 source $ENVNAME/bin/activate || exit 1
 
 pip3 install --upgrade pip  # be sure pip is up to date in the new env.

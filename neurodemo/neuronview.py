@@ -8,7 +8,9 @@ import os, tempfile
 import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore, QtSvg
-from .arrow import ArrowItem
+from PyQt6 import QtSvgWidgets
+from PyQt6 import QtGui as QtGui6
+from pyqtgraph import ArrowItem
 
 # for storing dynamically-generated svg files
 tmpdir = tempfile.mkdtemp()
@@ -24,7 +26,7 @@ class NeuronView(pg.GraphicsLayoutWidget):
     def __init__(self, soma, mechanisms):
         pg.GraphicsLayoutWidget.__init__(self)
         self.soma = soma
-        self.setRenderHint(QtGui.QPainter.Antialiasing)
+        self.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         self.view = self.addViewBox(0, 0)
         self.view.setAspectLocked()
         self.view.setRange(QtCore.QRectF(-70, -70, 140, 140))
@@ -95,12 +97,12 @@ class NeuronItem(QtGui.QGraphicsItemGroup):
         self.current = None
         
     def rotate(self, angle):
-        QtGui.QGraphicsItemGroup.rotate(self, angle)
-        self.circuit.rotate(angle)
+        QtGui.QGraphicsItemGroup.setRotation(self, angle)
+        self.circuit.setRotation(angle)
         
     def translate(self, x, y):
-        QtGui.QGraphicsItemGroup.translate(self, x, y)
-        self.circuit.translate(x, y)
+        QtGui.QGraphicsItemGroup.setTransform(self, QtGui6.QTransform().translate(x, y))
+        self.circuit.setTransform(QtGui6.QTransform().translate(x, y))
         
     def setVisible(self, v):
         QtGui.QGraphicsItemGroup.setVisible(self, v)
@@ -160,19 +162,19 @@ class Channel(NeuronItem):
             'INa': 'dd0000',
             'IK': '0000dd',
             'Ileak': '00dd00',
-            'IH': 'aa00aa',            
+            'IH': 'aaaaaa',            
         }.get(channel.type, '999999')
         NeuronItem.__init__(self)
         svg = self.get_svg(color)
-        self.svg = [QtSvg.QGraphicsSvgItem(svg),
-                    QtSvg.QGraphicsSvgItem(svg)]
-        self.svg[0].scale(1, -1)
-        self.svg[1].scale(-1, -1)
-        
+        self.svg = [QtSvgWidgets.QGraphicsSvgItem(svg),
+                    QtSvgWidgets.QGraphicsSvgItem(svg)]
+        self.svg[0].setTransform(QtGui6.QTransform().scale(1, -1))
+        self.svg[1].setTransform(QtGui6.QTransform().scale(-1, -1))
         for svg in self.svg:
             svg.setParentItem(self)
-            svg.translate(-9, -10.5)
-            
+            svg.setTransform(QtGui6.QTransform().translate(-9, -10.5))
+            # svg.translate(-9, -10.5)
+
         self.bg = QtGui.QGraphicsRectItem(QtCore.QRectF(-5, -10, 10, 20))
         self.bg.setParentItem(self)
         self.bg.setZValue(-1)
@@ -187,11 +189,13 @@ class Channel(NeuronItem):
         
         self.res = Resistor(l1=50, l2=15)
         self.res.setParentItem(self.circuit)
-        self.res.translate(0, -50)
+        self.res.setTransform(QtGui6.QTransform().translate(0, -50))
+        #translate(0, -50)
     
         self.batt = Capacitor(l1=10, l2=40, w1=11, w2=7, gap=4)
         self.batt.setParentItem(self.circuit)
-        self.batt.translate(0, 15)
+        self.batt.setTransform(QtGui6.QTransform().translate(0, 15))
+        #self.batt.translate(0, 15)
         
     def update_state(self, state):
         try:
@@ -237,7 +241,7 @@ class Current(QtGui.QGraphicsItemGroup):
             headWidth=10,
         )
         self.resetTransform()
-        self.scale(amp, amp)
+        self.scale(amp)
         if self.center:
             self.arrow.setPos(0, -20 * idir)
         else:
@@ -252,9 +256,10 @@ class Pipette(NeuronItem):
         self.clamp = clamp
         NeuronItem.__init__(self)
         self.key = clamp.name
-        self.svg = QtSvg.QGraphicsSvgItem(svg_file('pipette'))
-        self.svg.scale(1, -1)
-        self.svg.translate(-50, -255.67)
+        self.svg = QtSvgWidgets.QGraphicsSvgItem(svg_file('pipette'))
+        self.svg.setScale(1.0)
+        self.svg.setRotation(-180.)
+        self.svg.setTransform(QtGui6.QTransform().translate(-50.0, -255.67))
         self.svg.setParentItem(self)
         
         path = QtGui.QPainterPath()
@@ -266,7 +271,7 @@ class Pipette(NeuronItem):
         
         self.voltage = QtGui.QGraphicsPathItem(path)
         self.voltage.setPen(pg.mkPen(None))
-        self.voltage.translate(-50, -5)
+        self.voltage.setTransform(QtGui6.QTransform().translate(-50, -5))
         self.voltage.setParentItem(self)
         self.voltage.setZValue(-1)
         
@@ -278,11 +283,11 @@ class Pipette(NeuronItem):
         
         self.res = Resistor(l1=50, l2=150)
         self.res.setParentItem(self.circuit)
-        self.res.translate(0, -50)
+        self.res.setTransform(QtGui6.QTransform().translate(0, -50))
         
         self.cap = Capacitor(l1=15, l2=30)
-        self.cap.translate(0, 40)
-        self.cap.rotate(-90)
+        self.cap.setTransform(QtGui6.QTransform().translate(0, 40))
+        self.cap.setRotation(-90.0)
         self.cap.setParentItem(self.circuit)
         
     def update_state(self, state):
