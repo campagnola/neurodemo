@@ -10,7 +10,7 @@ import sys, platform
 from collections import OrderedDict
 import numpy as np
 import scipy.integrate
-from .units import *
+from . import units
 
 
 # Disable obnoxious app nap on OSX 
@@ -25,7 +25,7 @@ if sys.platform == 'darwin':
 class Sim(object):
     """Simulator for a collection of objects that derive from SimObject
     """
-    def __init__(self, objects=None, temp=37.0, dt=10*us):
+    def __init__(self, objects=None, temp=37.0, dt=10*units.us):
         if objects is None:
             objects = []
         self._objects = objects
@@ -401,17 +401,17 @@ class Channel(Mechanism):
 class Section(SimObject):
     type = 'section'
     
-    def __init__(self, radius=None, cap=10*pF, vm=-65*mV, **kwds):
-        self.cap_bar = 1 * uF/cm**2
+    def __init__(self, radius=None, cap=10*units.pF, vm=-65*units.mV, **kwds):
+        self.cap_bar = 1 * units.uF/units.cm**2
         if radius is None:
             self.cap = cap
             self.area = cap / self.cap_bar
         else:
             self.cap = self.area * self.cap_bar
             self.area = 4 * 3.1415926 * radius**2
-        self.ek = -77*mV
-        self.ena = 50*mV
-        self.ecl = -70*mV
+        self.ek = -77*units.mV
+        self.ena = 50*units.mV
+        self.ecl = -70*units.mV
         init_state = OrderedDict([('V', vm)])
         SimObject.__init__(self, init_state, **kwds)
         self.dep_state_vars['I'] = self.current
@@ -444,15 +444,15 @@ class Section(SimObject):
 class PatchClamp(Mechanism):
     type = 'PatchClamp'
     
-    def __init__(self, mode='ic', ra=2*MOhm, cpip=0.5*pF, **kwds):
+    def __init__(self, mode='ic', ra=2*units.MOhm, cpip=0.5*units.pF, **kwds):
         self.ra = ra
         self.cpip = cpip
         self._mode = mode
         self.cmd_queue = []
         self.last_time = 0
-        self.holding = {'ic': 0.0*pA, 'vc': -65*mV}
+        self.holding = {'ic': 0.0*units.pA, 'vc': -65*units.mV}
         self.gain = 50e-6  # arbitrary VC gain
-        init_state = OrderedDict([('V', -65*mV)])
+        init_state = OrderedDict([('V', -65*units.mV)])
         Mechanism.__init__(self, init_state, **kwds)
 
     def queue_command(self, cmd, dt, start=None):
@@ -572,7 +572,7 @@ class PatchClamp(Mechanism):
 class Leak(Channel):
     type = 'Ileak'
     
-    def __init__(self, gbar=0.1*mS/cm**2, erev=-55*mV, **kwds):
+    def __init__(self, gbar=0.1*units.mS/units.cm**2, erev=-55*units.mV, **kwds):
         Channel.__init__(self, gbar=gbar, init_state={}, **kwds)
         self.erev = erev
 
@@ -603,7 +603,7 @@ class HHK(Channel):
         cls.rates[:,0] = (0.1 - 0.01*vm) / (np.exp(1.0 - 0.1*vm) - 1.0)
         cls.rates[:,1] = 0.125 * np.exp(-vm / 80.)
         
-    def __init__(self, gbar=12*mS/cm**2, **kwds):
+    def __init__(self, gbar=12*units.mS/units.cm**2, **kwds):
         init_state = OrderedDict([('n', 0.3)]) 
         Channel.__init__(self, gbar=gbar, init_state=init_state, **kwds)
         self.shift = 0
@@ -652,7 +652,7 @@ class HHNa(Channel):
         cls.rates[:,2] = 0.07 * np.exp(-vm / 20.)
         cls.rates[:,3] = 1.0 / (np.exp(3.0 - 0.1 * vm) + 1.0)
         
-    def __init__(self, gbar=40*mS/cm**2, **kwds):
+    def __init__(self, gbar=40*units.mS/units.cm**2, **kwds):
         init_state = OrderedDict([('m', 0.05), ('h', 0.6)]) 
         Channel.__init__(self, gbar=gbar, init_state=init_state, **kwds)
         self.shift = 0
@@ -695,10 +695,10 @@ class IH(Channel):
     
     max_op = 0.3
     
-    def __init__(self, gbar=30*mS/cm**2, **kwds):
+    def __init__(self, gbar=30*units.mS/units.cm**2, **kwds):
         init_state = OrderedDict([('f', 0), ('s', 0)]) 
         Channel.__init__(self, gbar=gbar, init_state=init_state, **kwds)
-        self.erev = -43*mV
+        self.erev = -43*units.mV
         self.shift = 0
         
     def open_probability(self, state):
@@ -724,10 +724,10 @@ class LGNa(Channel):
     """
     type = 'INa'
     
-    def __init__(self, gbar=112.5*mS/cm**2, **kwds):
+    def __init__(self, gbar=112.5*units.mS/units.cm**2, **kwds):
         init_state = OrderedDict([('m', 0.019), ('h', 0.876)]) 
         Channel.__init__(self, gbar=gbar, init_state=init_state, **kwds)
-        self.erev = 74*mV
+        self.erev = 74*units.mV
         
     def open_probability(self, state):
         return state[self, 'm']**3 * state[self, 'h']
@@ -767,10 +767,10 @@ class LGKfast(Channel):
     """
     type = 'IKf'
     
-    def __init__(self, gbar=225*mS/cm**2, **kwds):
+    def __init__(self, gbar=225*units.mS/units.cm**2, **kwds):
         init_state = OrderedDict([('n', 0.00024)]) 
         Channel.__init__(self, gbar=gbar, init_state=init_state, **kwds)
-        self.erev = -90*mV
+        self.erev = -90*units.mV
         
     def open_probability(self, state):
         return state[self, 'n']**2
@@ -799,10 +799,10 @@ class LGKslow(Channel):
     """
     type = 'IKs'
     
-    def __init__(self, gbar=0.225*mS/cm**2, **kwds):
+    def __init__(self, gbar=0.225*units.mS/units.cm**2, **kwds):
         init_state = OrderedDict([('n', 0.0005)]) 
         Channel.__init__(self, gbar=gbar, init_state=init_state, **kwds)
-        self.erev = -90*mV
+        self.erev = -90*units.mV
         
     def open_probability(self, state):
         return state[self, 'n']**4
@@ -830,10 +830,11 @@ class LGKslow(Channel):
 
 
 # alpha synapse
-#Alpha_t0 = 500.  # msec
-#Alpha_tau = 2.0
-#gAlpha = 1e-3 * Area/cm**2
-#EAlpha = -7e-3  # V
+Area = 1e-12*units.cm**2
+Alpha_t0 = 500.*units.ms  # msec
+Alpha_tau = 2.0*units.ms
+gAlpha = 1e-3 * Area/units.cm**2
+EAlpha = -7*units.mV  # mV
 
 def IAlpha(Vm, t):
     if t < Alpha_t0:
