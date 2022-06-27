@@ -6,9 +6,9 @@ Luke Campagnola 2015
 from __future__ import division, unicode_literals
 import numpy as np
 
-# make sure we get the right pyqtgraph..
+# make sure we get the right pyqtgraph.
 import os, sys
-# sys.path.insert(0, os.path.dirname(__file__))
+
 from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
 import pyqtgraph as pg
 import pyqtgraph.multiprocess as mp
@@ -22,7 +22,7 @@ pg.setConfigOption('antialias', True)
 app = pg.mkQApp()
 
 
-class DemoWindow(QtGui.QWidget):
+class DemoWindow(QtWidgets.QWidget):
     def __init__(self, proc):
         # set up simulation in remote process
         self.dt = 25*NU.us
@@ -68,7 +68,6 @@ class DemoWindow(QtGui.QWidget):
         self.plot_splitter.addWidget(self.neuronview)
         
         self.channel_plots = {}
-        
         
         self.channel_params = [
             ChannelParameter(self.leak),
