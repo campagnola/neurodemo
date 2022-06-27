@@ -3,3 +3,9 @@ __pycache__
 neurodemo_venv/*
 build/*
 dist/*
+.eggs*
+*.dmg
+.DS_Store
+demo.egg-info/*
+demo.spec
+settings.json
