@@ -50,7 +50,7 @@ cmd = np.zeros((len(x), npts)) #*-65e-3
 data = np.zeros((len(x), npts, 9))
 t = np.arange(npts) * sim.dt
 for i, v in enumerate(x):
-    print('V: ', v)
+    # print('V: ', v)
     cmd[i, x1:x2] = v
     clamp.queue_command(cmd[i], sim.dt)
     #data[i] = run(neuron, mode='ic', dt=dt, cmd=cmd[i])
