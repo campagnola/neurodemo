@@ -11,6 +11,7 @@ mypy==0.961
 jupyterlab
 pytest==4.5.0
 
+appnope>=0.1.3
 llvmlite>=0.38.0rc1  # required for numba version to avoid "TypeError: create_target_machine() got an unexpected 
 lmfit==0.9.13
 
