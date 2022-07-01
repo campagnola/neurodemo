@@ -286,10 +286,12 @@ class ScrollingPlot(pg.PlotWidget):
         t -= t[-1]
         self.data_curve.setData(t, self.data)
 
-
-if __name__ == '__main__':
+def main():
     import sys
     proc = mp.QtProcess(debug=False)
     win = DemoWindow(proc)
     if sys.flags.interactive == 0:
         app.exec()
+
+if __name__ == '__main__':
+    main()

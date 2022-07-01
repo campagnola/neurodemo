@@ -1,6 +1,7 @@
 __pycache__
 *.pyc
 neurodemo_venv/*
+neurodemo.egg-info/*
 build/*
 dist/*
 .eggs*
