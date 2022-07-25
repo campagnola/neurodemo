@@ -266,7 +266,7 @@ class DemoWindow(QtWidgets.QWidget):
     def closeEvent(self, ev):
         self.runner.stop()
         self.proc.close()
-        QtGui.QApplication.instance().quit()
+        QtWidgets.QApplication.instance().quit()
 
 
 class ScrollingPlot(pg.PlotWidget):
