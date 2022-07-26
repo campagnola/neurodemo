@@ -20,4 +20,5 @@ setup(
         'console_scripts': [
             'demo=demo:main',
         ]
+        }
 )

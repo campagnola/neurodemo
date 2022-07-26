@@ -25,6 +25,6 @@ pip3 install cython
 # #Then:
 #
 pip3 install -r requirements_local.txt
-source $ENVNAME/bin/activate
+source $ENVNAME/Scripts/Activate
 python --version
-python setup.py develop
+python setup_local.py develop
