@@ -5,9 +5,9 @@ if [ -d $ENVNAME ]
 then
     echo "Removing previous environment: $ENVNAME"
     set +e
-    rsync -aR --remove-source-files $ENVNAME ~/.Trash/ || exit 1
+    #rsync -aR --remove-source-files $ENVNAME ~/.Trash/ || exit 1
     set -e
-    rm -R $ENVNAME
+    rm -Rf $ENVNAME
 else
     echo "No previous environment to remove."
 fi
@@ -23,7 +23,7 @@ pip3 install cython
 #
 # #Then:
 #
-pip3 install -r requirements_local.txt
-source $ENVNAME/Scripts/activate
+pip3 install --upgrade --force-reinstall -r requirements_local.txt
+source $ENVNAME/bin/activate
 python --version
 python setup_local.py develop
