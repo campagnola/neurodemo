@@ -226,7 +226,8 @@ class Channel(NeuronItem):
         self.current_translation = self.translation
         self.current_angle = self.angle
         self.current_transform = self.set_transform(
-            self.current, scale=scale[0], angle=self.current_angle, translate=self.current_translation
+            self.current, scale=scale[0], angle=self.current_angle, 
+            translate=self.current_translation
         )
         self.current.setZValue(2)
 
