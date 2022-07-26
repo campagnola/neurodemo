@@ -25,7 +25,6 @@ numba  # ==0.55.1
 openpyxl
 #PyOpenGL==3.1.5
 #PyOpenGL-accelerate==3.1.5
-pyparsing==2.4.0
 pyqt6
 pyqt6-sip
 #pyqt5>=5.15.4
@@ -35,7 +34,7 @@ pytest==4.5.0
 python-dateutil>=2.8.0
 pytz>=2020.1
 
-regex==2020.1.8
+#regex==2020.1.8
 
 scipy==1.8.0
 six==1.12.0
