@@ -3,7 +3,7 @@
 NeuroDemo - Physiological neuron sandbox for educational purposes
 Luke Campagnola 2015
 """
-from __future__ import division, unicode_literals
+
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore
 

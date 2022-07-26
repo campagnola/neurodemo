@@ -31,6 +31,7 @@ class SimRunner(QtCore.QObject):
         self.requests = []
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.run_once)
+        self.counter = 0
         
     def add_request(self, key):
         self.requests.append(key)
@@ -47,9 +48,11 @@ class SimRunner(QtCore.QObject):
         self.timer.stop()
         
     def run_once(self):
+        self.counter += 1
+        print(f"run_once***  count={self.counter:d}")
         blocksize = int(max(2, self.blocksize * self.speed))
         result = self.sim.run(blocksize, **self.run_args)
-        
+        print("    result retrieved")
         rec = {}
         for key in self.requests:
             try:
@@ -58,10 +61,11 @@ class SimRunner(QtCore.QObject):
                 #print("Key '%s' not found in sim result; skipping." % key)
                 continue
             rec[key] = data
-        
+        print("    rec filled")
         state = result.get_final_state()
-        
+        print("    final state retrieved")
         self.new_result.emit(state, rec)
+        print("    new result emitted")
         
     def set_speed(self, speed):
         self.speed = speed
