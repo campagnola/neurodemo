@@ -3,6 +3,8 @@ NeuroDemo - Physiological neuron sandbox for educational purposes
 Luke Campagnola 2015
 
 Updated 2022 pbmanis for Python 3.10 and PyQt6
+
+
 """
 import os, tempfile
 from pathlib import Path
@@ -54,7 +56,7 @@ class NeuronView(pg.GraphicsLayoutWidget):
 
         self.items = [self.cell]
         self.channels = []
-        angle = 30.0
+        angle = 0.0
         for mech in mechanisms:
             if mech.type == "PatchClamp":
                 item = Pipette(mech)
@@ -63,9 +65,12 @@ class NeuronView(pg.GraphicsLayoutWidget):
                 item.setTransform(QtGui6.QTransform().translate(0, 50))
             else:  # add ion channels
                 item = Channel(
-                    mech, translation=(0, 50), angle=angle
+                    mech, translation=(0, 50),
+                    angle=angle
                 )  # set all transforms at once
-                angle += 30.0
+                # item.setTransform(QtGui6.QTransform().rotate(angle))
+                angle += 45.0
+                # item.setTransform(QtGui6.QTransform().translate(0, 50))
                 self.view.addItem(item)  # add to graphic view of the cell
                 self.channels.append(item)  # keep a list
 
@@ -173,7 +178,7 @@ class Channel(NeuronItem):
     @staticmethod
     def get_svg(color):
         """Return a new copy of the channel SVG with the color modified."""
-        with open(svg_file("channel")) as fh:
+        with open(svg_file("channel2")) as fh:
             svg = fh.read()
         svg = svg.replace("fill:#dc0000", "fill:#" + color)
         fname = Path(tmpdir, f"channel_{color:s}.svg")
@@ -181,12 +186,13 @@ class Channel(NeuronItem):
             fh.write(svg)
         return str(fname)
 
-    def __init__(self, channel, translation, angle):
+    def __init__(self, channel, translation:Tuple=(0., 0.), angle:float=0.0):
         self.channel = channel
         self.key = channel.name + ".OP"
         self.maxop = channel.max_op
         self.translation = translation
         self.angle = angle
+        self.svg_items = [None, None]
         color = {
             "INa": "dd0000",
             "IK": "0000dd",
@@ -194,20 +200,16 @@ class Channel(NeuronItem):
             "IH": "aa00aa",
         }.get(channel.type, "999999")
         NeuronItem.__init__(self)
-        self.svg = [
+        self.channel_svg = [
             QtSvgWidgets.QGraphicsSvgItem(self.get_svg(color)),
-            QtSvgWidgets.QGraphicsSvgItem(self.get_svg(color)),
+            # QtSvgWidgets.QGraphicsSvgItem(self.get_svg(color)),   # not needed with channel2.svg
         ]
-        scale = [[1, 1], [1, -1]]
-
-        for i, svg in enumerate(self.svg):
+        scale = [[1, -1], [1, -1]]
+        transl = list(self.translation)
+        transl[0] -= 9.066
+        for i, svg in enumerate(self.channel_svg):
             svg.setParentItem(self)
-            self.set_transform(svg, scale[i], angle=self.angle, translate=self.translation)
-            # transform = QtGui6.QTransform()
-            # transform.scale(scale[i][0], scale[i][1])
-            # transform.rotate(angle)
-            # transform.translate(translation[0], translation[1])
-            # svg.setTransform(transform)
+            self.svg_items[i] = transform = self.set_transform(svg, scale[i], angle=self.angle, translate=transl)
 
         self.bg = QtGui.QGraphicsRectItem(QtCore.QRectF(-5, -10, 10, 20))
         self.bg.setParentItem(self)
@@ -219,50 +221,41 @@ class Channel(NeuronItem):
 
         self.circuit = QtGui.QGraphicsItemGroup()
 
-        self.current = Current(channel.name)
+        self.current = Current(channel.name, center=False)
         self.current.setParentItem(self.circuit)
+        self.current_translation = self.translation
+        self.current_angle = self.angle
         self.current_transform = self.set_transform(
-            self.current, scale=scale[0], angle=self.angle, translate=self.translation
+            self.current, scale=scale[0], angle=self.current_angle, 
+            translate=self.current_translation
         )
-        # transform = QtGui6.QTransform()
-        # transform.scale(scale[i][0], scale[i][1])
-        # transform.rotate(angle)
-        # transform.translate(translation[0], translation[1])
-        # self.current.setTransform(transform)
-        # self.current_transform = transform
         self.current.setZValue(2)
 
         self.res = Resistor(l1=50, l2=15)
         self.res.setParentItem(self.circuit)
         self.set_transform(self.res, [1, 1], angle=0., translate=[0, -50])
-        # res_transform = QtGui6.QTransform()
-        # res_transform.translate(0, -50)
-        # self.res.setTransform(res_transform)
-        # translate(0, -50)
 
         self.batt = Battery(l1=10, l2=40, w1=11, w2=7, gap=4)
         self.batt.setParentItem(self.circuit)
         self.set_transform(self.batt, [1, 1], angle=0.0, translate=[0, 15])
-        self.scale = [1,1]
+        self.scale = [1, 1]
         self.I_angle = 0.
         self.I_translation = [0, 15]
-        # batt_transform = QtGui6.QTransform()
-        # batt_transform.translate(0, 15)
-        # self.batt.setTransform(res_transform)
-        # self.batt.translate(0, 15)
 
-    def update_currents(self, scale):
-        """Update the current arrow associated with this channel
+    # def update_currents(self, scale):
+    #     """Update the current arrow associated with this channel
 
-        Parameters
-        ----------
-        scale : float
-            scaled current
-        """
-        self.set_transform(self.current, 
-            scale = scale,
-            angle = self.angle,
-            translate = self.translation)
+    #     Parameters
+    #     ----------
+    #     scale : float
+    #         scaled current
+    #     """
+    #     pass
+        # print("update currents: in Channels")
+        # self.set_transform(self.current, 
+        #     scale = scale,
+        #     angle = self.current_angle,
+        #     translate = self.current_translation)
         # new_transform = QtGui6.QTransform()
         # new_transform.scale(1, scale)
         # new_transform.rotate(self.angle)
@@ -275,15 +268,13 @@ class Channel(NeuronItem):
         item: object,
         scale: Union[List, Tuple] = [1, 1],
         angle: float = 0.0,
-        translate: Union[List, Tuple] = (0, 0),
+        translate: Union[List, Tuple] = (0, 50),
     ):
         new_transform = QtGui6.QTransform()
         new_transform.scale(scale[0], scale[1])
         new_transform.rotate(angle)
         new_transform.translate(translate[0], translate[1])
         item.setTransform(new_transform)
-
-        return new_transform
 
     def update_state(self, state):
         try:
@@ -294,8 +285,8 @@ class Channel(NeuronItem):
             self.setVisible(False)
             return
         nop = np.clip(op / self.maxop, 0, 1)
-        self.svg[0].setPos(nop * -4, 0)
-        self.svg[1].setPos(nop * 4, 0)
+       # self.channel_svg[0].setPos(nop * -4, 0)
+       # self.svg[1].setPos(nop * 4, 0)
         self.current.update_state(state)
 
     def show_circuit(self, show):
@@ -304,7 +295,7 @@ class Channel(NeuronItem):
 
 
 class Current(QtGui.QGraphicsItemGroup):
-    def __init__(self, channel_name, color="y", center=True):
+    def __init__(self, channel_name, color="y", center=False):
         QtGui.QGraphicsItemGroup.__init__(self)
         self.key = channel_name + ".I"
         self.center = center
@@ -312,6 +303,9 @@ class Current(QtGui.QGraphicsItemGroup):
             brush=(255, 255, 0, 200),
             angle=90,
             tailLen=20,
+            tailWidth=4,
+            headLen=15,
+            headWidth=8,
             pxMode=False,
             pen={"color": "k", "width": 1, "cosmetic": False},
         )
@@ -335,9 +329,7 @@ class Current(QtGui.QGraphicsItemGroup):
             headLen=20,
             headWidth=10,
         )
-        # self.resetTransform()
-
-        # self.update_currents(amp)
+        self.setScale(amp)
         if self.center:
             self.arrow.setPos(0, -20 * idir)
         else:
@@ -352,13 +344,13 @@ class Pipette(NeuronItem):
         self.clamp = clamp
         NeuronItem.__init__(self)
         self.key = clamp.name
-        self.svg = QtSvgWidgets.QGraphicsSvgItem(str(svg_file("pipette")))
+        self.pipette_svg = QtSvgWidgets.QGraphicsSvgItem(str(svg_file("pipette")))
         pip_transform = QtGui6.QTransform()
-        pip_transform.scale(1.0, 1.0)
+        pip_transform.scale(1.0, 1.0)  # put pipette at the top of the cell
         pip_transform.rotate(-180.0)
         pip_transform.translate(-50.0, -255.67)
-        self.svg.setTransform(pip_transform)
-        self.svg.setParentItem(self)
+        self.pipette_svg.setTransform(pip_transform)
+        self.pipette_svg.setParentItem(self)
 
         path = QtGui.QPainterPath()
         path.moveTo(42, 4)
@@ -368,11 +360,11 @@ class Pipette(NeuronItem):
         path.closeSubpath()
 
         self.voltage = QtGui.QGraphicsPathItem(path)
+        self.voltage.setParentItem(self)
         self.voltage.setPen(pg.mkPen(None))
         voltage_transform = QtGui6.QTransform()
         voltage_transform.translate(-50, -5)
         self.voltage.setTransform(voltage_transform)
-        self.voltage.setParentItem(self)
         self.voltage.setZValue(-1)
 
         self.circuit = QtGui.QGraphicsItemGroup()
@@ -388,11 +380,12 @@ class Pipette(NeuronItem):
         self.res.setTransform(res_transform)
 
         self.cap = Capacitor(l1=15, l2=30)
+        self.cap.setParentItem(self.circuit)
         cap_transform = QtGui6.QTransform()
         cap_transform.translate(0, 40)
         cap_transform.rotate(-90.0)
         self.cap.setTransform(cap_transform)
-        self.cap.setParentItem(self.circuit)
+
 
     def update_state(self, state):
         try:

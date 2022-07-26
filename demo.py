@@ -44,6 +44,7 @@ class DemoWindow(QtWidgets.QWidget):
         mechanisms = [self.clamp, self.hhna, self.leak, self.hhk, self.dexh]
 
         # loop to run the simulation indefinitely
+        self.running = False
         self.runner = self.ndemo.SimRunner(self.sim)
         self.runner.add_request('t') 
         self.runner.new_result.connect(mp.proxy(self.new_result, autoProxy=False, callSync='off'))
@@ -89,7 +90,7 @@ class DemoWindow(QtWidgets.QWidget):
         
         self.params = pt.Parameter.create(name='params', type='group', children=[
             dict(name='Preset', type='list', values=['', 'Passive Membrane', 'Action Potential']),
-            dict(name='Run', type='bool', value=False),
+            dict(name='Run/Stop', type='action', value=False),
             dict(name='Speed', type='float', value=0.3, limits=[0, 10], step=1, dec=True),
             dict(name='Temp', type='float', value=self.sim.temp._getValue(), suffix='C', step=1.0),
             dict(name='Capacitance', type='float', value=self.neuron.cap, suffix='F', siPrefix=True, dec=True),
@@ -101,7 +102,7 @@ class DemoWindow(QtWidgets.QWidget):
         ])
         self.ptree.setParameters(self.params)
         self.params.sigTreeStateChanged.connect(self.params_changed)
-        
+
         # self.start()
 
         self.clamp_param['Plot Current'] = True
@@ -120,13 +121,21 @@ class DemoWindow(QtWidgets.QWidget):
 
     def params_changed(self, root, changes):
         for param, change, val in changes:
+            path = self.params.childPath(param)
+            if path[0] == "Run/Stop":
+                if self.running is True:
+                    self.stop()
+                    self.running = False
+                else:
+                    self.start()
+                    self.running = True
             if change != 'value':
                 continue
-            if param is self.params.child('Run'):
-                if val:
-                    self.start()
-                else:
-                    self.stop()
+            # if param is self.params.child('Run'):
+            #     if val:
+            #         self.start()
+            #     else:
+            #         self.stop()
             elif param is self.params.child('Speed'):
                 self.runner.set_speed(val)
             elif param is self.params.child('Temp'):
@@ -266,7 +275,7 @@ class DemoWindow(QtWidgets.QWidget):
     def closeEvent(self, ev):
         self.runner.stop()
         self.proc.close()
-        QtGui.QApplication.instance().quit()
+        QtWidgets.QApplication.instance().quit()
 
 
 class ScrollingPlot(pg.PlotWidget):
