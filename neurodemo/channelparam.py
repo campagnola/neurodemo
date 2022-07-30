@@ -3,10 +3,10 @@
 NeuroDemo - Physiological neuron sandbox for educational purposes
 Luke Campagnola 2015
 """
-from __future__ import division, unicode_literals
+
 from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph.parametertree as pt
-from .units import *
+import neurodemo.units as NU
 
 
 class ChannelParameter(pt.parameterTypes.SimpleParameter):
@@ -19,7 +19,7 @@ class ChannelParameter(pt.parameterTypes.SimpleParameter):
         name = channel.name
         ch_params = [
             dict(name='Gmax', type='float', value=channel.gmax, suffix='S', siPrefix=True, step=0.1, dec=True),
-            dict(name='Erev', type='float', value=channel.erev, suffix='V', siPrefix=True, step=5*mV),
+            dict(name='Erev', type='float', value=channel.erev, suffix='V', siPrefix=True, step=5*NU.mV),
             dict(name='Plot I', type='bool', value=False),
             dict(name='Plot G', type='bool', value=False),
             dict(name='Plot OP', type='bool', value=False),

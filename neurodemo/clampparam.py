@@ -3,12 +3,12 @@
 NeuroDemo - Physiological neuron sandbox for educational purposes
 Luke Campagnola 2015
 """
-from __future__ import division, unicode_literals
+
 import numpy as np
 from pyqtgraph.Qt import QtCore
 import pyqtgraph.parametertree as pt
 from .sequenceplot import SequencePlotWindow
-from .units import *
+import neurodemo.units as NU
 
 
 class ClampParameter(pt.parameterTypes.SimpleParameter):
@@ -45,14 +45,14 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                     value=0,
                     suffix="A",
                     siPrefix=True,
-                    step=10 * pA,
+                    step=10 * NU.pA,
                 ),
                 # dict(name='Ideal', type='bool', value=True),
                 dict(
                     name="Pipette Capacitance",
                     type="float",
                     value=clamp.cpip,
-                    limits=[0.01 * pF, None],
+                    limits=[0.01 * NU.pF, None],
                     suffix="F",
                     siPrefix=True,
                     dec=True,
@@ -62,7 +62,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                     name="Access Resistance",
                     type="float",
                     value=clamp.ra,
-                    limits=[10 * kOhm, None],
+                    limits=[10 * NU.kOhm, None],
                     suffix="Ω",
                     siPrefix=True,
                     step=0.5,
@@ -79,7 +79,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Amplitude",
                             type="float",
-                            value=50 * pA,
+                            value=50 * NU.pA,
                             suffix="A",
                             siPrefix=True,
                             dec=True,
@@ -87,7 +87,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Pre-delay",
                             type="float",
-                            value=20 * ms,
+                            value=20 * NU.ms,
                             suffix="s",
                             siPrefix=True,
                             limits=[0, None],
@@ -96,7 +96,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Duration",
                             type="float",
-                            value=50 * ms,
+                            value=50 * NU.ms,
                             suffix="s",
                             siPrefix=True,
                             limits=[0, None],
@@ -105,7 +105,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Post-delay",
                             type="float",
-                            value=50 * ms,
+                            value=50 * NU.ms,
                             suffix="s",
                             siPrefix=True,
                             limits=[0, None],
@@ -115,7 +115,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Start Amplitude",
                             type="float",
-                            value=-50 * pA,
+                            value=-50 * NU.pA,
                             suffix="A",
                             siPrefix=True,
                             dec=True,
@@ -123,7 +123,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Stop Amplitude",
                             type="float",
-                            value=50 * pA,
+                            value=50 * NU.pA,
                             suffix="A",
                             siPrefix=True,
                             dec=True,
@@ -169,8 +169,8 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         self.clamp.set_mode(mode)
         suff = {"ic": "A", "vc": "V"}[mode]
         amp, start, stop, step = {
-            "ic": (-10 * pA, -100 * pA, 100 * pA, 10 * pA),
-            "vc": (-10 * mV, -40 * mV, 100 * mV, 5 * mV),
+            "ic": (-10 * NU.pA, -100 * NU.pA, 100 * NU.pA, 10 * NU.pA),
+            "vc": (-10 * NU.mV, -40 * NU.mV, 100 * NU.mV, 5 * NU.mV),
         }[mode]
         self.sigTreeStateChanged.disconnect(self.treeChange)
         try:

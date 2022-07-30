@@ -3,7 +3,7 @@
 NeuroDemo - Physiological neuron sandbox for educational purposes
 Luke Campagnola 2015
 """
-from __future__ import division, unicode_literals
+
 import numpy as np
 
 # make sure we get the right pyqtgraph.
@@ -211,7 +211,7 @@ class DemoWindow(QtWidgets.QWidget):
         plt.close()
         
     def start(self):
-        self.runner.start(blocksize=100)
+        self.runner.start(blocksize=500)
         
     def stop(self):
         self.runner.stop()

@@ -5,9 +5,9 @@ if [ -d $ENVNAME ]
 then
     echo "Removing previous environment: $ENVNAME"
     set +e
-    rsync -aR --remove-source-files $ENVNAME ~/.Trash/ || exit 1
+    #rsync -aR --remove-source-files $ENVNAME ~/.Trash/ || exit 1
     set -e
-    rm -R $ENVNAME
+    rm -Rf $ENVNAME
 else
     echo "No previous environment to remove."
 fi
