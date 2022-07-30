@@ -20,8 +20,11 @@ from neurodemo.clampparam import ClampParameter
 
 pg.setConfigOption('antialias', True)
 app = pg.mkQApp()
-
-
+# print("Current style: ", app.style().name())
+# from PyQt6.QtWidgets import QStyleFactory
+# print("Window styles: ", QStyleFactory.keys())
+app.setStyle("Fusion")  # necessary to remove double labels on mac os w/pyqtgraph until PR is done
+# print(pg.Qt.VERSION_INFO)
 class DemoWindow(QtWidgets.QWidget):
     def __init__(self, proc):
         # set up simulation in remote process
@@ -86,7 +89,7 @@ class DemoWindow(QtWidgets.QWidget):
         
         self.splitter.setSizes([350, 650])
 
-        self.show()
+ 
         
         self.params = pt.Parameter.create(name='params', type='group', children=[
             dict(name='Preset', type='list', values=['', 'Passive Membrane', 'Action Potential']),
@@ -118,6 +121,8 @@ class DemoWindow(QtWidgets.QWidget):
         self.fullscreen_shortcut.activated.connect(self.fullscreen)
 
         #self.fullscreen_shortcut.setContext().Qt.ShortcutContext(QtCore.Qt.ApplicationShortcut)
+        self.show()
+
 
     def params_changed(self, root, changes):
         for param, change, val in changes:

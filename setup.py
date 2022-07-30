@@ -9,7 +9,10 @@ from setuptools import setup
 
 APP = ['demo.py']
 DATA_FILES = []
-OPTIONS = {}
+OPTIONS = {
+    'iconfile':'icon.icns',
+    'plist': {'CFBundleShortVersionString':'1.1.0',}
+}
 
 setup(
     app=APP,
