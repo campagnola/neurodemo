@@ -82,7 +82,7 @@ class PGTest(QtWidgets.QWidget):
         self.ptree.setParameters(self.params)
         self.params.sigTreeStateChanged.connect(self.params_changed)
         self.params.setOpts(name = "Forward/Backward !")  # sets group paramater name (default was "params")
-        self.params.setOpts(title = "Up/Down >")
+        self.params.setOpts(title = "Up/Down >") # adds options dict with Title  (also in parameter name)
         self.show()
     
     def params_changed(self, root, changes):
