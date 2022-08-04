@@ -4,19 +4,33 @@ NeuroDemo - Physiological neuron sandbox for educational purposes
 Luke Campagnola 2015
 """
 
-import numpy as np
-
 # make sure we get the right pyqtgraph.
-import os, sys
-
-from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
+import sys
+import platform
+import appnope
+import numpy as np
 import pyqtgraph as pg
 import pyqtgraph.multiprocess as mp
 import pyqtgraph.parametertree as pt
+from pyqtgraph.Qt import QtCore, QtGui, QtWidgets
+from pyqtgraph.debug import ThreadTrace
+
 import neurodemo.units as NU
-from neurodemo.neuronview import NeuronView
 from neurodemo.channelparam import ChannelParameter
 from neurodemo.clampparam import ClampParameter
+from neurodemo.neuronview import NeuronView
+
+# Disable obnoxious app nap on OSX 
+# Many thanks to https://github.com/minrk/appnope
+
+from multiprocessing import set_start_method
+set_start_method("fork")
+
+if sys.platform == 'darwin':
+    v = [int(x) for x in platform.mac_ver()[0].split('.')]
+    if (v[0] == 10 and v[1] >= 9) or v[0] >= 11:
+        import appnope
+        appnope.nope()
 
 pg.setConfigOption('antialias', True)
 app = pg.mkQApp()
@@ -300,12 +314,14 @@ class ScrollingPlot(pg.PlotWidget):
         t -= t[-1]
         self.data_curve.setData(t, self.data)
 
-def main():
+# def main():
+
+
+if __name__ == '__main__':
     import sys
     proc = mp.QtProcess(debug=False)
     win = DemoWindow(proc)
     if sys.flags.interactive == 0:
         app.exec()
-
-if __name__ == '__main__':
-    main()
+        app.processEvents()
+    # main()

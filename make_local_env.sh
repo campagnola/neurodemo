@@ -11,8 +11,11 @@ then
 else
     echo "No previous environment to remove."
 fi
-python3.10 -m venv $ENVNAME || exit 1
+pip3 install virtualenv
+python3 -m virtualenv -p /usr/local/bin/python3.10 $ENVNAME
+# python3.10 -m venv $ENVNAME || exit 1
 source $ENVNAME/bin/activate || exit 1
+python3 -m pip install --upgrade pip
 
 pip3 install --upgrade pip  # be sure pip is up to date in the new env.
 pip3 install wheel  # seems to be missing (note singular)

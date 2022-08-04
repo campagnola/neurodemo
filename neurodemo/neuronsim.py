@@ -13,18 +13,6 @@ import scipy.integrate
 from . import units
 
 
-# Disable obnoxious app nap on OSX 
-# Many thanks to https://github.com/minrk/appnope
-
-
-if sys.platform == 'darwin':
-    v = [int(x) for x in platform.mac_ver()[0].split('.')]
-    if (v[0] == 10 and v[1] >= 9) or v[0] >= 11:
-        import appnope
-        appnope.nope()
-        print("set appNope on MacOS")
-
-
 class Sim(object):
     """Simulator for a collection of objects that derive from SimObject
     """
