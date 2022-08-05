@@ -21,6 +21,8 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         self.plot_win = SequencePlotWindow()
         
         self.triggers = []  # items are (trigger_time, pointer, trigger_buffer, (mode, amp, cmd, seq_ind, seq_len))
+        self.result_buffer = []  # store a few recent results to ensure triggers are caught
+        self.result_buffer_size = 5
         self.plot_keys = []
         pt.parameterTypes.SimpleParameter.__init__(self, name='Patch Clamp', type='bool', value=True, children=[
             dict(name='Mode', type='list', values={'Current Clamp': 'ic', 'Voltage Clamp': 'vc'}, value='ic'),
@@ -118,8 +120,9 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
             cmd2 = cmd.copy()
             cmd2[i1:i2] += amp
             cmds.append(cmd2)
-        
+            
         times = self.clamp.queue_commands(cmds, self.dt)
+        # note: it is possible for data to arrive before triggers have been added.
         for i, t in enumerate(times):
             info = {'mode': self.mode(), 'amp': amps[i], 'cmd': cmds[i], 'seq_ind': i, 'seq_len': len(amps)}
             self.add_trigger(len(cmd), t, info)
@@ -139,28 +142,35 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         self.plot_win.remove_plot(key)
     
     def new_result(self, result):
-        if len(self.triggers) == 0:
+        # store a few recent results to ensure triggers are handled on time
+        self.result_buffer.append(result)
+        if len(self.result_buffer) > self.result_buffer_size:
+            result = self.result_buffer.pop(0)
+        else:
             return
-        t = result['t']
-        tt, ptr, buf, info = self.triggers[0]
-        if tt > t[-1]:
+
+        if len(self.triggers) == 0:
+            return        
+        time_arr = result['t']
+        trigger_time, ptr, buf, info = self.triggers[0]
+        if trigger_time > time_arr[-1]:
             # no triggers ready
             return
-        
+
         # Copy data from result to trigger buffer
-        i = max(0, int(np.round((tt - t[0]) / self.dt))) # index of trigger within new data
-        npts = min(len(buf)-ptr, len(t)-i) # number of samples to copy from new data
+        trigger_index = max(0, int(np.round((trigger_time - time_arr[0]) / self.dt))) # index of trigger within new data
+        npts = min(len(buf)-ptr, len(time_arr)-trigger_index) # number of samples to copy from new data
         for k in self.plot_keys:
-            buf[k][ptr:ptr+npts] = result[k][i:i+npts] 
+            buf[k][ptr:ptr+npts] = result[k][trigger_index:trigger_index+npts] 
             
         ptr += npts
         if ptr >= buf.shape[0]:
             # If the trigger buffer is full, plot and remove
             self.plot_win.plot(np.arange(buf.shape[0])*self.dt, buf, info)
             self.triggers.pop(0)
-            if len(t) > npts:
+            if len(time_arr) > npts:
                 # If there is data left over, try feeding it to the next trigger
-                result = dict([(k, result[k][i+npts:]) for k in result])
+                result = dict([(k, result[k][trigger_index+npts:]) for k in result])
                 self.new_result(result)
         else:
             # otherwise, update the pointer and wait for the next result
