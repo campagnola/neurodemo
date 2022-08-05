@@ -69,7 +69,7 @@ class TraceAnalyzerGroup(pt.parameterTypes.GroupParameter):
     need_update = QtCore.Signal()
 
     def __init__(self, **kwds):
-        analyses = ['min', 'max', 'mean', 'exp tau', 'spike count', 'spike latency']
+        analyses = ['min', 'max', 'mean', 'exp_tau', 'spike_count', 'spike_latency']
         self.inputs = []
         pt.parameterTypes.GroupParameter.__init__(self, addText='Add analysis..', addList=analyses, **kwds)
 
@@ -93,7 +93,7 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
         kwds.update({'removable': True, 'renamable': False})
         childs = [
             dict(name='Input', type='list', values=kwds.pop('inputs')),
-            dict(name='Type', type='list', value=kwds.pop('analysis_type'), values=['mean', 'min', 'max', 'exp tau', 'spike count', 'spike latency']),
+            dict(name='Type', type='list', value=kwds.pop('analysis_type'), values=['mean', 'min', 'max', 'exp_tau', 'spike_count', 'spike_latency']),
             dict(name='Start', type='float', value=0, suffix='s', siPrefix=True, step=5e-3),
             dict(name='End', type='float', value=10e-3, suffix='s', siPrefix=True, step=5e-3),
             dict(name='Threshold', type='float', value=-30e-3, suffix='V', siPrefix=True, step=5e-3, visible=False),
@@ -117,7 +117,7 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
                 finally:
                     self.rgn.sigRegionChanged.connect(self.region_changed)
             elif param is self.child('Type'):
-                needs_threshold = val in ['spike count', 'spike latency']
+                needs_threshold = val in ['spike_count', 'spike_latency']
                 self.child('Threshold').setOpts(visible=needs_threshold)
             self.need_update.emit(self)
         
@@ -150,14 +150,14 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
             return data.max()
         elif typ.startswith('spike'):
             spikes = np.argwhere((data[1:] > self['Threshold']) & (data[:-1] < self['Threshold']))[:,0]
-            if typ == 'spike count':
+            if typ == 'spike_count':
                 return len(spikes)
-            elif typ == 'spike latency':
+            elif typ == 'spike_latency':
                 if len(spikes) == 0:
                     return np.nan
                 else:
                     return spikes[0] * dt
-        elif typ == 'exp tau':
+        elif typ == 'exp_tau':
             return self.measure_tau(data, t)
             
     def measure_tau(self, data, t):
