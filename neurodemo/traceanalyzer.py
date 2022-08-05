@@ -105,6 +105,8 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
         
         self.rgn = pg.LinearRegionItem([self['Start'], self['End']])
         self.rgn.sigRegionChanged.connect(self.region_changed)
+
+        self.show_threshold_param()
     
     def tree_changed(self, root, changes):
         for param, change, val in changes:
@@ -117,10 +119,13 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
                 finally:
                     self.rgn.sigRegionChanged.connect(self.region_changed)
             elif param is self.child('Type'):
-                needs_threshold = val in ['spike_count', 'spike_latency']
-                self.child('Threshold').setOpts(visible=needs_threshold)
+                self.show_threshold_param()
             self.need_update.emit(self)
-        
+
+    def show_threshold_param(self):
+        needs_threshold = self['Type'] in ['spike_count', 'spike_latency']
+        self.child('Threshold').setOpts(visible=needs_threshold)
+
     def region_changed(self):
         start, end = self.rgn.getRegion()
         self.sigTreeStateChanged.disconnect(self.tree_changed)
