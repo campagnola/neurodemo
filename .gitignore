@@ -1,3 +1,12 @@
 __pycache__
 *.pyc
 neurodemo_venv/*
+neurodemo.egg-info/*
+neurodemo.dmg
+neurodemo.pkg
+build/*
+dist/*
+.eggs/*
+.DS_Store
+
+
