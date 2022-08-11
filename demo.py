@@ -7,7 +7,7 @@ Luke Campagnola 2015
 # make sure we get the right pyqtgraph.
 import sys
 import platform
-import appnope
+# import appnope
 import numpy as np
 import pyqtgraph as pg
 import pyqtgraph.multiprocess as mp
@@ -27,10 +27,10 @@ pg.setConfigOption('antialias', True)
 # Many thanks to https://github.com/minrk/appnope
 app = pg.mkQApp()
 if sys.platform == 'darwin':
-    v = [int(x) for x in platform.mac_ver()[0].split('.')]
-    if (v[0] == 10 and v[1] >= 9) or v[0] >= 11:
-        import appnope
-        appnope.nope()
+    # v = [int(x) for x in platform.mac_ver()[0].split('.')]
+    # if (v[0] == 10 and v[1] >= 9) or v[0] >= 11:
+    #     import appnope
+    #     appnope.nope()
     app.setStyle("Fusion")  # necessary to remove double labels on mac os w/pyqtgraph until PR is done
 
 class DemoWindow(QtWidgets.QWidget):
