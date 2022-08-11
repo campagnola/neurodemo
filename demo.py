@@ -15,38 +15,35 @@ import pyqtgraph.parametertree as pt
 from pyqtgraph.Qt import QtCore, QtGui, QtWidgets
 from pyqtgraph.debug import ThreadTrace
 
+import neurodemo
 import neurodemo.units as NU
 from neurodemo.channelparam import ChannelParameter
 from neurodemo.clampparam import ClampParameter
 from neurodemo.neuronview import NeuronView
 
+pg.setConfigOption('antialias', True)
+
 # Disable obnoxious app nap on OSX 
 # Many thanks to https://github.com/minrk/appnope
-
-# from multiprocessing import set_start_method
-# set_start_method("fork")
-
+app = pg.mkQApp()
 if sys.platform == 'darwin':
     v = [int(x) for x in platform.mac_ver()[0].split('.')]
     if (v[0] == 10 and v[1] >= 9) or v[0] >= 11:
         import appnope
         appnope.nope()
+    app.setStyle("Fusion")  # necessary to remove double labels on mac os w/pyqtgraph until PR is done
 
-pg.setConfigOption('antialias', True)
-app = pg.mkQApp()
-# print("Current style: ", app.style().name())
-# from PyQt6.QtWidgets import QStyleFactory
-# print("Window styles: ", QStyleFactory.keys())
-app.setStyle("Fusion")  # necessary to remove double labels on mac os w/pyqtgraph until PR is done
-# print(pg.Qt.VERSION_INFO)
 class DemoWindow(QtWidgets.QWidget):
     def __init__(self, proc):
-        # set up simulation in remote process
+
         self.dt = 25*NU.us
         self.proc = proc
-        self.ndemo = self.proc._import('neurodemo')
+        # set up simulation in remote process
+        # self.ndemo = self.proc._import('neurodemo')
+        # or do not use remote process:
+        self.ndemo = neurodemo
         self.sim = self.ndemo.Sim(temp=6.3, dt=self.dt)
-        self.sim._setProxyOptions(deferGetattr=True)
+        # self.sim._setProxyOptions(deferGetattr=True)  # only if using remote process
         self.neuron = self.ndemo.Section(name='soma')
         self.sim.add(self.neuron)
         
@@ -64,8 +61,10 @@ class DemoWindow(QtWidgets.QWidget):
         self.running = False
         self.runner = self.ndemo.SimRunner(self.sim)
         self.runner.add_request('t') 
-        self.runner.new_result.connect(mp.proxy(self.new_result, autoProxy=False, callSync='off'))
-        
+        # if using remote process:
+        # self.runner.new_result.connect(mp.proxy(self.new_result, autoProxy=False, callSync='off'))
+        self.runner.new_result.connect(self.new_result,) 
+
         # set up GUI
         QtGui.QWidget.__init__(self)
         self.fullscreen_widget = None
@@ -109,7 +108,7 @@ class DemoWindow(QtWidgets.QWidget):
             dict(name='Preset', type='list', values=['', 'Passive Membrane', 'Action Potential']),
             dict(name='Run/Stop', type='action', value=False),
             dict(name='Speed', type='float', value=0.3, limits=[0, 10], step=1, dec=True),
-            dict(name='Temp', type='float', value=self.sim.temp._getValue(), suffix='C', step=1.0),
+            dict(name='Temp', type='float', value=self.sim.temp, suffix='C', step=1.0),
             dict(name='Capacitance', type='float', value=self.neuron.cap, suffix='F', siPrefix=True, dec=True),
             dict(name='Cell Schematic', type='bool', value=True, children=[
                 dict(name='Show Circuit', type='bool', value=False),
@@ -119,8 +118,14 @@ class DemoWindow(QtWidgets.QWidget):
         ])
         self.ptree.setParameters(self.params)
         self.params.sigTreeStateChanged.connect(self.params_changed)
+        # make Run/Stop button change color to indicate running state
+        p = self.params.child("Run/Stop")
+        rsbutton = list(p.items.keys())[0].button
+        rsbutton.setCheckable(True)  # toggle
+        rsbutton.setStyleSheet("QPushButton { background-color: #225522}"
+                               "QPushButton:checked { background-color: #882222}" )
 
-        # self.start()
+        # self.start()  # if autostart desired
 
         self.clamp_param['Plot Current'] = True
         self.plot_splitter.setSizes([300, 500, 200])
@@ -150,11 +155,7 @@ class DemoWindow(QtWidgets.QWidget):
                     self.running = True
             if change != 'value':
                 continue
-            # if param is self.params.child('Run'):
-            #     if val:
-            #         self.start()
-            #     else:
-            #         self.stop()
+
             elif param is self.params.child('Speed'):
                 self.runner.set_speed(val)
             elif param is self.params.child('Temp'):
@@ -226,9 +227,11 @@ class DemoWindow(QtWidgets.QWidget):
         
     def start(self):
         self.runner.start(blocksize=500)
+        # set button color
         
     def stop(self):
         self.runner.stop()
+        # reset button color
         
     def pause(self):
         self.params['Run'] = not self.params['Run']
