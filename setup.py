@@ -11,8 +11,10 @@ APP = ['demo.py']
 DATA_FILES = []
 OPTIONS = {
     'iconfile':'icon.icns',
-    'plist': {'CFBundleShortVersionString':'1.1.0',}
+    'plist': {'CFBundleShortVersionString':'1.1.0',},
+    'arch': "universal2",
 }
+
 
 setup(
     app=APP,
