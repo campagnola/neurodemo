@@ -23,8 +23,8 @@ from neurodemo.neuronview import NeuronView
 # Disable obnoxious app nap on OSX 
 # Many thanks to https://github.com/minrk/appnope
 
-from multiprocessing import set_start_method
-set_start_method("fork")
+# from multiprocessing import set_start_method
+# set_start_method("fork")
 
 if sys.platform == 'darwin':
     v = [int(x) for x in platform.mac_ver()[0].split('.')]
