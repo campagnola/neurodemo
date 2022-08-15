@@ -77,21 +77,30 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(name="Capture Results", type="bool", value=False),
                         dict(name="Pulse Once", type="action"),
                         dict(
-                            name="Amplitude",
+                            name="Hold-duration",
                             type="float",
-                            value=50 * NU.pA,
-                            suffix="A",
-                            siPrefix=True,
-                            dec=True,
-                        ),
-                        dict(
-                            name="Pre-delay",
-                            type="float",
-                            value=20 * NU.ms,
+                            value=10 * NU.ms,
                             suffix="s",
                             siPrefix=True,
                             limits=[0, None],
                             step=5e-3,
+                        ),
+                        dict(
+                            name="Pre-duration",
+                            type="float",
+                            value=10 * NU.ms,
+                            suffix="s",
+                            siPrefix=True,
+                            limits=[0, None],
+                            step=5e-3,
+                        ),
+                        dict(
+                            name="Pre-amplitude",
+                            type="float",
+                            value=0 * NU.pA,
+                            suffix="A",
+                            siPrefix=True,
+                            dec=True,
                         ),
                         dict(
                             name="Duration",
@@ -103,7 +112,15 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                             step=5e-3,
                         ),
                         dict(
-                            name="Post-delay",
+                            name="Amplitude",
+                            type="float",
+                            value=50 * NU.pA,
+                            suffix="A",
+                            siPrefix=True,
+                            dec=True,
+                        ),
+                        dict(
+                            name="Post-duration",
                             type="float",
                             value=50 * NU.ms,
                             suffix="s",
@@ -111,7 +128,20 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                             limits=[0, None],
                             step=5e-3,
                         ),
+                        dict(
+                            name="Post-amplitude",
+                            type="float",
+                            value=0 * NU.pA,
+                            suffix="A",
+                            siPrefix=True,
+                            dec=True,
+                        ),
                         dict(name="Pulse Sequence", type="action"),
+                        dict(name="Sequence Pulse", 
+                            type="list",
+                            values={"Pre": 1, "Pulse": 2, "Post": 3},
+                            value=2,
+                            ),
                         dict(
                             name="Start Amplitude",
                             type="float",
@@ -128,6 +158,13 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                             siPrefix=True,
                             dec=True,
                         ),
+                        dict(name="Post-holdtime", type="float",
+                            value = 500*NU.ms,
+                            suffix="s",
+                            si_refix=True,
+                            limits=[0.01, 2.0],
+                        ),
+
                         dict(
                             name="Pulse Number", type="int", value=11, limits=[2, None]
                         ),
@@ -168,15 +205,17 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
     def set_mode(self, mode):
         self.clamp.set_mode(mode)
         suff = {"ic": "A", "vc": "V"}[mode]
-        amp, start, stop, step = {
-            "ic": (-10 * NU.pA, -100 * NU.pA, 100 * NU.pA, 10 * NU.pA),
-            "vc": (-10 * NU.mV, -40 * NU.mV, 100 * NU.mV, 5 * NU.mV),
+        pre_amp, amp, post_amp, start, stop, step = {
+            "ic": (0 * NU.pA, -10 * NU.pA, 0 * NU.pA,-100 * NU.pA, 100 * NU.pA, 10 * NU.pA),
+            "vc": (0 * NU.mV, -10 * NU.mV, 0 * NU.mV, -40 * NU.mV, 100 * NU.mV, 5 * NU.mV),
         }[mode]
         self.sigTreeStateChanged.disconnect(self.treeChange)
         try:
             self.child("Holding").setOpts(
                 suffix=suff, value=self.clamp.holding[mode], step=step
             )
+            self.child("Pulse", "Pre-amplitude").setOpts(suffix=suff, value=pre_amp, step=step)
+            self.child("Pulse", "Post-amplitude").setOpts(suffix=suff, value=post_amp, step=step)
             self.child("Pulse", "Amplitude").setOpts(suffix=suff, value=amp, step=step)
             self.child("Pulse", "Start Amplitude").setOpts(
                 suffix=suff, value=start, step=step
@@ -188,21 +227,31 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
             self.sigTreeStateChanged.connect(self.treeChange)
 
     def pulse_template(self):
-        d1 = self["Pulse", "Pre-delay"]
+        d0 = self["Pulse", "Hold-duration"]
+        d1 = self["Pulse", "Pre-duration"]
         d2 = self["Pulse", "Duration"]
-        d3 = self["Pulse", "Post-delay"]
-        dur = d1 + d2 + d3
+        d3 = self["Pulse", "Post-duration"]
+        d4 = self["Pulse", "Post-holdtime"]
+        dur = d0 + d1 + d2 + d3+d4
         npts = int(dur / self.dt)
         cmd = np.empty(npts)
-        i1 = int(d1 / self.dt)
+        i0 = int(d0 / self.dt)
+        i1 = i0 + int(d1 / self.dt)
         i2 = i1 + int(d2 / self.dt)
+        i3 = i2 + int(d3 / self.dt)
+        i4 = i3 + int(d4 / self.dt)
+        cmd = np.empty(npts)
         cmd[:] = self["Holding"]
-        return cmd, i1, i2
+        return cmd, i0, i1, i2, i3, i4
 
     def pulse_once(self):
-        cmd, i1, i2 = self.pulse_template()
+        cmd, i0, i1, i2, i3, i4 = self.pulse_template()
+        amp_pre = self["Pulse", "Pre-amplitude"]
+        cmd[i0:i1] += amp_pre
         amp = self["Pulse", "Amplitude"]
         cmd[i1:i2] += amp
+        amp_post = self["Pulse", "Post-amplitude"]
+        cmd[i2:i3] += amp_post
         t = self.clamp.queue_command(cmd, self.dt)
         if self["Pulse", "Capture Results"]:
             info = {
@@ -215,7 +264,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
             self.add_trigger(len(cmd), t, info)
 
     def pulse_sequence(self):
-        cmd, i1, i2 = self.pulse_template()
+        cmd, i0, i1, i2, i3, i4 = self.pulse_template()
         cmds = []
         amps = np.linspace(
             self["Pulse", "Start Amplitude"],
@@ -224,7 +273,19 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         )
         for amp in amps:
             cmd2 = cmd.copy()
-            cmd2[i1:i2] += amp
+            if self['Pulse', "Sequence Pulse"] == 1:
+                cmd2[i0:i1] += amp
+                cmd2[i1:i2] += self["Pulse", "Amplitude"]
+                cmd2[i2:i3] += self["Pulse", "Post-amplitude"]
+            elif self['Pulse', "Sequence Pulse"] == 2:
+                cmd2[i0:i1] += self["Pulse", "Pre-amplitude"]
+                cmd2[i1:i2] += amp
+                cmd2[i2:i3] += self["Pulse", "Post-amplitude"]
+ 
+            elif self['Pulse', "Sequence Pulse"] == 3:
+                cmd2[i0:i1] += self["Pulse", "Pre-amplitude"]
+                cmd2[i1:i2] += self["Pulse", "Amplitude"]
+                cmd2[i2:i3] += amp
             cmds.append(cmd2)
 
         times = self.clamp.queue_commands(cmds, self.dt)

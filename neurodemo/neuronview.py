@@ -198,6 +198,9 @@ class Channel(NeuronItem):
             "IK": "0000dd",
             "Ileak": "00dd00",
             "IH": "aa00aa",
+            "INa1": "880000",
+            "IKf": "0088ff",
+            "IKs": "8800ff",
         }.get(channel.type, "999999")
         NeuronItem.__init__(self)
         self.channel_svg = [
@@ -325,7 +328,7 @@ class Current(QtGui.QGraphicsItemGroup):
         self.arrow.setStyle(
             angle=90 * idir,
             tailLen=20,
-            tailWidth=5,
+            tailWidth=4,
             headLen=20,
             headWidth=10,
         )

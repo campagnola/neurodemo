@@ -52,10 +52,16 @@ class DemoWindow(QtWidgets.QWidget):
         self.hhk = self.neuron.add(self.ndemo.HHK())
         self.dexh = self.neuron.add(self.ndemo.IH())
         self.dexh.enabled = False
+        self.lgna = self.neuron.add(self.ndemo.LGNa())
+        self.lgkf = self.neuron.add(self.ndemo.LGKfast())
+        self.lgks = self.neuron.add(self.ndemo.LGKslow())
+        self.lgna.enabled = False
+        self.lgkf.enabled = False
+        self.lgks.enabled = False
         
         self.clamp = self.neuron.add(self.ndemo.PatchClamp(mode='ic'))
         
-        mechanisms = [self.clamp, self.hhna, self.leak, self.hhk, self.dexh]
+        mechanisms = [self.clamp, self.hhna, self.leak, self.hhk, self.dexh, self.lgna, self.lgkf, self.lgks]
 
         # loop to run the simulation indefinitely
         self.running = False
@@ -91,7 +97,11 @@ class DemoWindow(QtWidgets.QWidget):
             ChannelParameter(self.hhna),
             ChannelParameter(self.hhk),
             ChannelParameter(self.dexh),
+            ChannelParameter(self.lgna),
+            ChannelParameter(self.lgkf),
+            ChannelParameter(self.lgks),
         ]
+
         for ch in self.channel_params:
             ch.plots_changed.connect(self.plots_changed)
 
@@ -104,10 +114,10 @@ class DemoWindow(QtWidgets.QWidget):
 
  
         
-        self.params = pt.Parameter.create(name='params', type='group', children=[
-            dict(name='Preset', type='list', values=['', 'Passive Membrane', 'Action Potential']),
+        self.params = pt.Parameter.create(name='Parameters', type='group', children=[
+            dict(name='Preset', type='list', values=['HH Action Potential', 'Passive Membrane', 'LG Action Potential']),
             dict(name='Run/Stop', type='action', value=False),
-            dict(name='Speed', type='float', value=0.3, limits=[0, 10], step=1, dec=True),
+            dict(name='Speed', type='float', value=1.0, limits=[0, 10], step=1, dec=True),
             dict(name='Temp', type='float', value=self.sim.temp, suffix='C', step=1.0),
             dict(name='Capacitance', type='float', value=self.neuron.cap, suffix='F', siPrefix=True, dec=True),
             dict(name='Cell Schematic', type='bool', value=True, children=[
@@ -271,28 +281,54 @@ class DemoWindow(QtWidgets.QWidget):
         self.neuronview.update_state(final_state)
 
     def load_preset(self, preset):
+        print("Preset: ", preset)
         if preset == 'Passive Membrane':
             self.params['Temp'] = 6.3
-            self.params['Speed'] = 0.05
+            self.params['Speed'] = 1.0
             self.params['Patch Clamp', 'Plot Current'] = False
             self.params['Patch Clamp', 'Plot Voltage'] = False
             chans = self.params.child('Ion Channels')
             chans['soma.Ileak'] = True
             chans['soma.Ileak', 'Erev'] = 0
+            chans['soma.Ileak', "Gmax"] = 1*NU.nS
             chans['soma.INa'] = False
             chans['soma.IK'] = False
             chans['soma.IH'] = False
-        elif preset == 'Action Potential':
+            chans['soma.INa1'] = False
+            chans['soma.IKf'] = False
+            chans['soma.IKs'] = False
+
+        elif preset == 'HH Action Potential':
             self.params['Temp'] = 6.3
-            self.params['Speed'] = 0.05
+            self.params['Speed'] = 1.0
             chans = self.params.child('Ion Channels')
             chans['soma.Ileak'] = True
             chans['soma.Ileak', 'Erev'] = -55*NU.mV
+            chans['soma.Ileak', "Gmax"] = 1*NU.nS
             chans['soma.INa'] = True
             chans['soma.IK'] = True
             chans['soma.IH'] = False
+            chans['soma.INa1'] = False
+            chans['soma.IKf'] = False
+            chans['soma.IKs'] = False
+
+        elif preset == 'LG Action Potential':
+            self.params['Temp'] = 37
+            self.params['Speed'] = 1.0
+            chans = self.params.child('Ion Channels')
+            chans['soma.Ileak'] = True
+            chans['soma.Ileak', 'Erev'] = -70*NU.mV
+            chans['soma.Ileak', 'Gmax'] = 2.5*NU.nS
+            chans['soma.INa'] = False
+            chans['soma.IK'] = False
+            chans['soma.IH'] = False
+            chans['soma.INa1'] = True
+            chans['soma.IKf'] = True
+            chans['soma.IKs'] = True
+        else:
+            raise ValueError("Preset is not one of the implemented values")
             
-        self.params['Preset'] = ''
+        self.params['Preset'] = preset
 
     def closeEvent(self, ev):
         self.runner.stop()
