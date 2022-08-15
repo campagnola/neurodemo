@@ -53,8 +53,9 @@ class IonConcentrations(pt.parameterTypes.SimpleParameter):
             dict(name='Use C', type='bool', value=False),
             dict(name='Cout', type='float', value=ion.Cout, suffix='mM', siPrefix=True, step=1),
             dict(name='Cin', type='float', value=ion.Cin, suffix='mM', siPrefix=True, step=1),
-            dict(name="Erev", type='float', value=ion.Erev, readonly=True),
         ]
+
+        ion_params.append(dict(name="Erev", type='float', value=self.Nernst(ion), readonly=True))
         pt.parameterTypes.SimpleParameter.__init__(self, name=name, type='bool', 
                                                    value=ion.enabled, children=ion_params,
                                                    expanded=False)
@@ -64,15 +65,16 @@ class IonConcentrations(pt.parameterTypes.SimpleParameter):
         for param, change, val in changes:
             if change != 'value':
                 continue
+            print('param: ', param, change, val)
             if param is self:
                 self.ion.enabled = val
             elif param is self.child('Cout'):
                 self.ion.Cout = val
-                self.ion.Erev = self.Nernst(self.ion)
+                self.ion.Erev=self.Nernst(self.ion)
             elif param is self.child('Cin'):
                 self.ion.Cin = val
-                self.ion.Erev = self.Nernst(self.ion)
+                self.ion.Erev=self.Nernst(self.ion)
 
     def Nernst(self, ion):
-        Er = (58/ion.valence)*np.log10(Cout/Cin)
+        Er = (58/ion.valence)*np.log10(ion.Cout/ion.Cin)
         return Er
