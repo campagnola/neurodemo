@@ -35,7 +35,7 @@ class TraceAnalyzer(QtGui.QWidget):
         
         self.clear()
         
-        self.params = TraceAnalyzerGroup(name='analyzers')
+        self.params = TraceAnalyzerGroup(name="Analyzers")
         self.params.need_update.connect(self.update_analyzers)
         self.ptree.setParameters(self.params)
 
@@ -59,8 +59,8 @@ class TraceAnalyzer(QtGui.QWidget):
         for i, rec in enumerate(self.data):
             t, d, info = rec
             data['cmd'][i] = info['amp']
-            for anal in self.params.children():
-                data[anal.name()][i] = anal.process(t, d)
+            for analysis in self.params.children():
+                data[analysis.name()][i] = analysis.process(t, d)
         self.table.setData(data)
         self.analysis_plot.update_data(data)
         
@@ -69,7 +69,7 @@ class TraceAnalyzerGroup(pt.parameterTypes.GroupParameter):
     need_update = QtCore.Signal()
 
     def __init__(self, **kwds):
-        analyses = ['min', 'max', 'mean', 'exp tau', 'spike count', 'spike latency']
+        analyses = ['min', 'max', 'mean', 'expTau', 'spikeCount', 'spikeLatency']
         self.inputs = []
         pt.parameterTypes.GroupParameter.__init__(self, addText='Add analysis..', addList=analyses, **kwds)
 
@@ -93,7 +93,8 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
         kwds.update({'removable': True, 'renamable': False})
         childs = [
             dict(name='Input', type='list', values=kwds.pop('inputs')),
-            dict(name='Type', type='list', value=kwds.pop('analysis_type'), values=['mean', 'min', 'max', 'exp tau', 'spike count', 'spike latency']),
+            dict(name='Type', type='list', value=kwds.pop('analysis_type'),
+                values=['mean', 'min', 'max', 'expTau', 'spikeCount', 'spikeLatency']),
             dict(name='Start', type='float', value=0, suffix='s', siPrefix=True, step=5e-3),
             dict(name='End', type='float', value=10e-3, suffix='s', siPrefix=True, step=5e-3),
             dict(name='Threshold', type='float', value=-30e-3, suffix='V', siPrefix=True, step=5e-3, visible=False),
@@ -117,7 +118,7 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
                 finally:
                     self.rgn.sigRegionChanged.connect(self.region_changed)
             elif param is self.child('Type'):
-                needs_threshold = val in ['spike count', 'spike latency']
+                needs_threshold = val in ['spikeCount', 'spikeLatency']
                 self.child('Threshold').setOpts(visible=needs_threshold)
             self.need_update.emit(self)
         
@@ -150,14 +151,14 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
             return data.max()
         elif typ.startswith('spike'):
             spikes = np.argwhere((data[1:] > self['Threshold']) & (data[:-1] < self['Threshold']))[:,0]
-            if typ == 'spike count':
+            if typ == 'spikeCount':
                 return len(spikes)
-            elif typ == 'spike latency':
+            elif typ == 'spikeLatency':
                 if len(spikes) == 0:
                     return np.nan
                 else:
                     return spikes[0] * dt
-        elif typ == 'exp tau':
+        elif typ == 'expTau':
             return self.measure_tau(data, t)
             
     def measure_tau(self, data, t):

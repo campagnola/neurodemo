@@ -3,11 +3,10 @@
 NeuroDemo - Physiological neuron sandbox for educational purposes
 Luke Campagnola 2015
 """
-
+import numpy as np
 from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph.parametertree as pt
 import neurodemo.units as NU
-
 
 class ChannelParameter(pt.parameterTypes.SimpleParameter):
     
@@ -44,3 +43,36 @@ class ChannelParameter(pt.parameterTypes.SimpleParameter):
                 self.channel.erev = val
             elif param.name().startswith('Plot'):
                 self.plots_changed.emit(self, self.channel, param.name()[5:], val)
+
+class IonConcentrations(pt.parameterTypes.SimpleParameter):
+    def __init__(self, ion):
+        self.ion = ion
+        name = ion.name
+        print(ion)
+        ion_params = [
+            dict(name='Use C', type='bool', value=False),
+            dict(name='Cout', type='float', value=ion.Cout, suffix='mM', siPrefix=True, step=1),
+            dict(name='Cin', type='float', value=ion.Cin, suffix='mM', siPrefix=True, step=1),
+            dict(name="Erev", type='float', value=ion.Erev, readonly=True),
+        ]
+        pt.parameterTypes.SimpleParameter.__init__(self, name=name, type='bool', 
+                                                   value=ion.enabled, children=ion_params,
+                                                   expanded=False)
+        self.sigTreeStateChanged.connect(self.treeChange)
+
+    def treeChange(self, root, changes):
+        for param, change, val in changes:
+            if change != 'value':
+                continue
+            if param is self:
+                self.ion.enabled = val
+            elif param is self.child('Cout'):
+                self.ion.Cout = val
+                self.ion.Erev = self.Nernst(self.ion)
+            elif param is self.child('Cin'):
+                self.ion.Cin = val
+                self.ion.Erev = self.Nernst(self.ion)
+
+    def Nernst(self, ion):
+        Er = (58/ion.valence)*np.log10(Cout/Cin)
+        return Er

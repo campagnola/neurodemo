@@ -232,26 +232,28 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         d2 = self["Pulse", "Duration"]
         d3 = self["Pulse", "Post-duration"]
         d4 = self["Pulse", "Post-holdtime"]
-        dur = d0 + d1 + d2 + d3+d4
+        dur = d0 + d1 + d2 + d3 + d4
+        durs = [d0, d1, d2, d3, d4]
+        idurs = [0]*len(durs)
         npts = int(dur / self.dt)
-        cmd = np.empty(npts)
-        i0 = int(d0 / self.dt)
-        i1 = i0 + int(d1 / self.dt)
-        i2 = i1 + int(d2 / self.dt)
-        i3 = i2 + int(d3 / self.dt)
-        i4 = i3 + int(d4 / self.dt)
-        cmd = np.empty(npts)
-        cmd[:] = self["Holding"]
-        return cmd, i0, i1, i2, i3, i4
+        # cmd = np.zeros(npts)
+        for i, d in enumerate(durs):
+            idurs[i] = int(d / self.dt)
+        # i1 = i0 + int(d1 / self.dt)
+        # i2 = i1 + int(d2 / self.dt)
+        # i3 = i2 + int(d3 / self.dt)
+        # i4 = i3 + int(d4 / self.dt)
+        cmd = np.ones(npts)*self["Holding"]
+        return cmd, idurs # i0, i1, i2, i3, i4
 
     def pulse_once(self):
-        cmd, i0, i1, i2, i3, i4 = self.pulse_template()
+        cmd, idurs = self.pulse_template()
         amp_pre = self["Pulse", "Pre-amplitude"]
-        cmd[i0:i1] += amp_pre
+        cmd[idurs[0]:idurs[1]] += amp_pre
         amp = self["Pulse", "Amplitude"]
-        cmd[i1:i2] += amp
+        cmd[idurs[1]:idurs[2]] += amp
         amp_post = self["Pulse", "Post-amplitude"]
-        cmd[i2:i3] += amp_post
+        cmd[idurs[2]:idurs[3]] += amp_post
         t = self.clamp.queue_command(cmd, self.dt)
         if self["Pulse", "Capture Results"]:
             info = {
@@ -264,7 +266,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
             self.add_trigger(len(cmd), t, info)
 
     def pulse_sequence(self):
-        cmd, i0, i1, i2, i3, i4 = self.pulse_template()
+        cmd, idurs = self.pulse_template()
         cmds = []
         amps = np.linspace(
             self["Pulse", "Start Amplitude"],
@@ -274,18 +276,18 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         for amp in amps:
             cmd2 = cmd.copy()
             if self['Pulse', "Sequence Pulse"] == 1:
-                cmd2[i0:i1] += amp
-                cmd2[i1:i2] += self["Pulse", "Amplitude"]
-                cmd2[i2:i3] += self["Pulse", "Post-amplitude"]
+                cmd2[idurs[0]:idurs[1]] += amp
+                cmd2[idurs[1]:idurs[2]] += self["Pulse", "Amplitude"]
+                cmd2[idurs[2]:idurs[3]] += self["Pulse", "Post-amplitude"]
             elif self['Pulse', "Sequence Pulse"] == 2:
-                cmd2[i0:i1] += self["Pulse", "Pre-amplitude"]
-                cmd2[i1:i2] += amp
-                cmd2[i2:i3] += self["Pulse", "Post-amplitude"]
+                cmd2[idurs[0]:idurs[1]] += self["Pulse", "Pre-amplitude"]
+                cmd2[idurs[1]:idurs[2]] += amp
+                cmd2[idurs[2]:idurs[3]] += self["Pulse", "Post-amplitude"]
  
             elif self['Pulse', "Sequence Pulse"] == 3:
-                cmd2[i0:i1] += self["Pulse", "Pre-amplitude"]
-                cmd2[i1:i2] += self["Pulse", "Amplitude"]
-                cmd2[i2:i3] += amp
+                cmd2[idurs[0]:idurs[1]] += self["Pulse", "Pre-amplitude"]
+                cmd2[idurs[1]:idurs[2]] += self["Pulse", "Amplitude"]
+                cmd2[idurs[2]:idurs[3]] += amp
             cmds.append(cmd2)
 
         times = self.clamp.queue_commands(cmds, self.dt)

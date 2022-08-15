@@ -5,6 +5,7 @@ Luke Campagnola 2015
 """
 
 # make sure we get the right pyqtgraph.
+from dataclasses import dataclass
 import sys
 import platform
 # import appnope
@@ -18,6 +19,7 @@ from pyqtgraph.debug import ThreadTrace
 import neurodemo
 import neurodemo.units as NU
 from neurodemo.channelparam import ChannelParameter
+from neurodemo.channelparam import IonConcentrations
 from neurodemo.clampparam import ClampParameter
 from neurodemo.neuronview import NeuronView
 
@@ -32,6 +34,15 @@ if sys.platform == 'darwin':
     #     import appnope
     #     appnope.nope()
     app.setStyle("Fusion")  # necessary to remove double labels on mac os w/pyqtgraph until PR is done
+
+@dataclass
+class IonClass:
+    name: str=""
+    Cout: float = 1.0
+    Cin: float = 1.0
+    valence: float = 1.0
+    Erev: float = 0.0
+    enabled: bool=False
 
 class DemoWindow(QtWidgets.QWidget):
     def __init__(self, proc):
@@ -58,6 +69,8 @@ class DemoWindow(QtWidgets.QWidget):
         self.lgna.enabled = False
         self.lgkf.enabled = False
         self.lgks.enabled = False
+
+    
         
         self.clamp = self.neuron.add(self.ndemo.PatchClamp(mode='ic'))
         
@@ -105,6 +118,11 @@ class DemoWindow(QtWidgets.QWidget):
         for ch in self.channel_params:
             ch.plots_changed.connect(self.plots_changed)
 
+        self.ion_concentrations = [
+            IonConcentrations(IonClass(name='Na', Cout=140.0, Cin=8.0, valence=+1, enabled=False)),
+            IonConcentrations(IonClass(name='K', Cout=4., Cin=140., valence=+1, enabled=False)),
+        ]
+        
         self.clamp_param = ClampParameter(self.clamp, self)
         self.clamp_param.plots_changed.connect(self.plots_changed)
 
@@ -112,14 +130,13 @@ class DemoWindow(QtWidgets.QWidget):
         
         self.splitter.setSizes([350, 650])
 
- 
-        
         self.params = pt.Parameter.create(name='Parameters', type='group', children=[
             dict(name='Preset', type='list', values=['HH Action Potential', 'Passive Membrane', 'LG Action Potential']),
             dict(name='Run/Stop', type='action', value=False),
             dict(name='Speed', type='float', value=1.0, limits=[0, 10], step=1, dec=True),
             dict(name='Temp', type='float', value=self.sim.temp, suffix='C', step=1.0),
             dict(name='Capacitance', type='float', value=self.neuron.cap, suffix='F', siPrefix=True, dec=True),
+            dict(name='Ions', type='group', children=self.ion_concentrations),            
             dict(name='Cell Schematic', type='bool', value=True, children=[
                 dict(name='Show Circuit', type='bool', value=False),
             ]),
