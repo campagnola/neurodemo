@@ -40,24 +40,25 @@ class ChannelParameter(pt.parameterTypes.SimpleParameter):
             elif param is self.child('Gmax'):
                 self.channel.gmax = val
             elif param is self.child('Erev'):
-                self.channel.erev = val
+                self.channel.Erev = val
             elif param.name().startswith('Plot'):
                 self.plots_changed.emit(self, self.channel, param.name()[5:], val)
 
 class IonConcentrations(pt.parameterTypes.SimpleParameter):
+    """Holds the concentrations for one ion species
+    """
+
     def __init__(self, ion):
         self.ion = ion
         name = ion.name
-        print(ion)
-        ion_params = [
-            dict(name='Use C', type='bool', value=False),
-            dict(name='Cout', type='float', value=ion.Cout, suffix='mM', siPrefix=True, step=1),
-            dict(name='Cin', type='float', value=ion.Cin, suffix='mM', siPrefix=True, step=1),
+        self.ion_params = [
+            dict(name='[C]out', type='float', value=ion.Cout, suffix='mM', siPrefix=True, step=1),
+            dict(name='[C]in', type='float', value=ion.Cin, suffix='mM', siPrefix=True, step=1),
         ]
-
-        ion_params.append(dict(name="Erev", type='float', value=self.Nernst(ion), readonly=True))
+        self.ion.Erev = self.Nernst(ion)
+        self.ion_params.append(dict(name="Erev", type='float', value=self.ion.Erev, suffix='V', siPrefix=True, readonly=True))
         pt.parameterTypes.SimpleParameter.__init__(self, name=name, type='bool', 
-                                                   value=ion.enabled, children=ion_params,
+                                                   value=ion.enabled, children=self.ion_params,
                                                    expanded=False)
         self.sigTreeStateChanged.connect(self.treeChange)
 
@@ -65,16 +66,21 @@ class IonConcentrations(pt.parameterTypes.SimpleParameter):
         for param, change, val in changes:
             if change != 'value':
                 continue
-            print('param: ', param, change, val)
             if param is self:
                 self.ion.enabled = val
-            elif param is self.child('Cout'):
+            elif param is self.child('[C]out'):
                 self.ion.Cout = val
-                self.ion.Erev=self.Nernst(self.ion)
-            elif param is self.child('Cin'):
+                self['Erev']=self.Nernst(self.ion)
+            elif param is self.child('[C]in'):
                 self.ion.Cin = val
-                self.ion.Erev=self.Nernst(self.ion)
+                self['Erev']=self.Nernst(self.ion)
+    
+    def updateErev(self, temp:float=37.):
+        self['Erev']=self.Nernst(self.ion, temp=temp)
 
-    def Nernst(self, ion):
-        Er = (58/ion.valence)*np.log10(ion.Cout/ion.Cin)
+    def Nernst(self, ion, temp:float=37.):
+        R = 8.135 # J/K/M
+        F = 96840 # C/M
+        RTF = R*(273.16+temp)/F
+        Er = (2.303*RTF/ion.valence)*np.log10(ion.Cout/ion.Cin)
         return Er

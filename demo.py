@@ -122,13 +122,15 @@ class DemoWindow(QtWidgets.QWidget):
             IonConcentrations(IonClass(name='Na', Cout=140.0, Cin=8.0, valence=+1, enabled=False)),
             IonConcentrations(IonClass(name='K', Cout=4., Cin=140., valence=+1, enabled=False)),
         ]
+        for ion in self.ion_concentrations:
+            ion.updateErev(self.sim.temp)
         
         self.clamp_param = ClampParameter(self.clamp, self)
         self.clamp_param.plots_changed.connect(self.plots_changed)
 
         self.vm_plot = self.add_plot('soma.V', 'Membrane Potential', 'V')
         
-        self.splitter.setSizes([350, 650])
+        self.splitter.setSizes([300, 650])
 
         self.params = pt.Parameter.create(name='Parameters', type='group', children=[
             dict(name='Preset', type='list', values=['HH Action Potential', 'Passive Membrane', 'LG Action Potential']),
@@ -187,6 +189,9 @@ class DemoWindow(QtWidgets.QWidget):
                 self.runner.set_speed(val)
             elif param is self.params.child('Temp'):
                 self.sim.temp = val
+                # also update the ion channel values = specifically Erev
+                for ion in self.ion_concentrations:
+                    ion.updateErev(self.sim.temp)
             elif param is self.params.child('Capacitance'):
                 self.neuron.cap = val
             elif param is self.params.child('Preset'):
@@ -195,6 +200,11 @@ class DemoWindow(QtWidgets.QWidget):
                 self.neuronview.setVisible(val)
             elif param is self.params.child('Cell Schematic', 'Show Circuit'):
                 self.neuronview.show_circuit(val)
+            elif param is self.params.child('Ions', 'Na'):
+                if val:
+                    self.use_calculated_erev()
+                else:
+                    self.use_default_erev()
         
     def plots_changed(self, param, channel, name, plot):
         key = channel.name + '.' + name
@@ -297,8 +307,28 @@ class DemoWindow(QtWidgets.QWidget):
         # update the schematic
         self.neuronview.update_state(final_state)
 
+    def use_calculated_erev(self):
+        print("Using caclculated ERevs")
+        chans = self.params.child('Ion Channels')
+        ENa = self.params.child('Ions', 'Na')
+        for ch in ["INa", "INa1"]:
+            chans[f"soma.{ch:s}", 'Erev'] = ENa.param('Erev').value()
+        Ek = self.params.child('Ions', 'K')
+        for ch in ["IK", "IKf", "IKs"]:
+            chans[f"soma.{ch:s}", 'Erev'] = Ek.param('Erev').value()
+    
+    def use_default_erev(self):
+        print("Using default Erevs")
+        chans = self.params.child('Ion Channels')
+        ENa_revs = {"INa": 50, "INa1": 74}
+        for ch in ["INa", "INa1"]:
+            chans[f"soma.{ch:s}", 'Erev'] = ENa_revs[ch]
+        EK_revs = {"IK": -74, "IKf": -90, "IKs": -90}
+        for ch in ["IK", "IKf", "IKs"]:
+            chans[f"soma.{ch:s}", 'Erev'] = EK_revs[ch]
+
+
     def load_preset(self, preset):
-        print("Preset: ", preset)
         if preset == 'Passive Membrane':
             self.params['Temp'] = 6.3
             self.params['Speed'] = 1.0
