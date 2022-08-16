@@ -8,7 +8,8 @@ import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph.parametertree as pt
-
+from lmfit import Model
+from lmfit.models import ExponentialModel
 
 class TraceAnalyzer(QtGui.QWidget):
     def __init__(self, seq_plotter):
@@ -69,7 +70,7 @@ class TraceAnalyzerGroup(pt.parameterTypes.GroupParameter):
     need_update = QtCore.Signal()
 
     def __init__(self, **kwds):
-        analyses = ['min', 'max', 'mean', 'expTau', 'spikeCount', 'spikeLatency']
+        analyses = ['min', 'max', 'mean', 'expTauDecay',  'spikeCount', 'spike_latency']
         self.inputs = []
         pt.parameterTypes.GroupParameter.__init__(self, addText='Add analysis..', addList=analyses, **kwds)
 
@@ -94,7 +95,7 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
         childs = [
             dict(name='Input', type='list', values=kwds.pop('inputs')),
             dict(name='Type', type='list', value=kwds.pop('analysis_type'),
-                values=['mean', 'min', 'max', 'expTau', 'spikeCount', 'spikeLatency']),
+                values=['mean', 'min', 'max', 'expTauDecay', 'spikeCount', 'spikeLatency']),
             dict(name='Start', type='float', value=0, suffix='s', siPrefix=True, step=5e-3),
             dict(name='End', type='float', value=10e-3, suffix='s', siPrefix=True, step=5e-3),
             dict(name='Threshold', type='float', value=-30e-3, suffix='V', siPrefix=True, step=5e-3, visible=False),
@@ -118,7 +119,7 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
                 finally:
                     self.rgn.sigRegionChanged.connect(self.region_changed)
             elif param is self.child('Type'):
-                needs_threshold = val in ['spikeCount', 'spikeLatency']
+                needs_threshold = val in ['spikeCount', 'spike_latency']
                 self.child('Threshold').setOpts(visible=needs_threshold)
             self.need_update.emit(self)
         
@@ -153,15 +154,17 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
             spikes = np.argwhere((data[1:] > self['Threshold']) & (data[:-1] < self['Threshold']))[:,0]
             if typ == 'spikeCount':
                 return len(spikes)
-            elif typ == 'spikeLatency':
+            elif typ == 'spike_latency':
                 if len(spikes) == 0:
                     return np.nan
                 else:
                     return spikes[0] * dt
-        elif typ == 'expTau':
-            return self.measure_tau(data, t)
+        elif typ == 'expTauDecay':
+            return self.measure_tauDecay(data, t)
+        elif typ == 'expTauRise4':
+            return(self.measure_tauRise4(data, t))
             
-    def measure_tau(self, data, t):
+    def measure_tau_old(self, data, t):
         from scipy.optimize import curve_fit
         dt = t[1] - t[0]
         def expfn(x, yoff, amp, tau):
@@ -169,8 +172,27 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
         guess = (data[-1], data[0] - data[-1], t[-1] - t[0])
         fit = curve_fit(expfn, t-t[0], data, guess)
         return fit[0][2]
-            
+
+    def measure_tauDecay(self, data, t):
+        model = ExponentialModel()
+        pars = model.guess(data-data[-1], x=t-t[0])
+        result = model.fit(data-data[-1], pars,  x=t-t[0])
+        return result.params['decay'] # fit[0][2]            
         
+    def measure_tauRise4(self, data, t):
+        # this is not working quite right yet... 
+        print('taurise4')
+        def expfn4(x, amp, tau):
+            return amp * ((1.0-np.exp(-x / tau))**4.0)
+        emodel = Model(expfn4)
+        params = emodel.make_params()
+        d = data-data[0]
+        tp = t-t[0]
+        emodel.set_param_hint('tau', value=t[-1]-t[0], min=0.0001)
+        emodel.set_param_hint('amp', value=data[-1]-data[0])
+        result = emodel.fit(d[1:], params, x=tp[1:])
+        print(result.params)
+        return result.params['tau'] # fit[0][2]       
 
 class EvalPlotter(QtGui.QWidget):
     def __init__(self):
