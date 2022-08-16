@@ -237,8 +237,10 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         idurs = [0]*len(durs)
         npts = int(dur / self.dt)
         # cmd = np.zeros(npts)
+        it0 = 0
         for i, d in enumerate(durs):
-            idurs[i] = int(d / self.dt)
+            idurs[i] = it0 + int(d / self.dt)
+            it0 += idurs[i]
         # i1 = i0 + int(d1 / self.dt)
         # i2 = i1 + int(d2 / self.dt)
         # i3 = i2 + int(d3 / self.dt)
