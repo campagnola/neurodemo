@@ -69,8 +69,6 @@ class DemoWindow(QtWidgets.QWidget):
         self.lgna.enabled = False
         self.lgkf.enabled = False
         self.lgks.enabled = False
-
-    
         
         self.clamp = self.neuron.add(self.ndemo.PatchClamp(mode='ic'))
         
@@ -121,9 +119,10 @@ class DemoWindow(QtWidgets.QWidget):
         self.ion_concentrations = [
             IonConcentrations(IonClass(name='Na', Cout=140.0, Cin=8.0, valence=+1, enabled=False)),
             IonConcentrations(IonClass(name='K', Cout=4., Cin=140., valence=+1, enabled=False)),
+            IonConcentrations(IonClass(name='Cl', Cout=140., Cin=20., valence=-1, enabled=False)),
         ]
         for ion in self.ion_concentrations:
-            ion.updateErev(self.sim.temp)
+            ion.updateErev(self.sim.temp)  # match temperature with an update
         
         self.clamp_param = ClampParameter(self.clamp, self)
         self.clamp_param.plots_changed.connect(self.plots_changed)
@@ -201,11 +200,20 @@ class DemoWindow(QtWidgets.QWidget):
             elif param is self.params.child('Cell Schematic', 'Show Circuit'):
                 self.neuronview.show_circuit(val)
             elif param is self.params.child('Ions', 'Na'):
-                if val:
+                if val: # checkbox checked
                     self.use_calculated_erev()
-                else:
+                else:  # not checked
                     self.use_default_erev()
-        
+            elif param in [  # change in ion concentrations and erev... 
+                    self.params.child('Ions', "Na", "[C]in"),
+                    self.params.child('Ions', "Na", "[C]out"),
+                    self.params.child('Ions', "K", "[C]in"),
+                    self.params.child('Ions', "K", "[C]out"),
+                    self.params.child('Ions', "Cl", "[C]in"),
+                    self.params.child('Ions', "Cl", "[C]out"),
+                ] and self.params.child('Ions', 'Na').value():
+                self.use_calculated_erev()  # force update of erevs
+
     def plots_changed(self, param, channel, name, plot):
         key = channel.name + '.' + name
         if plot:
@@ -307,18 +315,48 @@ class DemoWindow(QtWidgets.QWidget):
         # update the schematic
         self.neuronview.update_state(final_state)
 
+    def _get_Eh(self):
+        ENa = self.params.child('Ions', 'Na')
+        ena = ENa.param('Erev').value()
+        Ek = self.params.child('Ions', 'K')
+        ek = Ek.param('Erev').value()
+        x = 0.75  # this sets ration of gk to gna given ions
+        eh = x*ek + (1.0-x)*ena  # gives -43 mV when ena is 50 and ek is -74
+        return eh
+
+    def _get_Eleak(self):
+        ENa = self.params.child('Ions', 'Na')
+        ena = ENa.param('Erev').value()
+        Ek = self.params.child('Ions', 'K')
+        ek = Ek.param('Erev').value()
+        x = 0.84677419  # gives -55 mV when ena is 50 and ek is -74
+        eleak = x*ek + (1.0-x)*ena  
+        return eleak
+
     def use_calculated_erev(self):
-        print("Using caclculated ERevs")
         chans = self.params.child('Ion Channels')
         ENa = self.params.child('Ions', 'Na')
+        ENa_erev = ENa.param('Erev').value()
         for ch in ["INa", "INa1"]:
-            chans[f"soma.{ch:s}", 'Erev'] = ENa.param('Erev').value()
+            chans[f"soma.{ch:s}", 'Erev'] = ENa_erev
         Ek = self.params.child('Ions', 'K')
+        EK_erev = Ek.param('Erev').value()
         for ch in ["IK", "IKf", "IKs"]:
-            chans[f"soma.{ch:s}", 'Erev'] = Ek.param('Erev').value()
+            chans[f"soma.{ch:s}", 'Erev'] = EK_erev
+        ECl = self.params.child('Ions', 'Cl')
+        ECl_erev = ECl.param('Erev').value()
+        # for ch in ["ICl"]:
+        #     chans[f"soma.{ch:s}", 'Erev'] = ECl.param('Erev').value()
+        Eleak_erev = self._get_Eleak()
+        for ch in ["Ileak"]:
+            chans[f"soma.{ch:s}", 'Erev'] = Eleak_erev
+        Eh_erev = self._get_Eh()
+        for ch in ["IH"]:
+            chans[f"soma.{ch:s}", 'Erev'] = Eh_erev
+        self.set_hh_erev(ENa_erev, EK_erev, Eleak_erev, Eh_erev)
+        self.set_lg_erev(ENa_erev, EK_erev, EK_erev, -55*NU.mV)
     
     def use_default_erev(self):
-        print("Using default Erevs")
         chans = self.params.child('Ion Channels')
         ENa_revs = {"INa": 50, "INa1": 74}
         for ch in ["INa", "INa1"]:
@@ -326,9 +364,58 @@ class DemoWindow(QtWidgets.QWidget):
         EK_revs = {"IK": -74, "IKf": -90, "IKs": -90}
         for ch in ["IK", "IKf", "IKs"]:
             chans[f"soma.{ch:s}", 'Erev'] = EK_revs[ch]
+        Eh_revs = {"IH": -43,}
+        for ch in ["IH"]:
+            chans[f"soma.{ch:s}", 'Erev'] = Eh_revs[ch]
+        self.set_hh_erev(ENa_revs["INa"], EK_revs["IK"], -55*NU.mV, Eh_revs["IH"])
+        self.set_lg_erev(ENa_revs["INa1"], EK_revs["IKf"], EK_revs["IKs"], -55*NU.mV, )
 
+
+    def set_hh_erev(self, ENa_erev, EK_erev, Eleak_erev, Eh_erev):
+        """Set new reversal potentials for the HH currents
+
+        Args:
+            ENa_erev (float): new value for Na channel
+            EK_erev (float): new value for K channel
+            Eleak_erev (float): new value for leak channel
+            Eh_erev (float): new value for dexh (IH)
+        """
+        self.hhna.set_erev(ENa_erev)
+        self.hhk.set_erev(EK_erev)
+        self.dexh.set_erev(Eh_erev)
+        self.leak.set_erev(Eleak_erev)
+
+    def set_lg_erev(self, ENa_erev, EKf_erev, EKs_erev, Eleak_erev):
+        """Set new reversal potentials for the LG currents
+
+        Args:
+            ENa_erev (float): new value for Na channel
+            EKf_erev (float): new value for Kf channel
+            EKs_erev (float): new value for Ks channel
+            Eleak_erev (float): new value for leak channel
+        """
+        self.lgna.set_erev(ENa_erev)
+        self.lgkf.set_erev(EKf_erev)
+        self.lgks.set_erev(EKs_erev)
+        self.leak.set_erev(Eleak_erev)
+
+    def set_ions_off(self):
+        """Turn off use of ion concentrations, and reset
+        all of the checkboxes associated with those.
+        """
+        self.params.child('Ions', 'Na').setValue(False)
+        self.params.child('Ions', 'K').setValue(False)
+        self.params.child('Ions', 'Cl').setValue(False)
 
     def load_preset(self, preset):
+        """Load preset configurations for the simulations.
+
+        Args:
+            preset (string): which preset values to select and load
+
+        Raises:
+            ValueError: if preset is not known.
+        """
         if preset == 'Passive Membrane':
             self.params['Temp'] = 6.3
             self.params['Speed'] = 1.0
@@ -344,6 +431,8 @@ class DemoWindow(QtWidgets.QWidget):
             chans['soma.INa1'] = False
             chans['soma.IKf'] = False
             chans['soma.IKs'] = False
+            self.set_ions_off()
+            self.neuron.set_default_erev()
 
         elif preset == 'HH Action Potential':
             self.params['Temp'] = 6.3
@@ -358,6 +447,8 @@ class DemoWindow(QtWidgets.QWidget):
             chans['soma.INa1'] = False
             chans['soma.IKf'] = False
             chans['soma.IKs'] = False
+            self.set_ions_off()
+            self.neuron.set_default_erev()
 
         elif preset == 'LG Action Potential':
             self.params['Temp'] = 37
@@ -370,8 +461,11 @@ class DemoWindow(QtWidgets.QWidget):
             chans['soma.IK'] = False
             chans['soma.IH'] = False
             chans['soma.INa1'] = True
+            chans['soma.INa1', "Erev"] = 74 * NU.mV
             chans['soma.IKf'] = True
             chans['soma.IKs'] = True
+            self.set_ions_off()
+            self.neuron.set_default_erev()
         else:
             raise ValueError("Preset is not one of the implemented values")
             

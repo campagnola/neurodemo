@@ -418,13 +418,21 @@ class Section(SimObject):
         else:
             self.cap = self.area * self.cap_bar
             self.area = 4 * 3.1415926 * radius**2
-        self.ek = -77 * NU.mV
-        self.ena = 50 * NU.mV
-        self.ecl = -70 * NU.mV
+        self.set_default_erev()
         init_state = OrderedDict([("V", vm)])
         SimObject.__init__(self, init_state, **kwds)
         self.dep_state_vars["I"] = self.current
         self.mechanisms = []
+
+    def set_default_erev(self):
+        self.ek = -77 * NU.mV
+        self.ena = 50 * NU.mV
+        self.ena1 = 74 * NU.mV
+        self.ekf = -90 * NU.mV
+        self.eks = -90 * NU.mV
+        self.ecl = -70 * NU.mV
+        self.eh = -43 * NU.mV
+        self.eleak = -55 * NU.mV
 
     def add(self, mech):
         assert mech._section is None
@@ -582,10 +590,16 @@ class Leak(Channel):
     type = "Ileak"
 
     def __init__(
-        self, gbar=0.1 * NU.mS / NU.cm**2, erev=-55 * NU.mV, **kwds
+        self, gbar=0.1 * NU.mS / NU.cm**2, **kwds
     ):
         Channel.__init__(self, gbar=gbar, init_state={}, **kwds)
-        self.erev = erev
+    
+    @property
+    def erev(self):
+        return self.section.eleak      
+    
+    def set_erev(self, erev):
+        self.section.eleak = erev
 
     def open_probability(self, state):
         if state.state.ndim == 2:
@@ -622,6 +636,9 @@ class HHK(Channel):
     @property
     def erev(self):
         return self.section.ek
+
+    def set_erev(self, erev):
+        self.section.ek = erev
 
     def open_probability(self, state):
         return state[self, "n"] ** 4
@@ -672,6 +689,9 @@ class HHNa(Channel):
     def erev(self):
         return self.section.ena
 
+    def set_erev(self, erev):
+        self.section.ena = erev
+
     def open_probability(self, state):
         return state[self, "m"] ** 3 * state[self, "h"]
 
@@ -714,8 +734,15 @@ class IH(Channel):
     def __init__(self, gbar=30 * NU.mS / NU.cm**2, **kwds):
         init_state = OrderedDict([("f", 0), ("s", 0)])
         Channel.__init__(self, gbar=gbar, init_state=init_state, **kwds)
-        self.erev = -43 * NU.mV
+        # self.erev = -43 * NU.mV
         self.shift = 0
+
+    @property
+    def erev(self):
+        return self.section.eh
+
+    def set_erev(self, erev):
+        self.section.eh = erev
 
     def open_probability(self, state):
         return state[self, "f"] * state[self, "s"]
@@ -743,7 +770,14 @@ class LGNa(Channel):
     def __init__(self, gbar=112.5 * NU.mS / NU.cm**2, **kwds):
         init_state = OrderedDict([("m", 0.019), ("h", 0.876)])
         Channel.__init__(self, gbar=gbar, init_state=init_state, **kwds)
-        self.erev = 74 * NU.mV
+
+
+    @property
+    def erev(self):
+        return self.section.ena1
+
+    def set_erev(self, erev):
+        self.section.ena1 = erev
 
     def open_probability(self, state):
         return state[self, "m"] ** 3 * state[self, "h"]
@@ -786,7 +820,13 @@ class LGKfast(Channel):
     def __init__(self, gbar=225 * NU.mS / NU.cm**2, **kwds):
         init_state = OrderedDict([("n", 0.00024)])
         Channel.__init__(self, gbar=gbar, init_state=init_state, **kwds)
-        self.erev = -90 * NU.mV
+
+    @property
+    def erev(self):
+        return self.section.ekf   
+
+    def set_erev(self, erev):
+        self.section.ekf = erev
 
     def open_probability(self, state):
         return state[self, "n"] ** 2
@@ -818,7 +858,13 @@ class LGKslow(Channel):
     def __init__(self, gbar=0.225 * NU.mS / NU.cm**2, **kwds):
         init_state = OrderedDict([("n", 0.0005)])
         Channel.__init__(self, gbar=gbar, init_state=init_state, **kwds)
-        self.erev = -90 * NU.mV
+
+    @property
+    def erev(self):
+        return self.section.eks   
+
+    def set_erev(self, erev):
+        self.section.eks = erev
 
     def open_probability(self, state):
         return state[self, "n"] ** 4
