@@ -6,6 +6,7 @@ Updated 2022 pbmanis for Python 3.10 and PyQt6
 
 
 """
+from dataclasses import dataclass
 import os, tempfile
 from pathlib import Path
 from typing import Union, List, Tuple
@@ -23,6 +24,13 @@ tmpdir = tempfile.mkdtemp()
 def svg_file(name):
     return Path(Path(__file__).parent, "images", name + ".svg")
 
+@dataclass
+class CellPosition:
+    center_x = -50
+    center_y = -50
+    diam_x = 100
+    diam_y = 100
+    membrane_thickness = 4
 
 class NeuronView(pg.GraphicsLayoutWidget):
     """Displays a graphical representation of the neuron and its attached
@@ -64,7 +72,7 @@ class NeuronView(pg.GraphicsLayoutWidget):
                 item = Pipette(mech)
                 self.view.addItem(item)
                 item.setZValue(1)
-                item.setTransform(QtGui6.QTransform().translate(0, 50))
+                item.setTransform(QtGui6.QTransform().translate(0, CellPosition.center_y))
             else:  # add ion channels
                 item = Channel(
                     mech, translation=(0, 50), angle=angle
@@ -141,10 +149,20 @@ class Cell(NeuronItem):
         self.key = section.name
         NeuronItem.__init__(self)
 
-        self.soma = QtGui.QGraphicsEllipseItem(QtCore.QRectF(-50, -50, 100, 100))
+        self.soma = QtGui.QGraphicsEllipseItem(
+            QtCore.QRectF(
+                CellPosition.center_x, CellPosition.center_y, 
+                CellPosition.diam_x, CellPosition.diam_y))
         self.soma.setPen(pg.mkPen(0.5, width=1, cosmetic=False))
         self.soma.setParentItem(self)
-        self.soma2 = QtGui.QGraphicsEllipseItem(QtCore.QRectF(-52, -52, 104, 104))
+        self.soma2 = QtGui.QGraphicsEllipseItem(
+            QtCore.QRectF(
+                CellPosition.center_x - CellPosition.membrane_thickness/2,
+                CellPosition.center_y - CellPosition.membrane_thickness/2,
+                CellPosition.diam_x + CellPosition.membrane_thickness,
+                CellPosition.diam_x + CellPosition.membrane_thickness,
+                )
+            )
         self.soma2.setPen(pg.mkPen(0.5, width=1, cosmetic=False))
         self.soma2.setParentItem(self)
 
@@ -152,10 +170,12 @@ class Cell(NeuronItem):
 
         self.current = Current(self.key, center=False)
         self.current.setParentItem(self.circuit)
-        self.current.setPos(0, 50)
+        self.current.setPos(0, CellPosition.center_y)
         self.current.setZValue(2)
 
-        self.cap = Capacitor(l1=50, l2=50)
+        # membrane capacitance, angled off from the pipette a bit
+        self.cap = Capacitor(l1=50, l2=150)
+        self.set_transform(self.cap, angle=15.)
         self.cap.setParentItem(self.circuit)
         self.cap.setZValue(1)
 
@@ -166,6 +186,19 @@ class Cell(NeuronItem):
 
     def show_circuit(self, show):
         self.cap.setVisible(show)
+    
+    def set_transform(
+        self,
+        item: object,
+        scale: Union[List, Tuple] = [1, 1],
+        angle: float = 0.0,
+        translate: Union[List, Tuple] = (0, 0),
+    ):
+        new_transform = QtGui6.QTransform()
+        new_transform.scale(scale[0], scale[1])
+        new_transform.rotate(angle)
+        new_transform.translate(translate[0], translate[1])
+        item.setTransform(new_transform)
 
 
 class Channel(NeuronItem):
@@ -241,13 +274,13 @@ class Channel(NeuronItem):
         )
         self.current.setZValue(2)
 
-        self.res = Resistor(l1=50, l2=15)
+        self.res = Resistor(l1=25, l2=15, ) # CellPosition.diam_x/2.0) # , l2=15)
         self.res.setParentItem(self.circuit)
-        self.set_transform(self.res, [1, 1], angle=0.0, translate=[0, -50])
+        self.set_transform(self.res, [1, 1], angle=-self.current_angle, translate=[0, CellPosition.center_y-25])
 
-        self.batt = Battery(l1=10, l2=40, w1=11, w2=7, gap=4)
+        self.batt = Battery(l1=25, l2=15, w1=11, w2=7, gap=4)
         self.batt.setParentItem(self.circuit)
-        self.set_transform(self.batt, [1, 1], angle=0.0, translate=[0, 15])
+        self.set_transform(self.batt, [1, -1], angle=self.current_angle, translate=[0, 0])
         self.scale = [1, 1]
         self.I_angle = 0.0
         self.I_translation = [0, 15]
@@ -356,26 +389,30 @@ class Pipette(NeuronItem):
         self.clamp = clamp
         NeuronItem.__init__(self)
         self.key = clamp.name
+        
+        # install a pipette
         self.pipette_svg = QtSvgWidgets.QGraphicsSvgItem(str(svg_file("pipette")))
         pip_transform = QtGui6.QTransform()
         pip_transform.scale(1.0, 1.0)  # put pipette at the top of the cell
         pip_transform.rotate(-180.0)
-        pip_transform.translate(-50.0, -255.67)
+        pip_transform.translate(CellPosition.center_x, 
+                CellPosition.center_y - 3*CellPosition.diam_y - 6) # -255.67)
         self.pipette_svg.setTransform(pip_transform)
         self.pipette_svg.setParentItem(self)
 
+        # draw a box for the voltage
         path = QtGui.QPainterPath()
-        path.moveTo(42, 4)
-        path.lineTo(58, 4)
-        path.lineTo(80, 260)
-        path.lineTo(14, 260)
+        path.moveTo(CellPosition.center_x - 8, 4)
+        path.lineTo(CellPosition.center_x + 8, 4)
+        path.lineTo(CellPosition.center_x + 130, CellPosition.center_y + 310) # 80, 260)
+        path.lineTo(CellPosition.center_x +  64, CellPosition.center_y + 310) # 14, 260)
         path.closeSubpath()
 
         self.voltage = QtGui.QGraphicsPathItem(path)
         self.voltage.setParentItem(self)
         self.voltage.setPen(pg.mkPen(None))
         voltage_transform = QtGui6.QTransform()
-        voltage_transform.translate(-50, -5)
+        voltage_transform.translate(CellPosition.center_x, 0)
         self.voltage.setTransform(voltage_transform)
         self.voltage.setZValue(-1)
 
@@ -385,16 +422,19 @@ class Pipette(NeuronItem):
         self.current.setParentItem(self.circuit)
         self.current.setZValue(2)
 
-        self.res = Resistor(l1=50, l2=150)
+        # Draw the pipette resistor 
+        # connected to the center  of the cell, but in the pipette
+        self.res = Resistor(l1=CellPosition.diam_y+50, l2=50)
         self.res.setParentItem(self.circuit)
         res_transform = QtGui6.QTransform()
-        res_transform.translate(0, -50)
+        res_transform.translate(0, CellPosition.center_y+50)
         self.res.setTransform(res_transform)
 
-        self.cap = Capacitor(l1=15, l2=30)
+        # Add the pipette transmural capacitance outside the cell and horizontal
+        self.cap = Capacitor(l1=15, l2=15)
         self.cap.setParentItem(self.circuit)
         cap_transform = QtGui6.QTransform()
-        cap_transform.translate(0, 40)
+        cap_transform.translate(0, CellPosition.center_y+CellPosition.diam_y+15)  # 40
         cap_transform.rotate(-90.0)
         self.cap.setTransform(cap_transform)
 
@@ -443,10 +483,11 @@ class Battery(QtGui.QGraphicsItemGroup):
     def __init__(self, l1, l2, w1=10, w2=10, gap=4):
         QtGui.QGraphicsItemGroup.__init__(self)
 
+
         g2 = gap / 2
         path = QtGui.QPainterPath()
         path.moveTo(0, 0)
-        path.lineTo(0, l1 + g2)
+        path.lineTo(0, l1 - g2)
         path.moveTo(-w1 / 2, l1 - g2)
         path.lineTo(w1 / 2, l1 - g2)
         path.moveTo(-w2 / 2, l1 + g2)
@@ -461,6 +502,16 @@ class Battery(QtGui.QGraphicsItemGroup):
 
 
 class Resistor(QtGui.QGraphicsItemGroup):
+    """Draw a resistor. Lead lengths are l1, l2
+       The resistor width is 3, and the height (length)
+       is a function of the width, so we get 3 zig-zags
+        The resistor is drawn vertically, from 0 to l1+l2
+
+    Args:
+        l1 : (float) length of lead1 to *center*
+        l2 : (float) length of lead2 to *center*
+
+    """
     def __init__(self, l1, l2):
         QtGui.QGraphicsItemGroup.__init__(self)
 
