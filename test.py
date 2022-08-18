@@ -11,8 +11,8 @@ import numpy as np
 
 pg.setConfigOption('antialias', True)
 app = pg.mkQApp() # QtGui.QWidget.QApplication([])
-
-class TestSim(pg.QtWidgets.QMainWindow):
+app.setStyle("fusion")
+class TestSim(pg.QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
 
@@ -34,7 +34,7 @@ class TestSim(pg.QtWidgets.QMainWindow):
             lgna = neuron.add(ND.LGNa())
             lgkf = neuron.add(ND.LGKfast())
             lgks = neuron.add(ND.LGKslow())
-            leak = neuron.add(ND.Leak(gbar=0.25*NU.mS/NU.cm**2, erev=-70*NU.mV))
+            leak = neuron.add(ND.Leak(gbar=0.25*NU.mS/NU.cm**2)) #, erev=-70*NU.mV))
 
         clamp = ND.PatchClamp(mode='ic')
         neuron.add(clamp)
@@ -80,8 +80,10 @@ class TestSim(pg.QtWidgets.QMainWindow):
             #p3.setLabel('left', 'LG Na Current', 'A')
 
             if simtype == "LG":
-                p3.plot(t, lgna.open_probability(result), pen=(i, 15))
-                p3.setLabel('left', 'LG Na O.P.')
+                # p3.plot(t, lgna.open_probability(result), pen=(i, 15))
+                # p3.setLabel('left', 'LG Na O.P.')
+                p3.plot(t, lgna.current(result), pen=(i, 15))
+                p3.setLabel('left', 'LG Na Current', 'A')
 
             elif simtype == "HH":
                 p3.plot(t, hhna.open_probability(result), pen=(i, 15))
@@ -90,16 +92,17 @@ class TestSim(pg.QtWidgets.QMainWindow):
     
     def set_window(self, parent=None):
         super(TestSim, self).__init__(parent=parent)
-        self.win = pg.GraphicsWindow(title="Test Simulator")
+        QtGui.QWidget.__init__(self)
+        self.fullscreen_widget = None
+        self.resize(1024, 768)
+        self.layout = pg.QtWidgets.QGridLayout()
+        #self.win = pg.GraphicsLayoutWidget(title="Test Simulator")
         # self.win = pg.GraphicsLayoutWidget()
-        self.win.resize(1000, 600)
-        # import sys
-        # if sys.flags.interactive == 0:
-        #     app.exec()
+        #self.win.resize(1000, 600)
+
 
 def main():
-    app = pg.mkQApp() # QtGui.QWidget.QApplication([])
-    app.setStyle("fusion")
+
     Tester = TestSim()
     Tester.set_window()
     Tester.run()

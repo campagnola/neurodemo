@@ -36,7 +36,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                 dict(
                     name="Mode",
                     type="list",
-                    values={"Current Clamp": "ic", "Voltage Clamp": "vc"},
+                    values={"CC": "ic", "VC": "vc"},
                     value="ic",
                 ),
                 dict(
@@ -49,7 +49,8 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                 ),
                 # dict(name='Ideal', type='bool', value=True),
                 dict(
-                    name="Pipette Capacitance",
+                    #name="Pipette Capacitance",
+                    name="Pipette Cap",
                     type="float",
                     value=clamp.cpip,
                     limits=[0.01 * NU.pF, None],
@@ -59,7 +60,8 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                     step=0.5,
                 ),
                 dict(
-                    name="Access Resistance",
+                    #name="Access Resistance",
+                    name="Access Res",
                     type="float",
                     value=clamp.ra,
                     limits=[10 * NU.kOhm, None],
