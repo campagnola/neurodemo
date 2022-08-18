@@ -75,7 +75,6 @@ class PGTest(QtWidgets.QWidget):
         self.params = pt.Parameter.create(name='params', type='group', children=[
             dict(name='Run/Stop', type='action', value=False),
         ])
-        #print(dir(self.params))
         # self.params.setOpts(name = "Forward/Backward")
        
 
