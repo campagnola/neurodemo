@@ -28,12 +28,12 @@ pg.setConfigOption('antialias', True)
 # Disable obnoxious app nap on OSX 
 # Many thanks to https://github.com/minrk/appnope
 app = pg.mkQApp()
-if sys.platform == 'darwin':
+# if sys.platform == 'darwin':
     # v = [int(x) for x in platform.mac_ver()[0].split('.')]
     # if (v[0] == 10 and v[1] >= 9) or v[0] >= 11:
     #     import appnope
     #     appnope.nope()
-    app.setStyle("Fusion")  # necessary to remove double labels on mac os w/pyqtgraph until PR is done
+app.setStyle("Fusion")  # necessary to remove double labels on mac os w/pyqtgraph until PR is done
 
 @dataclass
 class IonClass:
@@ -45,10 +45,14 @@ class IonClass:
     enabled: bool=False
 
 class DemoWindow(QtWidgets.QWidget):
-    def __init__(self, proc):
+    def __init__(self): #, proc):
+        self.app = pg.mkQApp()
+        self.app.setStyle("fusion")
+        self.app.setStyleSheet("QLabel{font-size: 11pt;} QText{font-size: 11pt;} {QWidget{font-size: 8pt;}")
+        self.app.setStyleSheet("QTreeWidgetItem{font-size: 9pt;}") #  QText{font-size: 11pt;} {QWidget{font-size: 8pt;}")
 
         self.dt = 25*NU.us
-        self.proc = proc
+        # self.proc = proc
         # set up simulation in remote process
         # self.ndemo = self.proc._import('neurodemo')
         # or do not use remote process:
@@ -84,23 +88,36 @@ class DemoWindow(QtWidgets.QWidget):
 
         # set up GUI
         QtGui.QWidget.__init__(self)
+        "Qtext::font-weight: light"
         self.fullscreen_widget = None
         self.resize(1024, 768)
         self.layout = QtWidgets.QGridLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
+ 
         self.splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
-        self.layout.addWidget(self.splitter, 0, 0)
-        
+        self.layout.addWidget(self.splitter, 0, 0,1, 1)
         self.ptree = pt.ParameterTree(showHeader=False)
         self.splitter.addWidget(self.ptree)
+ 
+        self.stim_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
+        self.layout.addWidget(self.stim_splitter, 0, 1, 1, 1 )
+        self.ptree_stim = pt.ParameterTree(showHeader=False)
+        self.stim_splitter.addWidget(self.ptree_stim)
         
         self.plot_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
-        self.splitter.addWidget(self.plot_splitter)
+        self.layout.addWidget(self.plot_splitter, 0, 2, 1, 5)
+        # self.plot_splitter.addWidget(self.plot_splitter)
         
+
         self.neuronview = NeuronView(self.neuron, mechanisms)
         self.plot_splitter.addWidget(self.neuronview)
         
+        self.clamp_param = ClampParameter(self.clamp, self)
+        self.ptree_stim.setParameters(self.clamp_param)
+        self.stim_splitter.addWidget(self.ptree_stim)
+        self.clamp_param.plots_changed.connect(self.plots_changed)
+
         self.channel_plots = {}
         
         self.channel_params = [
@@ -124,24 +141,23 @@ class DemoWindow(QtWidgets.QWidget):
         for ion in self.ion_concentrations:
             ion.updateErev(self.sim.temp)  # match temperature with an update
         
-        self.clamp_param = ClampParameter(self.clamp, self)
-        self.clamp_param.plots_changed.connect(self.plots_changed)
 
         self.vm_plot = self.add_plot('soma.V', 'Membrane Potential', 'V')
         
-        self.splitter.setSizes([300, 650])
+        self.splitter.setSizes([200])
+        self.stim_splitter.setSizes([100])
 
         self.params = pt.Parameter.create(name='Parameters', type='group', children=[
-            dict(name='Preset', type='list', values=['HH Action Potential', 'Passive Membrane', 'LG Action Potential']),
+            dict(name='Preset', type='list', values=['HH AP', 'Passive', 'LG AP']),
             dict(name='Run/Stop', type='action', value=False),
-            dict(name='Speed', type='float', value=1.0, limits=[0, 10], step=1, dec=True),
+            dict(name='Speed', type='float', value=1.0, limits=[0.01, 10], step=0.5, dec=True),
             dict(name='Temp', type='float', value=self.sim.temp, suffix='C', step=1.0),
             dict(name='Capacitance', type='float', value=self.neuron.cap, suffix='F', siPrefix=True, dec=True),
             dict(name='Ions', type='group', children=self.ion_concentrations),            
             dict(name='Cell Schematic', type='bool', value=True, children=[
                 dict(name='Show Circuit', type='bool', value=False),
             ]),
-            self.clamp_param,
+            # self.clamp_param,  # now in the adjacent window
             dict(name='Ion Channels', type='group', children=self.channel_params),
         ])
         self.ptree.setParameters(self.params)
@@ -416,7 +432,7 @@ class DemoWindow(QtWidgets.QWidget):
         Raises:
             ValueError: if preset is not known.
         """
-        if preset == 'Passive Membrane':
+        if preset == 'Passive':
             self.params['Temp'] = 6.3
             self.params['Speed'] = 1.0
             self.params['Patch Clamp', 'Plot Current'] = False
@@ -434,7 +450,7 @@ class DemoWindow(QtWidgets.QWidget):
             self.set_ions_off()
             self.neuron.set_default_erev()
 
-        elif preset == 'HH Action Potential':
+        elif preset == 'HH AP':
             self.params['Temp'] = 6.3
             self.params['Speed'] = 1.0
             chans = self.params.child('Ion Channels')
@@ -450,7 +466,7 @@ class DemoWindow(QtWidgets.QWidget):
             self.set_ions_off()
             self.neuron.set_default_erev()
 
-        elif preset == 'LG Action Potential':
+        elif preset == 'LG AP':
             self.params['Temp'] = 37
             self.params['Speed'] = 1.0
             chans = self.params.child('Ion Channels')
@@ -473,7 +489,7 @@ class DemoWindow(QtWidgets.QWidget):
 
     def closeEvent(self, ev):
         self.runner.stop()
-        self.proc.close()
+        # self.proc.close()
         QtWidgets.QApplication.instance().quit()
 
 
@@ -494,14 +510,11 @@ class ScrollingPlot(pg.PlotWidget):
         t -= t[-1]
         self.data_curve.setData(t, self.data)
 
-# def main():
-
 
 if __name__ == '__main__':
     import sys
-    proc = mp.QtProcess(debug=False)
-    win = DemoWindow(proc)
-    if sys.flags.interactive == 0:
-        app.exec()
-        app.processEvents()
-    # main()
+    #proc = mp.QtProcess(debug=False)
+    win = DemoWindow() # proc)
+    if (sys.flags.interactive != 1) or not hasattr(QtCore, "PYQT_VERSION"):
+        QtWidgets.QApplication.instance().exec()
+
