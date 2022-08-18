@@ -168,6 +168,7 @@ class Cell(NeuronItem):
 
         self.circuit = QtGui.QGraphicsItemGroup()
 
+        # Net current
         self.current = Current(self.key, center=False)
         self.current.setParentItem(self.circuit)
         self.current.setPos(0, CellPosition.center_y)
@@ -238,6 +239,16 @@ class Channel(NeuronItem):
             "IKf": "0088ff", # LG
             "IKs": "8800ff", # LG
         }.get(channel.type, "999999")
+        polarity = {
+            "INa": "-",  # HH
+            "IK": "+",   # HH
+            "Ileak": "+",  # HH
+            "IH": "-",  # Not in HH model, but included here
+            "INa1": "-",  # LG
+            "IKf": "+", # LG
+            "IKs": "+", # LG
+        }.get(channel.type, "")
+
         NeuronItem.__init__(self)
         self.channel_svg = [
             QtSvgWidgets.QGraphicsSvgItem(self.get_svg(color)),
@@ -278,7 +289,7 @@ class Channel(NeuronItem):
         self.res.setParentItem(self.circuit)
         self.set_transform(self.res, [1, 1], angle=-self.current_angle, translate=[0, CellPosition.center_y-25])
 
-        self.batt = Battery(l1=25, l2=15, w1=11, w2=7, gap=4)
+        self.batt = Battery(l1=25, l2=15, w1=11, w2=7, gap=4, polarity=polarity)
         self.batt.setParentItem(self.circuit)
         self.set_transform(self.batt, [1, -1], angle=self.current_angle, translate=[0, 0])
         self.scale = [1, 1]
@@ -373,6 +384,7 @@ class Current(QtGui.QGraphicsItemGroup):
             tailWidth=4,
             headLen=15,
             headWidth=8,
+            #color='m',
         )
         self.setScale(amp)
         if self.center:
@@ -396,38 +408,41 @@ class Pipette(NeuronItem):
         pip_transform.scale(1.0, 1.0)  # put pipette at the top of the cell
         pip_transform.rotate(-180.0)
         pip_transform.translate(CellPosition.center_x, 
-                CellPosition.center_y - 3*CellPosition.diam_y - 6) # -255.67)
+                CellPosition.center_y - 3*CellPosition.diam_y - 5.67) # -255.67)
         self.pipette_svg.setTransform(pip_transform)
         self.pipette_svg.setParentItem(self)
 
         # draw a box for the voltage
         path = QtGui.QPainterPath()
-        path.moveTo(CellPosition.center_x - 8, 4)
-        path.lineTo(CellPosition.center_x + 8, 4)
-        path.lineTo(CellPosition.center_x + 130, CellPosition.center_y + 310) # 80, 260)
-        path.lineTo(CellPosition.center_x +  64, CellPosition.center_y + 310) # 14, 260)
+        path.moveTo(-8, -2)
+        path.lineTo(-26, 256)
+        path.lineTo(26, 256) # , 260) # 80, 260)
+        path.lineTo(8, -2) #(14, 260) # 14, 260)
+        path.lineTo(-8, -2)
         path.closeSubpath()
 
         self.voltage = QtGui.QGraphicsPathItem(path)
         self.voltage.setParentItem(self)
         self.voltage.setPen(pg.mkPen(None))
         voltage_transform = QtGui6.QTransform()
-        voltage_transform.translate(CellPosition.center_x, 0)
+        voltage_transform.translate(0, CellPosition.diam_y)
         self.voltage.setTransform(voltage_transform)
         self.voltage.setZValue(-1)
 
         self.circuit = QtGui.QGraphicsItemGroup()
 
+       # pipette current indicator
         self.current = Current(self.key)
         self.current.setParentItem(self.circuit)
+        self.current.setPos(0, CellPosition.center_y+CellPosition.diam_y)
         self.current.setZValue(2)
 
         # Draw the pipette resistor 
         # connected to the center  of the cell, but in the pipette
-        self.res = Resistor(l1=CellPosition.diam_y+50, l2=50)
+        self.res = Resistor(l1=CellPosition.diam_y/2+40, l2=140)
         self.res.setParentItem(self.circuit)
         res_transform = QtGui6.QTransform()
-        res_transform.translate(0, CellPosition.center_y+50)
+        res_transform.translate(0, CellPosition.center_y+CellPosition.diam_y/2)
         self.res.setTransform(res_transform)
 
         # Add the pipette transmural capacitance outside the cell and horizontal
@@ -480,18 +495,43 @@ class Capacitor(QtGui.QGraphicsItemGroup):
 
 
 class Battery(QtGui.QGraphicsItemGroup):
-    def __init__(self, l1, l2, w1=10, w2=10, gap=4):
+    def __init__(self, l1, l2, w1=10, w2=10, gap=4, polarity:str=""):
         QtGui.QGraphicsItemGroup.__init__(self)
 
 
         g2 = gap / 2
+        off_x = 6
+        off_y = 8
+        signsz = 2.0
         path = QtGui.QPainterPath()
+        # wire:
         path.moveTo(0, 0)
         path.lineTo(0, l1 - g2)
-        path.moveTo(-w1 / 2, l1 - g2)
-        path.lineTo(w1 / 2, l1 - g2)
-        path.moveTo(-w2 / 2, l1 + g2)
-        path.lineTo(w2 / 2, l1 + g2)
+
+        # the sign (+)
+        # if polarity == '+':
+        #     g2w = -g2
+        #     g2n = g2
+        # else:
+        #     g2n = -g2
+        #     g2w = g2
+        # path.moveTo(off_x - signsz, l1+g2w-off_y)
+        # path.lineTo(off_x + signsz, l1+g2w-off_y)
+        # path.moveTo(off_x, l1+g2w-off_y - signsz)
+        # path.lineTo(off_x, l1+g2w-off_y + signsz)
+        
+        # now the plates. Make battery polarity match Nernst at rest.
+        if polarity == '+':
+            path.moveTo(-w2 / 2, l1 - g2)
+            path.lineTo(w2 / 2, l1 - g2)
+            path.moveTo(-w1 / 2, l1 + g2)
+            path.lineTo(w1 / 2, l1 + g2)
+        else:
+            path.moveTo(-w1 / 2, l1 - g2)
+            path.lineTo(w1 / 2, l1 - g2)
+            path.moveTo(-w2 / 2, l1 + g2)
+            path.lineTo(w2/ 2, l1 + g2)
+
         path.moveTo(0, l1 + g2)
         path.lineTo(0, l1 + l2)
 
