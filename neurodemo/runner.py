@@ -3,7 +3,9 @@
 NeuroDemo - Physiological neuron sandbox for educational purposes
 Luke Campagnola 2015
 """
-from pyqtgraph.Qt import QtGui, QtCore
+from pyqtgraph.Qt import QtCore
+from timeit import default_timer as def_timer
+from datetime import timedelta
 
 
 class SimRunner(QtCore.QObject):
@@ -40,6 +42,7 @@ class SimRunner(QtCore.QObject):
         self.requests.remove(key)
         
     def start(self, blocksize=500, **kwds):
+        self.starttime = def_timer()
         self.blocksize = blocksize
         self.run_args = kwds
         self.timer.start(20)  # determines the width of the display window/update interval
@@ -49,23 +52,20 @@ class SimRunner(QtCore.QObject):
         
     def run_once(self):
         self.counter += 1
-        print(f"run_once***  count={self.counter:d}")
+        now = def_timer()
+        elapsed = now - self.starttime
         blocksize = int(max(2, self.blocksize * self.speed))
+
         result = self.sim.run(blocksize, **self.run_args)
-        print("    result retrieved")
         rec = {}
         for key in self.requests:
             try:
                 data = result[key]
             except KeyError:
-                #print("Key '%s' not found in sim result; skipping." % key)
                 continue
             rec[key] = data
-        print("    rec filled")
         state = result.get_final_state()
-        print("    final state retrieved")
-        self.new_result.emit(state, rec)
-        print("    new result emitted")
+        self.new_result.emit(state, rec)   # this pauses on x86_64 after some time
         
     def set_speed(self, speed):
         self.speed = speed

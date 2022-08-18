@@ -4,35 +4,57 @@ NeuroDemo - Physiological neuron sandbox for educational purposes
 Luke Campagnola 2015
 """
 
-import numpy as np
-
 # make sure we get the right pyqtgraph.
-import os, sys
-
-from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
+from dataclasses import dataclass
+import sys
+import platform
+# import appnope
+import numpy as np
 import pyqtgraph as pg
 import pyqtgraph.multiprocess as mp
 import pyqtgraph.parametertree as pt
+from pyqtgraph.Qt import QtCore, QtGui, QtWidgets
+from pyqtgraph.debug import ThreadTrace
+
+import neurodemo
 import neurodemo.units as NU
-from neurodemo.neuronview import NeuronView
 from neurodemo.channelparam import ChannelParameter
+from neurodemo.channelparam import IonConcentrations
 from neurodemo.clampparam import ClampParameter
+from neurodemo.neuronview import NeuronView
 
 pg.setConfigOption('antialias', True)
+
+# Disable obnoxious app nap on OSX 
+# Many thanks to https://github.com/minrk/appnope
 app = pg.mkQApp()
-# print("Current style: ", app.style().name())
-# from PyQt6.QtWidgets import QStyleFactory
-# print("Window styles: ", QStyleFactory.keys())
-app.setStyle("Fusion")  # necessary to remove double labels on mac os w/pyqtgraph until PR is done
-# print(pg.Qt.VERSION_INFO)
+if sys.platform == 'darwin':
+    # v = [int(x) for x in platform.mac_ver()[0].split('.')]
+    # if (v[0] == 10 and v[1] >= 9) or v[0] >= 11:
+    #     import appnope
+    #     appnope.nope()
+    app.setStyle("Fusion")  # necessary to remove double labels on mac os w/pyqtgraph until PR is done
+
+@dataclass
+class IonClass:
+    name: str=""
+    Cout: float = 1.0
+    Cin: float = 1.0
+    valence: float = 1.0
+    Erev: float = 0.0
+    enabled: bool=False
+
 class DemoWindow(QtWidgets.QWidget):
     def __init__(self, proc):
-        # set up simulation in remote process
+
         self.dt = 25*NU.us
         self.proc = proc
-        self.ndemo = self.proc._import('neurodemo')
+        # set up simulation in remote process
+        # self.ndemo = self.proc._import('neurodemo')
+        # or do not use remote process:
+        self.ndemo = neurodemo
         self.sim = self.ndemo.Sim(temp=6.3, dt=self.dt)
-        self.sim._setProxyOptions(deferGetattr=True)
+        # self.sim._setProxyOptions(deferGetattr=True)  # only if using remote process
         self.neuron = self.ndemo.Section(name='soma')
         self.sim.add(self.neuron)
         
@@ -41,17 +63,25 @@ class DemoWindow(QtWidgets.QWidget):
         self.hhk = self.neuron.add(self.ndemo.HHK())
         self.dexh = self.neuron.add(self.ndemo.IH())
         self.dexh.enabled = False
+        self.lgna = self.neuron.add(self.ndemo.LGNa())
+        self.lgkf = self.neuron.add(self.ndemo.LGKfast())
+        self.lgks = self.neuron.add(self.ndemo.LGKslow())
+        self.lgna.enabled = False
+        self.lgkf.enabled = False
+        self.lgks.enabled = False
         
         self.clamp = self.neuron.add(self.ndemo.PatchClamp(mode='ic'))
         
-        mechanisms = [self.clamp, self.hhna, self.leak, self.hhk, self.dexh]
+        mechanisms = [self.clamp, self.hhna, self.leak, self.hhk, self.dexh, self.lgna, self.lgkf, self.lgks]
 
         # loop to run the simulation indefinitely
         self.running = False
         self.runner = self.ndemo.SimRunner(self.sim)
         self.runner.add_request('t') 
-        self.runner.new_result.connect(mp.proxy(self.new_result, autoProxy=False, callSync='off'))
-        
+        # if using remote process:
+        # self.runner.new_result.connect(mp.proxy(self.new_result, autoProxy=False, callSync='off'))
+        self.runner.new_result.connect(self.new_result,) 
+
         # set up GUI
         QtGui.QWidget.__init__(self)
         self.fullscreen_widget = None
@@ -78,25 +108,36 @@ class DemoWindow(QtWidgets.QWidget):
             ChannelParameter(self.hhna),
             ChannelParameter(self.hhk),
             ChannelParameter(self.dexh),
+            ChannelParameter(self.lgna),
+            ChannelParameter(self.lgkf),
+            ChannelParameter(self.lgks),
         ]
+
         for ch in self.channel_params:
             ch.plots_changed.connect(self.plots_changed)
 
+        self.ion_concentrations = [
+            IonConcentrations(IonClass(name='Na', Cout=140.0, Cin=8.0, valence=+1, enabled=False)),
+            IonConcentrations(IonClass(name='K', Cout=4., Cin=140., valence=+1, enabled=False)),
+            IonConcentrations(IonClass(name='Cl', Cout=140., Cin=20., valence=-1, enabled=False)),
+        ]
+        for ion in self.ion_concentrations:
+            ion.updateErev(self.sim.temp)  # match temperature with an update
+        
         self.clamp_param = ClampParameter(self.clamp, self)
         self.clamp_param.plots_changed.connect(self.plots_changed)
 
         self.vm_plot = self.add_plot('soma.V', 'Membrane Potential', 'V')
         
-        self.splitter.setSizes([350, 650])
+        self.splitter.setSizes([300, 650])
 
- 
-        
-        self.params = pt.Parameter.create(name='params', type='group', children=[
-            dict(name='Preset', type='list', values=['', 'Passive Membrane', 'Action Potential']),
+        self.params = pt.Parameter.create(name='Parameters', type='group', children=[
+            dict(name='Preset', type='list', values=['HH Action Potential', 'Passive Membrane', 'LG Action Potential']),
             dict(name='Run/Stop', type='action', value=False),
-            dict(name='Speed', type='float', value=0.3, limits=[0, 10], step=1, dec=True),
-            dict(name='Temp', type='float', value=self.sim.temp._getValue(), suffix='C', step=1.0),
+            dict(name='Speed', type='float', value=1.0, limits=[0, 10], step=1, dec=True),
+            dict(name='Temp', type='float', value=self.sim.temp, suffix='C', step=1.0),
             dict(name='Capacitance', type='float', value=self.neuron.cap, suffix='F', siPrefix=True, dec=True),
+            dict(name='Ions', type='group', children=self.ion_concentrations),            
             dict(name='Cell Schematic', type='bool', value=True, children=[
                 dict(name='Show Circuit', type='bool', value=False),
             ]),
@@ -105,8 +146,14 @@ class DemoWindow(QtWidgets.QWidget):
         ])
         self.ptree.setParameters(self.params)
         self.params.sigTreeStateChanged.connect(self.params_changed)
+        # make Run/Stop button change color to indicate running state
+        p = self.params.child("Run/Stop")
+        rsbutton = list(p.items.keys())[0].button
+        rsbutton.setCheckable(True)  # toggle
+        rsbutton.setStyleSheet("QPushButton { background-color: #225522}"
+                               "QPushButton:checked { background-color: #882222}" )
 
-        # self.start()
+        # self.start()  # if autostart desired
 
         self.clamp_param['Plot Current'] = True
         self.plot_splitter.setSizes([300, 500, 200])
@@ -136,15 +183,14 @@ class DemoWindow(QtWidgets.QWidget):
                     self.running = True
             if change != 'value':
                 continue
-            # if param is self.params.child('Run'):
-            #     if val:
-            #         self.start()
-            #     else:
-            #         self.stop()
+
             elif param is self.params.child('Speed'):
                 self.runner.set_speed(val)
             elif param is self.params.child('Temp'):
                 self.sim.temp = val
+                # also update the ion channel values = specifically Erev
+                for ion in self.ion_concentrations:
+                    ion.updateErev(self.sim.temp)
             elif param is self.params.child('Capacitance'):
                 self.neuron.cap = val
             elif param is self.params.child('Preset'):
@@ -153,7 +199,21 @@ class DemoWindow(QtWidgets.QWidget):
                 self.neuronview.setVisible(val)
             elif param is self.params.child('Cell Schematic', 'Show Circuit'):
                 self.neuronview.show_circuit(val)
-        
+            elif param is self.params.child('Ions', 'Na'):
+                if val: # checkbox checked
+                    self.use_calculated_erev()
+                else:  # not checked
+                    self.use_default_erev()
+            elif param in [  # change in ion concentrations and erev... 
+                    self.params.child('Ions', "Na", "[C]in"),
+                    self.params.child('Ions', "Na", "[C]out"),
+                    self.params.child('Ions', "K", "[C]in"),
+                    self.params.child('Ions', "K", "[C]out"),
+                    self.params.child('Ions', "Cl", "[C]in"),
+                    self.params.child('Ions', "Cl", "[C]out"),
+                ] and self.params.child('Ions', 'Na').value():
+                self.use_calculated_erev()  # force update of erevs
+
     def plots_changed(self, param, channel, name, plot):
         key = channel.name + '.' + name
         if plot:
@@ -212,9 +272,11 @@ class DemoWindow(QtWidgets.QWidget):
         
     def start(self):
         self.runner.start(blocksize=500)
+        # set button color
         
     def stop(self):
         self.runner.stop()
+        # reset button color
         
     def pause(self):
         self.params['Run'] = not self.params['Run']
@@ -253,29 +315,161 @@ class DemoWindow(QtWidgets.QWidget):
         # update the schematic
         self.neuronview.update_state(final_state)
 
+    def _get_Eh(self):
+        ENa = self.params.child('Ions', 'Na')
+        ena = ENa.param('Erev').value()
+        Ek = self.params.child('Ions', 'K')
+        ek = Ek.param('Erev').value()
+        x = 0.75  # this sets ration of gk to gna given ions
+        eh = x*ek + (1.0-x)*ena  # gives -43 mV when ena is 50 and ek is -74
+        return eh
+
+    def _get_Eleak(self):
+        ENa = self.params.child('Ions', 'Na')
+        ena = ENa.param('Erev').value()
+        Ek = self.params.child('Ions', 'K')
+        ek = Ek.param('Erev').value()
+        x = 0.84677419  # gives -55 mV when ena is 50 and ek is -74
+        eleak = x*ek + (1.0-x)*ena  
+        return eleak
+
+    def use_calculated_erev(self):
+        chans = self.params.child('Ion Channels')
+        ENa = self.params.child('Ions', 'Na')
+        ENa_erev = ENa.param('Erev').value()
+        for ch in ["INa", "INa1"]:
+            chans[f"soma.{ch:s}", 'Erev'] = ENa_erev
+        Ek = self.params.child('Ions', 'K')
+        EK_erev = Ek.param('Erev').value()
+        for ch in ["IK", "IKf", "IKs"]:
+            chans[f"soma.{ch:s}", 'Erev'] = EK_erev
+        ECl = self.params.child('Ions', 'Cl')
+        ECl_erev = ECl.param('Erev').value()
+        # for ch in ["ICl"]:
+        #     chans[f"soma.{ch:s}", 'Erev'] = ECl.param('Erev').value()
+        Eleak_erev = self._get_Eleak()
+        for ch in ["Ileak"]:
+            chans[f"soma.{ch:s}", 'Erev'] = Eleak_erev
+        Eh_erev = self._get_Eh()
+        for ch in ["IH"]:
+            chans[f"soma.{ch:s}", 'Erev'] = Eh_erev
+        self.set_hh_erev(ENa_erev, EK_erev, Eleak_erev, Eh_erev)
+        self.set_lg_erev(ENa_erev, EK_erev, EK_erev, -55*NU.mV)
+    
+    def use_default_erev(self):
+        chans = self.params.child('Ion Channels')
+        ENa_revs = {"INa": 50, "INa1": 74}
+        for ch in ["INa", "INa1"]:
+            chans[f"soma.{ch:s}", 'Erev'] = ENa_revs[ch]
+        EK_revs = {"IK": -74, "IKf": -90, "IKs": -90}
+        for ch in ["IK", "IKf", "IKs"]:
+            chans[f"soma.{ch:s}", 'Erev'] = EK_revs[ch]
+        Eh_revs = {"IH": -43,}
+        for ch in ["IH"]:
+            chans[f"soma.{ch:s}", 'Erev'] = Eh_revs[ch]
+        self.set_hh_erev(ENa_revs["INa"], EK_revs["IK"], -55*NU.mV, Eh_revs["IH"])
+        self.set_lg_erev(ENa_revs["INa1"], EK_revs["IKf"], EK_revs["IKs"], -55*NU.mV, )
+
+
+    def set_hh_erev(self, ENa_erev, EK_erev, Eleak_erev, Eh_erev):
+        """Set new reversal potentials for the HH currents
+
+        Args:
+            ENa_erev (float): new value for Na channel
+            EK_erev (float): new value for K channel
+            Eleak_erev (float): new value for leak channel
+            Eh_erev (float): new value for dexh (IH)
+        """
+        self.hhna.set_erev(ENa_erev)
+        self.hhk.set_erev(EK_erev)
+        self.dexh.set_erev(Eh_erev)
+        self.leak.set_erev(Eleak_erev)
+
+    def set_lg_erev(self, ENa_erev, EKf_erev, EKs_erev, Eleak_erev):
+        """Set new reversal potentials for the LG currents
+
+        Args:
+            ENa_erev (float): new value for Na channel
+            EKf_erev (float): new value for Kf channel
+            EKs_erev (float): new value for Ks channel
+            Eleak_erev (float): new value for leak channel
+        """
+        self.lgna.set_erev(ENa_erev)
+        self.lgkf.set_erev(EKf_erev)
+        self.lgks.set_erev(EKs_erev)
+        self.leak.set_erev(Eleak_erev)
+
+    def set_ions_off(self):
+        """Turn off use of ion concentrations, and reset
+        all of the checkboxes associated with those.
+        """
+        self.params.child('Ions', 'Na').setValue(False)
+        self.params.child('Ions', 'K').setValue(False)
+        self.params.child('Ions', 'Cl').setValue(False)
+
     def load_preset(self, preset):
+        """Load preset configurations for the simulations.
+
+        Args:
+            preset (string): which preset values to select and load
+
+        Raises:
+            ValueError: if preset is not known.
+        """
         if preset == 'Passive Membrane':
             self.params['Temp'] = 6.3
-            self.params['Speed'] = 0.05
+            self.params['Speed'] = 1.0
             self.params['Patch Clamp', 'Plot Current'] = False
             self.params['Patch Clamp', 'Plot Voltage'] = False
             chans = self.params.child('Ion Channels')
             chans['soma.Ileak'] = True
             chans['soma.Ileak', 'Erev'] = 0
+            chans['soma.Ileak', "Gmax"] = 1*NU.nS
             chans['soma.INa'] = False
             chans['soma.IK'] = False
             chans['soma.IH'] = False
-        elif preset == 'Action Potential':
+            chans['soma.INa1'] = False
+            chans['soma.IKf'] = False
+            chans['soma.IKs'] = False
+            self.set_ions_off()
+            self.neuron.set_default_erev()
+
+        elif preset == 'HH Action Potential':
             self.params['Temp'] = 6.3
-            self.params['Speed'] = 0.05
+            self.params['Speed'] = 1.0
             chans = self.params.child('Ion Channels')
             chans['soma.Ileak'] = True
             chans['soma.Ileak', 'Erev'] = -55*NU.mV
+            chans['soma.Ileak', "Gmax"] = 1*NU.nS
             chans['soma.INa'] = True
             chans['soma.IK'] = True
             chans['soma.IH'] = False
+            chans['soma.INa1'] = False
+            chans['soma.IKf'] = False
+            chans['soma.IKs'] = False
+            self.set_ions_off()
+            self.neuron.set_default_erev()
+
+        elif preset == 'LG Action Potential':
+            self.params['Temp'] = 37
+            self.params['Speed'] = 1.0
+            chans = self.params.child('Ion Channels')
+            chans['soma.Ileak'] = True
+            chans['soma.Ileak', 'Erev'] = -70*NU.mV
+            chans['soma.Ileak', 'Gmax'] = 2.5*NU.nS
+            chans['soma.INa'] = False
+            chans['soma.IK'] = False
+            chans['soma.IH'] = False
+            chans['soma.INa1'] = True
+            chans['soma.INa1', "Erev"] = 74 * NU.mV
+            chans['soma.IKf'] = True
+            chans['soma.IKs'] = True
+            self.set_ions_off()
+            self.neuron.set_default_erev()
+        else:
+            raise ValueError("Preset is not one of the implemented values")
             
-        self.params['Preset'] = ''
+        self.params['Preset'] = preset
 
     def closeEvent(self, ev):
         self.runner.stop()
@@ -300,12 +494,14 @@ class ScrollingPlot(pg.PlotWidget):
         t -= t[-1]
         self.data_curve.setData(t, self.data)
 
-def main():
+# def main():
+
+
+if __name__ == '__main__':
     import sys
     proc = mp.QtProcess(debug=False)
     win = DemoWindow(proc)
     if sys.flags.interactive == 0:
         app.exec()
-
-if __name__ == '__main__':
-    main()
+        app.processEvents()
+    # main()

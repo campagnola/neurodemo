@@ -7,7 +7,7 @@ Luke Campagnola 2015
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore
 
-#from .analysisplot import AnalysisPlot   # simpler code-based analyzer
+from .analysisplot import AnalysisPlot   # simpler code-based analyzer
 from .traceanalyzer import TraceAnalyzer  # user friendly analyzer
 
 

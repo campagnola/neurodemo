@@ -25,7 +25,7 @@ y = vpulse - vbase
 
 class AnalysisPlot(QtGui.QSplitter):
     def __init__(self):
-        QtGui.QSplitter.__init__(self, QtCore.Qt.Vertical)
+        QtGui.QSplitter.__init__(self, QtCore.Qt.Orientation.Vertical)
         self.ns = {}
         
         self.plot = pg.PlotWidget()
