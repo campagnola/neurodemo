@@ -45,18 +45,20 @@ class IonClass:
     enabled: bool=False
 
 class DemoWindow(QtWidgets.QWidget):
-    def __init__(self): #, proc):
+    def __init__(self, proc=None):
         self.app = pg.mkQApp()
         self.app.setStyle("fusion")
         self.app.setStyleSheet("QLabel{font-size: 11pt;} QText{font-size: 11pt;} {QWidget{font-size: 8pt;}")
         self.app.setStyleSheet("QTreeWidgetItem{font-size: 9pt;}") #  QText{font-size: 11pt;} {QWidget{font-size: 8pt;}")
 
         self.dt = 25*NU.us
-        # self.proc = proc
-        # set up simulation in remote process
-        # self.ndemo = self.proc._import('neurodemo')
-        # or do not use remote process:
-        self.ndemo = neurodemo
+        if proc is not None:
+            self.proc = proc
+            # set up simulation in remote process
+            self.ndemo = self.proc._import('neurodemo')
+        else:
+            # or do not use remote process:
+            self.ndemo = neurodemo
         self.sim = self.ndemo.Sim(temp=6.3, dt=self.dt)
         # self.sim._setProxyOptions(deferGetattr=True)  # only if using remote process
         self.neuron = self.ndemo.Section(name='soma')
@@ -82,9 +84,11 @@ class DemoWindow(QtWidgets.QWidget):
         self.running = False
         self.runner = self.ndemo.SimRunner(self.sim)
         self.runner.add_request('t') 
-        # if using remote process:
-        # self.runner.new_result.connect(mp.proxy(self.new_result, autoProxy=False, callSync='off'))
-        self.runner.new_result.connect(self.new_result,) 
+        # if using remote process (only on Windows):
+        if proc is not None:
+            self.runner.new_result.connect(mp.proxy(self.new_result, autoProxy=False, callSync='off'))
+        else: # Darwin (macOS) and Linux:
+            self.runner.new_result.connect(self.new_result,) 
 
         # set up GUI
         QtGui.QWidget.__init__(self)
@@ -512,9 +516,12 @@ class ScrollingPlot(pg.PlotWidget):
 
 
 if __name__ == '__main__':
-    import sys
-    #proc = mp.QtProcess(debug=False)
-    win = DemoWindow() # proc)
+    if sys.platform == 'darwin':
+        proc = None
+    else:
+        proc = mp.QtProcess(debug=False)
+
+    win = DemoWindow(proc)
     if (sys.flags.interactive != 1) or not hasattr(QtCore, "PYQT_VERSION"):
         QtWidgets.QApplication.instance().exec()
 
