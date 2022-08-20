@@ -188,9 +188,9 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                 self.set_mode(val)
             elif param is self.child("Holding"):
                 self.clamp.set_holding(self.mode(), val)
-            elif param is self.child("Pipette Capacitance"):
+            elif param is self.child("Pipette Cap"):
                 self.clamp.cpip = val
-            elif param is self.child("Access Resistance"):
+            elif param is self.child("Access Res"):
                 self.clamp.ra = val
             elif param is self.child("Plot Current"):
                 self.plots_changed.emit(self, self.clamp, "I", val)
