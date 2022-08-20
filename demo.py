@@ -524,4 +524,4 @@ if __name__ == '__main__':
     win = DemoWindow(proc)
     if (sys.flags.interactive != 1) or not hasattr(QtCore, "PYQT_VERSION"):
         QtWidgets.QApplication.instance().exec()
-
+    app.processEvents()
