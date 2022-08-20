@@ -51,9 +51,13 @@ class DemoWindow(QtWidgets.QWidget):
         self.app.setStyleSheet("QLabel{font-size: 11pt;} QText{font-size: 11pt;} {QWidget{font-size: 8pt;}")
         self.app.setStyleSheet("QTreeWidgetItem{font-size: 9pt;}") #  QText{font-size: 11pt;} {QWidget{font-size: 8pt;}")
 
-        self.dt = 25*NU.us
+        self.proc = proc
+        if self.proc is None:
+            print(sys.platform, "Running without mp")
+        else:
+            print(sys.platform, "Running with mp")
+        self.dt = 100*NU.us
         if proc is not None:
-            self.proc = proc
             # set up simulation in remote process
             self.ndemo = self.proc._import('neurodemo')
         else:
@@ -439,8 +443,8 @@ class DemoWindow(QtWidgets.QWidget):
         if preset == 'Passive':
             self.params['Temp'] = 6.3
             self.params['Speed'] = 1.0
-            self.params['Patch Clamp', 'Plot Current'] = False
-            self.params['Patch Clamp', 'Plot Voltage'] = False
+            self.clamp_param['Plot Current'] = False
+            self.clamp_param['Plot Voltage'] = False
             chans = self.params.child('Ion Channels')
             chans['soma.Ileak'] = True
             chans['soma.Ileak', 'Erev'] = 0

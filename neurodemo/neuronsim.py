@@ -82,21 +82,21 @@ class Sim(object):
         self._simstate = SimState(difeq_vars, dep_vars)
         t = np.arange(0, samples) * self.dt + self._time
 
-        # opts = {"rtol": 1e-6, "atol": 1e-6, "hmax": 5e-3, "full_output": 1}
-        opts = {"hmax": 1e-5, "full_output": 1}  # need fine integration or else system can be unstable
-        # opts = {"rtol": 1e-6, "atol": 1e-7}
+        opts = {"rtol": 1e-8, "atol": 1e-9, "hmax": 5e-3, "full_output": 1}
+        #opts = {"hmax": 1e-5, "full_output": 1}  # need fine integration or else system can be unstable
+        #opts = {"rtol": 1e-6, "atol": 1e-9}
         opts.update(kwds)
-
         # Run the simulation
         result, info = scipy.integrate.odeint(self.derivatives, init_state, t, tfirst=True, **opts)
         # result = scipy.integrate.solve_ivp(
-        #     self.derivatives,
-        #     t_span=[t[0], t[-1]],
-        #     t_eval=t,
-        #     y0=init_state,
-        #     method="BDF",
-        #     **opts,
-        # )
+        #      self.derivatives,
+        #      t_span=(t[0], t[-1]),
+        #      t_eval=t,
+        #      y0=init_state,
+        #      method="LSODA",
+        #      args=dep_vars,
+        #      **opts,
+        #  )
 
         # Update current state variables
         p = 0
