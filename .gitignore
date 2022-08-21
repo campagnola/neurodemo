@@ -4,8 +4,12 @@ neurodemo_venv/*
 neurodemo.egg-info/*
 build/*
 dist/*
+demo.dist/*
+demo.build/*
+demo.onefile-build/*
 demo.app.zip
 demo.app
+demo.exe
 .eggs*
 *.dmg
 .DS_Store

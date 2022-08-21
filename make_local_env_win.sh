@@ -11,21 +11,14 @@ then
 else
     echo "No previous environment to remove."
 fi
-# python3.9 -m venv $ENVNAME || exit 1
-py -m venv $ENVNAME || exit 1
-# source $ENVNAME/bin/activate || exit 1
+
 source $ENVNAME/Scripts/Activate
 # pip3 install --upgrade pip  # be sure pip is up to date in the new env.py
 
 python -m pip install wheel  # seems to be missing (note singular)
-python -m pip install cython
-# # if requirements.txt is not present, create:
-# # pip install pipreqs
-# # pipreqs
+# python -m pip install cython
 #
-# #Then:
-#
-python -m pip install -r requirements_local.txt
-source $ENVNAME/Scripts/Activate
+python -m pip install -U -r requirements_local.txt
+# source $ENVNAME/Scripts/Activate
 python --version
 python setup_local.py develop
