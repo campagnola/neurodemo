@@ -13,7 +13,6 @@ git pull https://github.com/pbmanis/neurodemo
 git checkout PyQt6
 call %deactcmd%
 
-
 del /F/Q neurodemo_venv
 
 which python
