@@ -51,6 +51,7 @@ There are multiple ways to install:
 
 2. To get the latest version that runs with Python 3.10 and PyQt6 you can follow these steps, depending on your system. Note that these all create and use Python virtual environments rather than conda/mminiconda environments.
     a. Windows
+    
     -  Git clone the repository.
     - In the main directory, under the windows cmd terminal, run win_install.bat.
     - Create a shortcut on the desktop to the file win_start_demo.bat, and set the "window" to minimized. 
