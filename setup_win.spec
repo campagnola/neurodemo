@@ -3,14 +3,28 @@
 
 block_cipher = None
 
-datafiles = [("neurodemo_venv/Lib/site-packages/pyqtgraph/graphicsItems/ViewBox/axisCtrlTemplate_pyqt6.py", 'pyqtgraph'),
-    ]
+datafiles = []
+#("neurodemo_venv\Lib\site-packages\pyqtgraph\graphicsItems\ViewBox\\axisCtrlTemplate_pyqt6.py", 'pyqtgraph'),
+#            ("neurodemo_venv\Lib\site-packages\pyqtgraph\graphicsItems\PlotItem\\plotConfigTemplate_pyqt6.py", 'pyqtgraph'),
+#            ("neurodemo_venv\Lib\site-packages\pyqtgraph\imageview\\ImageViewTemplate_pyqt6.py",'pyqtgraph'),
+#            ("neurodemo_venv\Lib\site-packages\pyqtgraph\console\template_pyqt6.py", "pyqtgraph"),
+#            ]
 a = Analysis(
-    ['setup_win.py'],
+    ['demo.py'],
     pathex=[],
     binaries=[],
     datas=datafiles,
-    hiddenimports=[],
+    hiddenimports=[
+        'pyqtgraph.graphicsItems.ViewBox.axisCtrlTemplate_pyqt6',
+        'pyqtgraph.graphicsItems.PlotItem.plotConfigTemplate_pyqt6',
+        'pyqtgraph.imageview.ImageViewTemplate_pyqt6',
+        'pyqtgraph.console.template_pyqt6',
+        'ctypes',
+        'numpy',
+        'scipy',
+        # 'c:\api-ms-win-shcore-scaling-l1-1-1.dll',
+        ],
+
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -29,7 +43,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='setup_win',
+    name='NeuroDemo',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -37,10 +51,10 @@ exe = EXE(
     upx_exclude=[],
     runtime_tmpdir=None,
     windowed=True,
-    console=True,
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
-    target_name='NeuroDemo_1_exe'
+    target_name='NeuroDemo.exe',
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,

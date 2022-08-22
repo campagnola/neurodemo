@@ -11,7 +11,7 @@ import platform
 # import appnope
 import numpy as np
 import pyqtgraph as pg
-import pyqtgraph.multiprocess as mp
+
 import pyqtgraph.parametertree as pt
 from pyqtgraph.Qt import QtCore, QtGui, QtWidgets
 from pyqtgraph.debug import ThreadTrace
@@ -51,18 +51,17 @@ class DemoWindow(QtWidgets.QWidget):
         self.app.setStyleSheet("QLabel{font-size: 11pt;} QText{font-size: 11pt;} {QWidget{font-size: 8pt;}")
         self.app.setStyleSheet("QTreeWidgetItem{font-size: 9pt;}") #  QText{font-size: 11pt;} {QWidget{font-size: 8pt;}")
 
-        self.proc = proc
+        #self.proc = proc
+        self.proc = None
         if self.proc is None:
             print(sys.platform, "Running without mp")
+            # do not use remote process:
+            self.ndemo = neurodemo
         else:
             print(sys.platform, "Running with mp")
-        self.dt = 100*NU.us
-        if proc is not None:
-            # set up simulation in remote process
             self.ndemo = self.proc._import('neurodemo')
-        else:
-            # or do not use remote process:
-            self.ndemo = neurodemo
+        
+        self.dt = 100*NU.us
         self.sim = self.ndemo.Sim(temp=6.3, dt=self.dt)
         # self.sim._setProxyOptions(deferGetattr=True)  # only if using remote process
         self.neuron = self.ndemo.Section(name='soma')
@@ -83,13 +82,12 @@ class DemoWindow(QtWidgets.QWidget):
         self.clamp = self.neuron.add(self.ndemo.PatchClamp(mode='ic'))
         
         mechanisms = [self.clamp, self.hhna, self.leak, self.hhk, self.dexh, self.lgna, self.lgkf, self.lgks]
-
         # loop to run the simulation indefinitely
         self.running = False
         self.runner = self.ndemo.SimRunner(self.sim)
         self.runner.add_request('t') 
         # if using remote process (only on Windows):
-        if proc is not None:
+        if self.proc is not None:
             self.runner.new_result.connect(mp.proxy(self.new_result, autoProxy=False, callSync='off'))
         else: # Darwin (macOS) and Linux:
             self.runner.new_result.connect(self.new_result,) 
@@ -520,12 +518,15 @@ class ScrollingPlot(pg.PlotWidget):
 
 
 if __name__ == '__main__':
+    proc = None
     if sys.platform == 'darwin':
-        proc = None
+        pass
     else:
-        proc = mp.QtProcess(debug=False)
+        #import pyqtgraph.multiprocess as mp
+        #proc = mp.QtProcess(debug=False)
+        pass
 
     win = DemoWindow(proc)
     if (sys.flags.interactive != 1) or not hasattr(QtCore, "PYQT_VERSION"):
         QtWidgets.QApplication.instance().exec()
-    app.processEvents()
+    # app.processEvents()

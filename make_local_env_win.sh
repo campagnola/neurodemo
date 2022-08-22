@@ -11,6 +11,8 @@ then
 else
     echo "No previous environment to remove."
 fi
+pip3 install virtualenv
+python -m virtualenv -p python3.10 $ENVNAME
 
 source $ENVNAME/Scripts/Activate
 # pip3 install --upgrade pip  # be sure pip is up to date in the new env.py
