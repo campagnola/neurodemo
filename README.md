@@ -56,7 +56,7 @@ There are multiple ways to install:
     - In the main directory, under the windows cmd terminal, run win_install.bat.
     - Create a shortcut on the desktop to the file win_start_demo.bat, and set the "window" to minimized. 
         Clicking on the shortcut should start the program. 
-    - There is no working way to make an exe file at the moment - the .spec file are close gut not working yet.
+    - There is no working way to make an exe file at the moment - the .spec file are getting close but not working yet (missing a windows dll).
     
     b. macOS
     - Git clone the repository.
