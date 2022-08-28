@@ -10,12 +10,12 @@ test -f "dist/demo.dmg" && rm "dist/demo.dmg"
 create-dmg \
 --volname "demo" \
 --volicon "icon.icns" \
---window-pos 200 120 \
---window-size 600 300 \
+--window-pos 300 300 \
+--window-size 400 300 \
 --icon-size 32 \
---icon "demo.app" 32 32 \
+--icon "demo.app" 100 100 \
 --hide-extension "demo.app" \
---app-drop-link 425 120 \
+--app-drop-link 250 100 \
 "dist/demo_x86_64.dmg" \
 "dist/dmg/"
 
