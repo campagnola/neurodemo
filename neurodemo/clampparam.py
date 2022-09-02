@@ -323,32 +323,38 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         self.plot_win.remove_plot(key)
 
     def new_result(self, result):
-        if len(self.triggers) == 0:
+        # if len(self.triggers) == 0:
+        #     return
+        # store a few recent results to ensure triggers are handled on time
+        self.result_buffer.append(result)
+        if len(self.result_buffer) > self.result_buffer_size:
+            result = self.result_buffer.pop(0)
+        else:
             return
-        t = result["t"]
-        tt, ptr, buf, info = self.triggers[0]
-        if tt > t[-1]:
+        time_arr = result["t"]
+        trigger_ttime, ptr, buf, info = self.triggers[0]
+        if trigger_time > time_arr[-1]:
             # no triggers ready
             return
 
         # Copy data from result to trigger buffer
-        i = max(
-            0, int(np.round((tt - t[0]) / self.dt))
+        trigger_index = max(
+            0, int(np.round((trigger_time - time_arr[0]) / self.dt))
         )  # index of trigger within new data
         npts = min(
-            len(buf) - ptr, len(t) - i
+            len(buf) - ptr, len(time_arr) - trigger_index
         )  # number of samples to copy from new data
         for k in self.plot_keys:  # self.plot_keys is a list, buf is a recarray
-            buf[k][ptr : ptr + npts] = result[k][i : i + npts]
+            buf[k][ptr : ptr + npts] = result[k][trigger_index : trigger_index + npts]
 
         ptr += npts
         if ptr >= buf.shape[0]:
             # If the trigger buffer is full, plot and remove
             self.plot_win.plot(np.arange(buf.shape[0]) * self.dt, buf, info)
             self.triggers.pop(0)
-            if len(t) > npts:
+            if len(time_arr) > npts:
                 # If there is data left over, try feeding it to the next trigger
-                result = dict([(k, result[k][i + npts :]) for k in result])
+                result = dict([(k, result[k][trigger_index + npts :]) for k in result])
                 self.new_result(result)
         else:
             # otherwise, update the pointer and wait for the next result
