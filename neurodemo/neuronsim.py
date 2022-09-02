@@ -17,7 +17,7 @@ import warnings
 class Sim(object):
     """Simulator for a collection of objects that derive from SimObject"""
 
-    def __init__(self, objects=None, temp=37.0, dt=10 * NU.us):
+    def __init__(self, objects=None, temp=37.0, dt=10.):
         if objects is None:
             objects = []
         self._objects = objects
@@ -26,6 +26,13 @@ class Sim(object):
         self.temp = temp
         self.dt = dt
 
+    def change_dt(self, newdt:float=100.):
+        if newdt < 5:
+            newdt = 5
+        elif newdt > 1001:
+            newdt = 1000
+        self.dt = newdt * NU.us
+    
     def add(self, obj):
         assert obj._sim is None
         obj._sim = self
@@ -58,8 +65,8 @@ class Sim(object):
 
         Extra keyword arguments are passed to `scipy.integrate.odeint()`.
         """
-
-
+        obj = self.all_objects()
+    
         # reset all_objs cache in case some part of the sim has changed
         self._all_objs = None
         all_objs = self.all_objects().values()
@@ -81,13 +88,14 @@ class Sim(object):
                 dep_vars[pfx + k] = v
         self._simstate = SimState(difeq_vars, dep_vars)
         t = np.arange(0, samples) * self.dt + self._time
-
+        # print("starting run with dt = ", self.dt)
         opts = {"rtol": 1e-8, "atol": 1e-9, "hmax": 5e-3, "full_output": 1}
         #opts = {"hmax": 1e-5, "full_output": 1}  # need fine integration or else system can be unstable
         #opts = {"rtol": 1e-6, "atol": 1e-9}
         opts.update(kwds)
         # Run the simulation
         result, info = scipy.integrate.odeint(self.derivatives, init_state, t, tfirst=True, **opts)
+        # in future we will need to implement this instead:
         # result = scipy.integrate.solve_ivp(
         #      self.derivatives,
         #      t_span=(t[0], t[-1]),
@@ -390,6 +398,7 @@ class Channel(Mechanism):
         g = self.conductance(state)
         return -g * (vm - self.erev)
 
+    
     @staticmethod
     def interpolate_rates(rates, val, minval, step):
         """Helper function for interpolating kinetic rates from precomputed
@@ -465,6 +474,7 @@ class PatchClamp(Mechanism):
         self.cpip = cpip
         self._mode = mode
         self.cmd_queue = []
+        self.cmd = []
         self.last_time = 0
         self.holding = {"ic": 0.0 * NU.pA, "vc": -65 * NU.mV}
         self.gain = 50e-6  # arbitrary VC gain

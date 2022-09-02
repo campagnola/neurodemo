@@ -55,6 +55,7 @@ class SequencePlotWindow(QtGui.QWidget):
     def plot(self, t, data, info):
         if not self.hold_check.isChecked():
             self.clear_data()
+        # check to see if mode has changed, and if so, clear the plot
         if self.mode != info['mode']:
             self.mode = info['mode']
             self.clear_data()

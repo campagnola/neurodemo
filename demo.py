@@ -156,6 +156,7 @@ class DemoWindow(QtWidgets.QWidget):
         self.params = pt.Parameter.create(name='Parameters', type='group', children=[
             dict(name='Preset', type='list', values=['HH AP', 'Passive', 'LG AP']),
             dict(name='Run/Stop', type='action', value=False),
+            dict(name="dt", type='float', value=100.0, limits=[2, 400], suffix='us', siPrefix=True),
             dict(name='Speed', type='float', value=1.0, limits=[0.01, 10], step=0.5, dec=True),
             dict(name='Temp', type='float', value=self.sim.temp, suffix='C', step=1.0),
             dict(name='Capacitance', type='float', value=self.neuron.cap, suffix='F', siPrefix=True, dec=True),
@@ -208,6 +209,14 @@ class DemoWindow(QtWidgets.QWidget):
 
             elif param is self.params.child('Speed'):
                 self.runner.set_speed(val)
+            elif param is self.params.child('dt'):
+                was_running = self.running
+                if was_running:
+                    self.stop()
+                self.dt = val*NU.us
+                self.sim.change_dt(self.dt)
+                if was_running:
+                    self.start() # restart.
             elif param is self.params.child('Temp'):
                 self.sim.temp = val
                 # also update the ion channel values = specifically Erev
@@ -247,6 +256,7 @@ class DemoWindow(QtWidgets.QWidget):
         # decide on y range, label, and units for new plot
         yranges = {
             'V': (-100*NU.mV, 50*NU.mV),
+            'Icmd': (-1*NU.nA, 1*NU.nA),
             'I': (-1*NU.nA, 1*NU.nA),
             'G': (0, 100*NU.nS),
             'OP': (0, 1),
@@ -327,8 +337,14 @@ class DemoWindow(QtWidgets.QWidget):
     def new_result(self, final_state, result):
         for k, plt in self.channel_plots.items():
             if k not in result:
+                print("k plot? ", k, plt)
                 continue
-            plt.append(result[k][1:])
+            print('new_result k: ', k)
+            # print('result[k]: ', result[k])
+            if isinstance(result[k], float):
+                plt.append(result[k])
+            else:
+                plt.append(result[k][1:])
             
         # Let the clamp decide which triggered regions of the data to extract
         # for pulse plots

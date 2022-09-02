@@ -72,6 +72,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                 ),
                 dict(name="Plot Current", type="bool", value=False),
                 dict(name="Plot Voltage", type="bool", value=False),
+                dict(name="Plot Command", type="bool", value=False),
                 dict(
                     name="Pulse",
                     type="group",
@@ -196,6 +197,8 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                 self.plots_changed.emit(self, self.clamp, "I", val)
             elif param is self.child("Plot Voltage"):
                 self.plots_changed.emit(self, self.clamp, "V", val)
+            elif param is self.child("Plot Command"):
+                self.plots_changed.emit(self, self.clamp, "Icmd", val)
             # elif param is self.child('Ideal'):
             # self.child('Pipette Capacitance').setOpts(visible=not val)
             # self.child('Access Resistance').setOpts(visible=not val)
