@@ -60,7 +60,7 @@ class Sim(object):
     def time(self):
         return self._time
 
-    def run(self, samples=1000, **kwds):
+    def run(self, blocksize=1000, **kwds):
         """Run the simulation until a number of *samples* have been acquired.
 
         Extra keyword arguments are passed to `scipy.integrate.odeint()`.
@@ -87,7 +87,7 @@ class Sim(object):
             for k, v in o.dep_state_vars.items():
                 dep_vars[pfx + k] = v
         self._simstate = SimState(difeq_vars, dep_vars)
-        t = np.arange(0, samples) * self.dt + self._time
+        t = np.arange(0, blocksize) * self.dt + self._time
         # print("starting run with dt = ", self.dt)
         opts = {"rtol": 1e-8, "atol": 1e-9, "hmax": 5e-3, "full_output": 1}
         #opts = {"hmax": 1e-5, "full_output": 1}  # need fine integration or else system can be unstable
@@ -475,7 +475,7 @@ class PatchClamp(Mechanism):
         self._mode = mode
         self.cmd_queue = []
         self.cmd = []
-        self.last_time = 0
+        self.last_time = 0.0
         self.holding = {"ic": 0.0 * NU.pA, "vc": -65 * NU.mV}
         self.gain = 50e-6  # arbitrary VC gain
         init_state = OrderedDict([("V", -65 * NU.mV)])

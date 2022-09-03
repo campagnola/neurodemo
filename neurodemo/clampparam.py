@@ -4,11 +4,19 @@ NeuroDemo - Physiological neuron sandbox for educational purposes
 Luke Campagnola 2015
 """
 
+from dataclasses import dataclass
 import numpy as np
 from pyqtgraph.Qt import QtCore
 import pyqtgraph.parametertree as pt
 from .sequenceplot import SequencePlotWindow
 import neurodemo.units as NU
+
+@dataclass
+class Trigger:
+    trigger_time: float
+    curr_buff_ptr: int
+    buf: object
+    info: dict
 
 
 class ClampParameter(pt.parameterTypes.SimpleParameter):
@@ -21,11 +29,17 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         self.clamp = clamp
         self.sim = sim
         self.dt = sim.dt
+        self.dt_updated = True
         self.plot_win = SequencePlotWindow()
 
         self.triggers = (
             []
         )  # items are (trigger_time, pointer, trigger_buffer, (mode, amp, cmd, seq_ind, seq_len))
+        self.result_buffer = []
+        self.result_buffer_size = 5
+        self.last_time = 0.
+        self.npops = 0
+
         self.plot_keys = []
         pt.parameterTypes.SimpleParameter.__init__(
             self,
@@ -78,6 +92,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                     type="group",
                     children=[
                         dict(name="Capture Results", type="bool", value=False),
+                        dict(name="Clear Pulses", type="action"),
                         dict(name="Pulse Once", type="action"),
                         dict(
                             name="Hold-duration",
@@ -178,7 +193,12 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         self.sigTreeStateChanged.connect(self.treeChange)
         self.child("Pulse", "Pulse Once").sigActivated.connect(self.pulse_once)
         self.child("Pulse", "Pulse Sequence").sigActivated.connect(self.pulse_sequence)
+        self.child("Pulse", "Clear Pulses").sigActivated.connect(self.clear_triggers)
 
+    def set_dt(self, dt):
+        self.dt = dt*NU.us
+        self.dt_updated = True
+    
     def treeChange(self, root, changes):
         for param, change, val in changes:
             if change != "value":
@@ -239,17 +259,14 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         d4 = self["Pulse", "Post-holdtime"]
         dur = d0 + d1 + d2 + d3 + d4
         durs = [d0, d1, d2, d3, d4]
-        idurs = [0]*len(durs)
-        npts = int(dur / self.dt)
-        # cmd = np.zeros(npts)
+        idurs = [0]*len(durs)  # indexes
+        npts = int(dur / self.dt)  # points in stimulus
         it0 = 0
+        t0 = 0.
         for i, d in enumerate(durs):
             idurs[i] = it0 + int(d / self.dt)
-            it0 += idurs[i]
-        # i1 = i0 + int(d1 / self.dt)
-        # i2 = i1 + int(d2 / self.dt)
-        # i3 = i2 + int(d3 / self.dt)
-        # i4 = i3 + int(d4 / self.dt)
+            it0 = idurs[i]
+            t0 = durs[i]
         cmd = np.ones(npts)*self["Holding"]
         return cmd, idurs # i0, i1, i2, i3, i4
 
@@ -271,6 +288,9 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                 "seq_len": 0,
             }
             self.add_trigger(len(cmd), t, info)
+        # print("Triggers:\n")
+        # for tr in self.triggers:
+        #     print("   ", tr)
 
     def pulse_sequence(self):
         cmd, idurs = self.pulse_template()
@@ -299,6 +319,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
 
         times = self.clamp.queue_commands(cmds, self.dt)
         for i, t in enumerate(times):
+            # print("i, t", i, t, amps[i])
             info = {
                 "mode": self.mode(),
                 "amp": amps[i],
@@ -306,12 +327,20 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                 "seq_ind": i,
                 "seq_len": len(amps),
             }
+
             self.add_trigger(len(cmd), t, info)
+        # print("Triggers:\n")
+        # for tr in self.triggers:
+        #     print(f"    {tr.trigger_time:9.5f}  {tr.info['amp']*1e12:8.1f} pA")
+
 
     def add_trigger(self, n, t, info):
         buf = np.empty(n, dtype=[(str(k), float) for k in self.plot_keys + ["t"]])
-        self.triggers.append([t, 0, buf, info])
+        self.triggers.append(Trigger(t, 0, buf, info))
 
+    def clear_triggers(self):
+        self.triggers = []
+        
     def add_plot(self, key, label):
         self.plot_keys.append(key)
         self.triggers = []
@@ -322,40 +351,69 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         self.triggers = []
         self.plot_win.remove_plot(key)
 
-    def new_result(self, result):
-        # if len(self.triggers) == 0:
-        #     return
-        # store a few recent results to ensure triggers are handled on time
-        self.result_buffer.append(result)
-        if len(self.result_buffer) > self.result_buffer_size:
-            result = self.result_buffer.pop(0)
+    def get_oldest_result(self):
+        earliest = -1
+        early_index = -1
+        for i, r in enumerate(self.result_buffer):
+            t = r["t"][0]
+            if earliest == -1:
+                earliest = t
+                early_index = i
+            else:
+                if t < earliest:
+                    earliest = t
+                    early_index = i
+        if i >= 0:
+            return self.result_buffer.pop(i)
         else:
-            return
-        time_arr = result["t"]
-        trigger_ttime, ptr, buf, info = self.triggers[0]
-        if trigger_time > time_arr[-1]:
-            # no triggers ready
+            raise ValueError("Cannot find oldest result in queue")
+
+    def new_result(self, result):
+
+        # store a few recent results to ensure triggers are handled on time
+        self.result_buffer.append(result)  # add the result to the end of the buffer list
+        if len(self.result_buffer) > self.result_buffer_size: 
+            # find the OLDEST time in the buffer, and return it
+            result = self.get_oldest_result()
+#            result = self.result_buffer.pop(0)  # when the list is filled, get the oldest available result
+        else:
+            return # wait until the list is full to plot anything
+
+        if len(self.triggers) == 0:  # no triggers - nothing to plot
             return
 
+        time_arr = result["t"]
+        TR = self.triggers[0] 
+        if TR.trigger_time > time_arr[-1]:  # no trigger yet
+            return
+        # print(f"*** Trigger detected at {TR.trigger_time:.4f} for time block: {time_arr[0]:.4f} - {time_arr[-1]:.4f}")
         # Copy data from result to trigger buffer
         trigger_index = max(
-            0, int(np.round((trigger_time - time_arr[0]) / self.dt))
+            0, int(np.floor((TR.trigger_time - time_arr[0]) / self.dt))
         )  # index of trigger within new data
+        # number of points available is the smaller of the remainder of the current
+        # part of the unused buffer, or the remainder of the time array
         npts = min(
-            len(buf) - ptr, len(time_arr) - trigger_index
+            len(TR.buf) - TR.curr_buff_ptr, len(time_arr) - trigger_index
         )  # number of samples to copy from new data
         for k in self.plot_keys:  # self.plot_keys is a list, buf is a recarray
-            buf[k][ptr : ptr + npts] = result[k][trigger_index : trigger_index + npts]
+            TR.buf[k][TR.curr_buff_ptr : TR.curr_buff_ptr + npts] = result[k][trigger_index : trigger_index + npts]
 
-        ptr += npts
-        if ptr >= buf.shape[0]:
-            # If the trigger buffer is full, plot and remove
-            self.plot_win.plot(np.arange(buf.shape[0]) * self.dt, buf, info)
+        TR.curr_buff_ptr += npts
+        # print('buff shape [0]: ', TR.buf.shape[0], time_arr[0])
+        # print("n triggers: ", len(self.triggers))
+        if TR.curr_buff_ptr >= TR.buf.shape[0]:
+            # If the trigger buffer would run over on next call, plot the current buffer
+            #  and remove it - TR.trigger_time
+            self.plot_win.plot((np.arange(TR.buf.shape[0]) * self.dt), TR.buf, TR.info)
+           # self.plot_win.plot_triggers(time_arr[0], 0.020)
+
             self.triggers.pop(0)
             if len(time_arr) > npts:
                 # If there is data left over, try feeding it to the next trigger
-                result = dict([(k, result[k][trigger_index + npts :]) for k in result])
+                result = dict([(k, result[k][trigger_index+npts :]) for k in result])
                 self.new_result(result)
         else:
             # otherwise, update the pointer and wait for the next result
-            self.triggers[0][1] = ptr
+           pass
+        #self.triggers[0].curr_buff_ptr = TR.curr_buff_ptr

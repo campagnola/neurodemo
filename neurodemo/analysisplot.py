@@ -3,7 +3,7 @@
 NeuroDemo - Physiological neuron sandbox for educational purposes
 Luke Campagnola 2015
 """
-
+from __future__ import division, unicode_literals
 import sys
 import numpy as np
 import pyqtgraph as pg
@@ -25,7 +25,7 @@ y = vpulse - vbase
 
 class AnalysisPlot(QtGui.QSplitter):
     def __init__(self):
-        QtGui.QSplitter.__init__(self, QtCore.Qt.Orientation.Vertical)
+        QtGui.QSplitter.__init__(self, QtCore.Qt.Vertical)
         self.ns = {}
         
         self.plot = pg.PlotWidget()

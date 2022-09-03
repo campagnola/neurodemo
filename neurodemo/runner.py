@@ -55,7 +55,6 @@ class SimRunner(QtCore.QObject):
         now = def_timer()
         elapsed = now - self.starttime
         blocksize = int(max(2, self.blocksize * self.speed))
-
         result = self.sim.run(blocksize, **self.run_args)
         rec = {}
         for key in self.requests:
@@ -65,7 +64,7 @@ class SimRunner(QtCore.QObject):
                 continue
             rec[key] = data
         state = result.get_final_state()
-        self.new_result.emit(state, rec)   # this pauses on x86_64 after some time
+        self.new_result.emit(state, rec)
         
     def set_speed(self, speed):
         self.speed = speed

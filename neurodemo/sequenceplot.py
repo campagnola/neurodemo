@@ -78,3 +78,7 @@ class SequencePlotWindow(QtGui.QWidget):
         for plt in self.plots.values():
             plt.clear()
         self.analyzer.clear()
+    
+    def plot_triggers(self, t, d):
+        for k, plt in self.plots.items():
+            plt.plot([t,t], [-d, d], pen=pg.mkPen(color="w", width=1.5))

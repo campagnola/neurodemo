@@ -15,6 +15,7 @@ import pyqtgraph as pg
 import pyqtgraph.parametertree as pt
 from pyqtgraph.Qt import QtCore, QtGui, QtWidgets
 from pyqtgraph.debug import ThreadTrace
+import pyqtgraph.multiprocess as mp
 
 import neurodemo
 import neurodemo.units as NU
@@ -61,7 +62,7 @@ class DemoWindow(QtWidgets.QWidget):
             print(sys.platform, "Running with mp")
             self.ndemo = self.proc._import('neurodemo')
         
-        self.dt = 100*NU.us
+        self.dt = 100.0 * NU.us
         self.sim = self.ndemo.Sim(temp=6.3, dt=self.dt)
         # self.sim._setProxyOptions(deferGetattr=True)  # only if using remote process
         self.neuron = self.ndemo.Section(name='soma')
@@ -210,13 +211,8 @@ class DemoWindow(QtWidgets.QWidget):
             elif param is self.params.child('Speed'):
                 self.runner.set_speed(val)
             elif param is self.params.child('dt'):
-                was_running = self.running
-                if was_running:
-                    self.stop()
-                self.dt = val*NU.us
-                self.sim.change_dt(self.dt)
-                if was_running:
-                    self.start() # restart.
+                self.reset_dt(val)
+
             elif param is self.params.child('Temp'):
                 self.sim.temp = val
                 # also update the ion channel values = specifically Erev
@@ -303,13 +299,24 @@ class DemoWindow(QtWidgets.QWidget):
         plt.close()
         
     def start(self):
-        self.runner.start(blocksize=500)
+        self.runner.start(blocksize=1000)
         # set button color
         
     def stop(self):
         self.runner.stop()
         # reset button color
-        
+
+    def reset_dt(self, val):
+        was_running = self.running
+        if was_running:
+            self.stop()
+        self.dt = val
+        # make sure to change dt elsewhere as well.
+        self.clamp_param.set_dt(self.dt)
+        self.sim.change_dt(self.dt)
+        if was_running:
+            self.start() # restart.
+
     def pause(self):
         self.params['Run'] = not self.params['Run']
 
@@ -337,11 +344,9 @@ class DemoWindow(QtWidgets.QWidget):
     def new_result(self, final_state, result):
         for k, plt in self.channel_plots.items():
             if k not in result:
-                print("k plot? ", k, plt)
                 continue
-            print('new_result k: ', k)
-            # print('result[k]: ', result[k])
             if isinstance(result[k], float):
+                pass
                 plt.append(result[k])
             else:
                 plt.append(result[k][1:])
