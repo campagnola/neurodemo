@@ -32,6 +32,15 @@ class CellPosition:
     diam_y = 100
     membrane_thickness = 4
 
+def v_color(v):
+    """Return a color corresponding to voltage."""
+    return (
+        np.clip(
+            [(v + 65e-3) * 5e3, (v + 30e-3) * 5e3, (-65e-3 - v) * 10e3, 255], 0, 205
+        )
+        + 50
+    )
+
 class NeuronView(pg.GraphicsLayoutWidget):
     """Displays a graphical representation of the neuron and its attached
     mechanisms.
@@ -54,7 +63,7 @@ class NeuronView(pg.GraphicsLayoutWidget):
         self.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         self.view = self.addViewBox(0, 0)
         self.view.setAspectLocked()
-        self.view.setRange(QtCore.QRectF(-70, -70, 140, 140))
+        self.view.setRange(QtCore.QRectF(-90, -90, 180, 180))
 
         self.cell = Cell(soma)
         self.view.addItem(self.cell)
@@ -75,7 +84,7 @@ class NeuronView(pg.GraphicsLayoutWidget):
                 item.setTransform(QtGui6.QTransform().translate(0, CellPosition.center_y))
             else:  # add ion channels
                 item = Channel(
-                    mech, translation=(0, 50), angle=angle
+                    mech, translation=(0, 40), angle=angle
                 )  # set all transforms at once
                 self.view.addItem(item)  # add to graphic view of the cell
                 # item.setTransform(QtGui6.QTransform().rotate(angle))
@@ -101,6 +110,16 @@ class NeuronView(pg.GraphicsLayoutWidget):
             i.circuit.setParentItem(self.circuit)
         self.show_circuit(False)
 
+        # add a color bar scale on the right
+        # vrange = np.linspace(-150e-3, 50e-3, 151)
+        # vc = np.linspace(0, 1, 151)
+        # self.colorbar = pg.ColorBarItem(values=(-150e-3, 50e-3), width=10, interactive=False,
+        #     colorMap = pg.ColorMap((-150e-3, 50e03), [v_color(x) for x in vrange]))
+        # self.view.addItem(self.colorbar)
+        # QtGui.QGraphicsItemGroup.setTransform(
+        #     self.colorbar, QtGui6.QTransform().fromTranslate(120, 0)
+        # )
+
     def update_state(self, state):
         for item in self.items:
             item.update_state(state)
@@ -111,14 +130,7 @@ class NeuronView(pg.GraphicsLayoutWidget):
             i.show_circuit(show)
 
 
-def v_color(v):
-    """Return a color corresponding to voltage."""
-    return (
-        np.clip(
-            [(v + 65e-3) * 5e3, (v + 30e-3) * 5e3, (-65e-3 - v) * 10e3, 255], 0, 205
-        )
-        + 50
-    )
+
 
 
 class NeuronItem(QtGui.QGraphicsItemGroup):
@@ -262,6 +274,12 @@ class Channel(NeuronItem):
             self.svg_items[i] = transform = self.set_transform(
                 svg, scale[i], angle=self.angle, translate=transl
             )
+        # add a label to the channel
+        label = pg.LabelItem(channel.type, color=pg.mkColor(color),
+            angle=-angle, anchor=[0.5, 0.5])
+        label.setParentItem(self)
+        transl[1] += 32
+        self.set_transform(label, scale[0], angle=self.angle, translate=transl)
 
         self.bg = QtGui.QGraphicsRectItem(QtCore.QRectF(-5, -10, 10, 20))
         self.bg.setParentItem(self)
