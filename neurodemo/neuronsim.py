@@ -26,12 +26,12 @@ class Sim(object):
         self.temp = temp
         self.dt = dt
 
-    def change_dt(self, newdt:float=100.):
-        if newdt < 5:
-            newdt = 5
-        elif newdt > 1001:
-            newdt = 1000
-        self.dt = newdt * NU.us
+    def change_dt(self, newdt:float=100.e-6):
+        if newdt < 5e-6:
+            newdt = 5e-6
+        elif newdt > 1001e-6:
+            newdt = 1000e-6
+        self.dt = newdt * NU.s
     
     def add(self, obj):
         assert obj._sim is None
@@ -419,7 +419,7 @@ class Channel(Mechanism):
 class Section(SimObject):
     type = "section"
 
-    def __init__(self, radius=None, cap=10 * NU.pF, vm=-65 * NU.mV, **kwds):
+    def __init__(self, radius=None, cap=10e-12 * NU.F, vm=-65 * NU.mV, **kwds):
         self.cap_bar = 1 * NU.uF / NU.cm**2
         if radius is None:
             self.cap = cap
@@ -469,7 +469,7 @@ class Section(SimObject):
 class PatchClamp(Mechanism):
     type = "PatchClamp"
 
-    def __init__(self, mode="ic", ra=0.1 * NU.MOhm, cpip=0.5 * NU.pF, **kwds):
+    def __init__(self, mode="ic", ra=0.1 * NU.MOhm, cpip=0.5e-12 * NU.F, **kwds):
         self.ra = ra
         self.cpip = cpip
         self._mode = mode

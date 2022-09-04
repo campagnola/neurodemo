@@ -67,18 +67,18 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                     name="Pipette Cap",
                     type="float",
                     value=clamp.cpip,
-                    limits=[0.01 * NU.pF, None],
+                    limits=[0.1*1e-12 * NU.F, 1e-9 * NU.F],
                     suffix="F",
                     siPrefix=True,
                     dec=True,
-                    step=0.5,
+                    step=0.5e-12,
                 ),
                 dict(
                     #name="Access Resistance",
                     name="Access Res",
                     type="float",
                     value=clamp.ra,
-                    limits=[10 * NU.kOhm, None],
+                    limits=[10000 * NU.Ohm, None],
                     suffix="Ω",
                     siPrefix=True,
                     step=0.5,
@@ -97,7 +97,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Hold-duration",
                             type="float",
-                            value=10 * NU.ms,
+                            value=0.010 * NU.s,
                             suffix="s",
                             siPrefix=True,
                             limits=[0, None],
@@ -106,7 +106,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Pre-duration",
                             type="float",
-                            value=10 * NU.ms,
+                            value=0.010 * NU.s,
                             suffix="s",
                             siPrefix=True,
                             limits=[0, None],
@@ -115,7 +115,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Pre-amplitude",
                             type="float",
-                            value=0 * NU.pA,
+                            value=0 * NU.A,
                             suffix="A",
                             siPrefix=True,
                             dec=True,
@@ -123,7 +123,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Duration",
                             type="float",
-                            value=50 * NU.ms,
+                            value=0.050 * NU.s,
                             suffix="s",
                             siPrefix=True,
                             limits=[0, None],
@@ -132,7 +132,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Amplitude",
                             type="float",
-                            value=50 * NU.pA,
+                            value=50e-12 * NU.A,
                             suffix="A",
                             siPrefix=True,
                             dec=True,
@@ -140,7 +140,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Post-duration",
                             type="float",
-                            value=50 * NU.ms,
+                            value=0.050 * NU.s,
                             suffix="s",
                             siPrefix=True,
                             limits=[0, None],
@@ -149,7 +149,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Post-amplitude",
                             type="float",
-                            value=0 * NU.pA,
+                            value=0 * NU.A,
                             suffix="A",
                             siPrefix=True,
                             dec=True,
@@ -163,7 +163,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Start Amplitude",
                             type="float",
-                            value=-50 * NU.pA,
+                            value=-50e-12 * NU.A,
                             suffix="A",
                             siPrefix=True,
                             dec=True,
@@ -171,16 +171,16 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Stop Amplitude",
                             type="float",
-                            value=50 * NU.pA,
+                            value=50e-12 * NU.A,
                             suffix="A",
                             siPrefix=True,
                             dec=True,
                         ),
                         dict(name="Post-holdtime", type="float",
-                            value = 500*NU.ms,
+                            value = 0.500*NU.s,
                             suffix="s",
                             si_refix=True,
-                            limits=[0.01, 2.0],
+                            limits=[0.05, 5.0],
                         ),
 
                         dict(
@@ -196,7 +196,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         self.child("Pulse", "Clear Pulses").sigActivated.connect(self.clear_triggers)
 
     def set_dt(self, dt):
-        self.dt = dt*NU.us
+        self.dt = dt
         self.dt_updated = True
     
     def treeChange(self, root, changes):
@@ -261,6 +261,8 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         durs = [d0, d1, d2, d3, d4]
         idurs = [0]*len(durs)  # indexes
         npts = int(dur / self.dt)  # points in stimulus
+        # print(dur, self.dt)
+        # print("template: npts= ", npts)
         it0 = 0
         t0 = 0.
         for i, d in enumerate(durs):
@@ -327,7 +329,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                 "seq_ind": i,
                 "seq_len": len(amps),
             }
-
+            # print(len(cmds[i]))
             self.add_trigger(len(cmd), t, info)
         # print("Triggers:\n")
         # for tr in self.triggers:

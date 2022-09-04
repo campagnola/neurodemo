@@ -62,7 +62,8 @@ class DemoWindow(QtWidgets.QWidget):
             print(sys.platform, "Running with mp")
             self.ndemo = self.proc._import('neurodemo')
         
-        self.dt = 100.0 * NU.us
+        self.dt = 100e-6 * NU.s
+        self.scrolling_plot_duration = 1.0 * NU.s
         self.sim = self.ndemo.Sim(temp=6.3, dt=self.dt)
         # self.sim._setProxyOptions(deferGetattr=True)  # only if using remote process
         self.neuron = self.ndemo.Section(name='soma')
@@ -148,7 +149,6 @@ class DemoWindow(QtWidgets.QWidget):
         for ion in self.ion_concentrations:
             ion.updateErev(self.sim.temp)  # match temperature with an update
         
-
         self.vm_plot = self.add_plot('soma.V', 'Membrane Potential', 'V')
         
         self.splitter.setSizes([200])
@@ -157,10 +157,11 @@ class DemoWindow(QtWidgets.QWidget):
         self.params = pt.Parameter.create(name='Parameters', type='group', children=[
             dict(name='Preset', type='list', values=['HH AP', 'Passive', 'LG AP']),
             dict(name='Run/Stop', type='action', value=False),
-            dict(name="dt", type='float', value=100.0, limits=[2, 400], suffix='us', siPrefix=True),
+            dict(name="dt", type='float', value=100e-6, limits=[2e-6, 500e-6], suffix='s', siPrefix=True),
             dict(name='Speed', type='float', value=1.0, limits=[0.01, 10], step=0.5, dec=True),
-            dict(name='Temp', type='float', value=self.sim.temp, suffix='C', step=1.0),
-            dict(name='Capacitance', type='float', value=self.neuron.cap, suffix='F', siPrefix=True, dec=True),
+            dict(name="Plot Duration", type='float', value=1.0, limits=[0.1, 10], suffix='s', siPrefix=True, step=0.2),
+            dict(name='Temp', type='float', value=self.sim.temp, limits=[0., 41.], suffix='C', step=1.0),
+            dict(name='Capacitance', type='float', value=self.neuron.cap, limits=[0.1e-12, 1000.e-12], suffix='F', siPrefix=True, dec=True),
             dict(name='Ions', type='group', children=self.ion_concentrations),            
             dict(name='Cell Schematic', type='bool', value=True, children=[
                 dict(name='Show Circuit', type='bool', value=False),
@@ -212,7 +213,8 @@ class DemoWindow(QtWidgets.QWidget):
                 self.runner.set_speed(val)
             elif param is self.params.child('dt'):
                 self.reset_dt(val)
-
+            elif param is self.params.child('Plot Duration'):
+                self.set_scrolling_plot_duration(val)
             elif param is self.params.child('Temp'):
                 self.sim.temp = val
                 # also update the ion channel values = specifically Erev
@@ -266,13 +268,13 @@ class DemoWindow(QtWidgets.QWidget):
         if name in units:
             label = (label, units[name])
             
-        # create new plot
-        plt = ScrollingPlot(dt=self.dt, npts=int(1.0 / self.dt),
+        # create new scrolling plot
+        plt = ScrollingPlot(dt=self.dt, npts=int(self.scrolling_plot_duration / self.dt),
                             labels={'left': label}, pen=color)
         if hasattr(self, 'vm_plot'):
             plt.setXLink(self.vm_plot)
         else:
-            plt.setXRange(-1, 0)
+            plt.setXRange(-self.scrolling_plot_duration, 0)
         plt.setYRange(*yranges.get(name, (0, 1)))
         
         # register this plot for later..
@@ -307,15 +309,32 @@ class DemoWindow(QtWidgets.QWidget):
         # reset button color
 
     def reset_dt(self, val):
+
         was_running = self.running
         if was_running:
             self.stop()
         self.dt = val
-        # make sure to change dt elsewhere as well.
+
         self.clamp_param.set_dt(self.dt)
         self.sim.change_dt(self.dt)
         if was_running:
             self.start() # restart.
+        # make sure to change dt elsewhere as well.
+        self.set_scrolling_plot_dt(self.dt)
+
+    def set_scrolling_plot_dt(self, val):
+        was_running = self.running
+        if was_running:
+            self.stop()
+        for k in self.channel_plots.keys():
+            self.channel_plots[k].set_dt(val)
+        if was_running:
+            self.start() # restart.
+
+    def set_scrolling_plot_duration(self, val):
+        self.scrolling_plot_duration = val
+        for k in self.channel_plots.keys():
+            self.channel_plots[k].set_duration(val)
 
     def pause(self):
         self.params['Run'] = not self.params['Run']
@@ -528,13 +547,29 @@ class ScrollingPlot(pg.PlotWidget):
         self.data = np.array([], dtype=float)
         self.npts = npts
         self.dt = dt
-        
+        self.plot_duration = 1.0
+    
+    def set_dt(self, dt):
+        self.dt = dt
+        # update npts as well
+        self.npts=int(self.plot_duration / self.dt)
+        # print(self.plot_duration, self.npts, self.dt)
+
+    def set_duration(self, dur):
+        self.plot_duration = dur
+        self.npts=int(self.plot_duration / self.dt)
+        self.setXRange(-self.plot_duration, 0)
+        # print(self.plot_duration, self.npts, self.dt, len(self.data))
+
     def append(self, data):
-        self.data = np.append(self.data, data)
-        if len(self.data) > self.npts:
+        # print("len data, len self.data: ", len(data), len(self.data))
+        #self.data = np.append(self.data, data)
+        self.data = np.concatenate((self.data, data), axis=0)
+        if len(self.data) >= self.npts:
             self.data = self.data[-self.npts:]
         t = np.arange(len(self.data)) * self.dt
         t -= t[-1]
+        # print("appending npts: ", len(self.data), self.npts, self.dt, self.plot_duration)
         self.data_curve.setData(t, self.data)
 
 
