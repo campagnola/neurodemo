@@ -2,9 +2,9 @@
 #
 # The next 3 lines can be skipped if you
 # do not need to update the code
-# rm -rf build dist
-# python setup_m1.py py2app
-# mkdir -p dist/dmg
+rm -rf build dist
+python setup_m1.py py2app
+mkdir -p dist/dmg
 
 cp -r "dist/demo.app" dist/dmg
 # If the DMG already exists, delete it.
@@ -22,5 +22,5 @@ create-dmg \
 "dist/demo_M1.dmg" \
 "dist/dmg/"
 
-#hdiutil create -srcFolder dist -o dmg/neurodemo
+hdiutil create -srcFolder dist -o dmg/neurodemo
 
