@@ -51,7 +51,8 @@ setup(
     data_files=DATA_FILES,
     options={'py2exe': OPTIONS},
     setup_requires=['py2exe'],
-    entry_points = {"console_scripts": ["demo=demo.__main__:main"]},
+    console=['demo.py'],
+    #entry_points = {"console_scripts": ["demo=demo.__main__:main"]},
     # entry_points={
     #     'console_scripts': [
     #         'demo=demo:main',
