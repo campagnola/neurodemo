@@ -7,7 +7,7 @@ Updated 2022 pbmanis for Python 3.10 and PyQt6
 
 """
 from dataclasses import dataclass
-import os, tempfile
+import os, sys, tempfile
 from pathlib import Path
 from typing import Union, List, Tuple
 import numpy as np
@@ -20,9 +20,14 @@ from pyqtgraph import ArrowItem
 # for storing dynamically-generated svg files
 tmpdir = tempfile.mkdtemp()
 
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
 
 def svg_file(name):
-    return Path(Path(__file__).parent, "images", name + ".svg")
+    # return Path(Path(__file__).parent, "images", name + ".svg")
+    return Path(resource_path(Path( "images", name + '.svg')))
 
 @dataclass
 class CellPosition:

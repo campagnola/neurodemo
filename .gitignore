@@ -1,4 +1,6 @@
 __pycache__
+.pytest_cache/*
+gprof2dot/*
 *.pyc
 neurodemo_venv/*
 neurodemo.egg-info/*
