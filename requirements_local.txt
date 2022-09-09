@@ -18,7 +18,7 @@ pyqt6
 pyqt6-sip
 pyqtgraph>=0.12.4
 
-scipy==1.8.0
+scipy==1.9.1
 
 #-e /Users/pbmanis/Desktop/Python/pyqtgraph
 
