@@ -155,7 +155,7 @@ class DemoWindow(QtWidgets.QWidget):
         self.stim_splitter.setSizes([100])
 
         self.params = pt.Parameter.create(name='Parameters', type='group', children=[
-            dict(name='Preset', type='list', values=['HH AP', 'Passive', 'LG AP']),
+            dict(name='Preset', type='list', value='HH AP', values=['Passive', 'HH AP', 'LG AP']),
             dict(name='Run/Stop', type='action', value=False),
             dict(name="dt", type='float', value=20e-6, limits=[2e-6, 200e-6], suffix='s', siPrefix=True),
             dict(name='Speed', type='float', value=1.0, limits=[0.01, 10], step=0.5, dec=True),
@@ -433,7 +433,8 @@ class DemoWindow(QtWidgets.QWidget):
         self.set_lg_erev(ENa_revs["INa1"], EK_revs["IKf"], EK_revs["IKs"], -55*NU.mV, )
 
 
-    def set_hh_erev(self, ENa_erev, EK_erev, Eleak_erev, Eh_erev):
+    def set_hh_erev(self, ENa_erev=50*NU.mV, EK_erev=-74*NU.mV,
+                    Eleak_erev=-55*NU.mV, Eh_erev=-43*NU.mV):
         """Set new reversal potentials for the HH currents
 
         Args:
@@ -447,7 +448,8 @@ class DemoWindow(QtWidgets.QWidget):
         self.dexh.set_erev(Eh_erev)
         self.leak.set_erev(Eleak_erev)
 
-    def set_lg_erev(self, ENa_erev, EKf_erev, EKs_erev, Eleak_erev):
+    def set_lg_erev(self, ENa_erev=74*NU.mV, EKf_erev=-90*NU.mV,
+                EKs_erev=-90*NU.mV, Eleak_erev=-70*NU.mV):
         """Set new reversal potentials for the LG currents
 
         Args:
@@ -510,7 +512,7 @@ class DemoWindow(QtWidgets.QWidget):
             chans['soma.IKf'] = False
             chans['soma.IKs'] = False
             self.set_ions_off()
-            self.neuron.set_default_erev()
+            self.set_hh_erev()
 
         elif preset == 'LG AP':
             self.params['Temp'] = 37
@@ -525,9 +527,11 @@ class DemoWindow(QtWidgets.QWidget):
             chans['soma.INa1'] = True
             chans['soma.INa1', "Erev"] = 74 * NU.mV
             chans['soma.IKf'] = True
+            chans['soma.IKf', "Erev"] = -90 * NU.mV
             chans['soma.IKs'] = True
+            chans['soma.IKs', "Erev"] = -90 * NU.mV
             self.set_ions_off()
-            self.neuron.set_default_erev()
+            self.set_lg_erev()
         else:
             raise ValueError("Preset is not one of the implemented values")
             
