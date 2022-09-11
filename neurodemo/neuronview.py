@@ -6,6 +6,7 @@ Updated 2022 pbmanis for Python 3.10 and PyQt6
 
 
 """
+from calendar import c
 from dataclasses import dataclass
 import os, sys, tempfile
 from pathlib import Path
@@ -37,14 +38,20 @@ class CellPosition:
     diam_y = 100
     membrane_thickness = 4
 
+colormap = pg.colormap.get("CET-CBL2")
+
 def v_color(v):
     """Return a color corresponding to voltage."""
-    return (
-        np.clip(
-            [(v + 65e-3) * 5e3, (v + 30e-3) * 5e3, (-65e-3 - v) * 10e3, 255], 0, 205
-        )
-        + 50
-    )
+    vs = v*1e3  # convert to V
+    vs = np.interp(vs, [-140.0, 50.0], [0.0, 1.0])
+
+    return(colormap.map(vs))
+
+    # c =  np.clip(
+    #         [vs(v, 65), vs(v, 30), vs(-v, -50)], 0, 255
+    #     ) 
+    # # print(c, v)
+    # return c
 
 class NeuronView(pg.GraphicsLayoutWidget):
     """Displays a graphical representation of the neuron and its attached
