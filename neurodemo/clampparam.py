@@ -403,7 +403,8 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         )  # number of samples to copy from new data
         # print("Trigger index: ", trigger_index, "npts: ", npts, "TR.curr: ", TR.curr_buff_ptr)
         for k in self.plot_keys:  # self.plot_keys is a list, buf is a recarray
-            TR.buf[k][TR.curr_buff_ptr : TR.curr_buff_ptr + npts] = result[k][trigger_index : trigger_index + npts]
+            if k in result.keys():
+                TR.buf[k][TR.curr_buff_ptr : TR.curr_buff_ptr + npts] = result[k][trigger_index : trigger_index + npts]
 
         TR.curr_buff_ptr += npts
         # print('buff shape [0]: ', TR.buf.shape[0], time_arr[0])
