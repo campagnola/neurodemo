@@ -62,7 +62,7 @@ class DemoWindow(QtWidgets.QWidget):
             print(sys.platform, "Running with mp")
             self.ndemo = self.proc._import('neurodemo')
         
-        self.dt = 100e-6 * NU.s
+        self.dt = 20e-6 * NU.s
         self.scrolling_plot_duration = 1.0 * NU.s
         self.sim = self.ndemo.Sim(temp=6.3, dt=self.dt)
         # self.sim._setProxyOptions(deferGetattr=True)  # only if using remote process
@@ -157,7 +157,7 @@ class DemoWindow(QtWidgets.QWidget):
         self.params = pt.Parameter.create(name='Parameters', type='group', children=[
             dict(name='Preset', type='list', values=['HH AP', 'Passive', 'LG AP']),
             dict(name='Run/Stop', type='action', value=False),
-            dict(name="dt", type='float', value=100e-6, limits=[2e-6, 500e-6], suffix='s', siPrefix=True),
+            dict(name="dt", type='float', value=20e-6, limits=[2e-6, 200e-6], suffix='s', siPrefix=True),
             dict(name='Speed', type='float', value=1.0, limits=[0.01, 10], step=0.5, dec=True),
             dict(name="Plot Duration", type='float', value=1.0, limits=[0.1, 10], suffix='s', siPrefix=True, step=0.2),
             dict(name='Temp', type='float', value=self.sim.temp, limits=[0., 41.], suffix='C', step=1.0),
