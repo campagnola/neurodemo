@@ -38,25 +38,17 @@ class CellPosition:
     diam_y = 100
     membrane_thickness = 4
 
-colormap = pg.colormap.get("CET-CBL2")
-
+colormap = pg.colormap.get("CET-CBL2")  # use a color-blind friendly color map
+colormap.reverse()
 def v_color(v):
     """Return a color corresponding to voltage."""
     vs = v*1e3  # convert to V
     vs = np.interp(vs, [-140.0, 50.0], [0.0, 1.0])
-
     return(colormap.map(vs))
-
-    # c =  np.clip(
-    #         [vs(v, 65), vs(v, 30), vs(-v, -50)], 0, 255
-    #     ) 
-    # # print(c, v)
-    # return c
 
 class NeuronView(pg.GraphicsLayoutWidget):
     """Displays a graphical representation of the neuron and its attached
     mechanisms.
-
 
     """
 
@@ -122,15 +114,24 @@ class NeuronView(pg.GraphicsLayoutWidget):
             i.circuit.setParentItem(self.circuit)
         self.show_circuit(False)
 
-        # add a color bar scale on the right
-        # vrange = np.linspace(-150e-3, 50e-3, 151)
-        # vc = np.linspace(0, 1, 151)
-        # self.colorbar = pg.ColorBarItem(values=(-150e-3, 50e-3), width=10, interactive=False,
-        #     colorMap = pg.ColorMap((-150e-3, 50e03), [v_color(x) for x in vrange]))
-        # self.view.addItem(self.colorbar)
-        # QtGui.QGraphicsItemGroup.setTransform(
-        #     self.colorbar, QtGui6.QTransform().fromTranslate(120, 0)
-        # )
+        # add a color bar scale on the right bottom. 
+        
+        colormap2 = pg.colormap.get("CET-CBL2")
+        colormap2.reverse()
+        self.colorbar = pg.ColorBarItem(values=(-150, 50), width=10, interactive=False,
+            cmap = colormap, orientation='horizontal')
+        self.colorbar.setTitle("V (mV)")
+        self.colorbar.setGeometry(100, -40, 100, 150)
+        cbax = self.colorbar.getAxis('bottom')
+        ticks = {-150: '-150', -100: '-100', -50: ' -50',  0: '  0', 50: ' 50'}
+        font = QtGui6.QFont()
+        font.setFamily('monospace')
+        font.setPointSize(10)
+        cbax.setStyle(tickTextOffset=8, tickFont=font)
+        self.view.addItem(self.colorbar)
+        QtGui.QGraphicsItemGroup.setTransform(
+             self.colorbar, QtGui6.QTransform().scale(1, -1))
+        cbax.setTicks([ticks.items()])
 
     def update_state(self, state):
         for item in self.items:
@@ -140,9 +141,6 @@ class NeuronView(pg.GraphicsLayoutWidget):
         self.mask.setVisible(show)
         for i in self.items:
             i.show_circuit(show)
-
-
-
 
 
 class NeuronItem(QtGui.QGraphicsItemGroup):
@@ -195,7 +193,7 @@ class Cell(NeuronItem):
         # Net current
         self.current = Current(self.key, center=False)
         self.current.setParentItem(self.circuit)
-        self.current.setPos(0, CellPosition.center_y)
+        self.current.setPos(0, CellPosition.center_y+60)
         self.current.setZValue(2)
 
         # membrane capacitance, angled off from the pipette a bit
