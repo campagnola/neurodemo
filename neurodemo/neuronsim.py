@@ -60,7 +60,7 @@ class Sim(object):
     def time(self):
         return self._time
 
-    def run(self, blocksize=1000, **kwds):
+    def run(self, blocksize:int=1000, integrator:str = 'solve_ivp', **kwds):
         """Run the simulation until a number of *samples* have been acquired.
 
         Extra keyword arguments are passed to `scipy.integrate.odeint()`.
@@ -89,34 +89,47 @@ class Sim(object):
         self._simstate = SimState(difeq_vars, dep_vars)
         t = np.arange(0, blocksize) * self.dt + self._time
         # print("starting run with dt = ", self.dt)
-        opts = {"rtol": 1e-8, "atol": 1e-9, "hmax": 5e-3, "full_output": 1}
-        #opts = {"hmax": 1e-5, "full_output": 1}  # need fine integration or else system can be unstable
-        #opts = {"rtol": 1e-6, "atol": 1e-9}
+        opts = {"rtol": 1e-6, "atol": 1e-6, "hmax": 5e-3, "full_output": 1}
         opts.update(kwds)
         # Run the simulation
-        result, info = scipy.integrate.odeint(self.derivatives, init_state, t, tfirst=True, **opts)
+
+        if integrator == 'odeint':
+            result, info = scipy.integrate.odeint(self.derivatives, init_state, t, tfirst=True, **opts)
+            p = 0
+            for o in all_objs:
+                nvar = len(o.difeq_state())
+                # print("odeint state: ", p, nvar, result[-1, p:p+nvar])
+                o.update_state(result[-1, p : p + nvar])
+                p += nvar
+            self._time = t[-1]
+            self._last_run_time = t
+            return SimState(difeq_vars, dep_vars, result.T, integrator=integrator, t=t)
+
+        elif integrator == 'solve_ivp':
         # in future we will need to implement this instead:
-        # result = scipy.integrate.solve_ivp(
-        #      self.derivatives,
-        #      t_span=(t[0], t[-1]),
-        #      t_eval=t,
-        #      y0=init_state,
-        #      method="LSODA",
-        #      args=dep_vars,
-        #      **opts,
-        #  )
+            result = scipy.integrate.solve_ivp(
+                self.derivatives,
+                t_span=(t[0], t[-1]),
+                t_eval=t,
+                y0=init_state,
+                method="Radau",
+                dense_output=True,
+                # args=dep_vars,
+                rtol = opts['rtol'], #**opts,
+                atol = opts['atol'],
+                max_step = opts['hmax'],
+            )
+            # Update current state variables
+            p = 0
+            for i, o in enumerate(all_objs):
+                nvar = len(o.difeq_state())
+                # print("solve ivp state: ", p, nvar, result.y[p:p+nvar, -1])
+                o.update_state(result.y[p:p+nvar, -1])
+                p += nvar
 
-        # Update current state variables
-        p = 0
-        for o in all_objs:
-            nvar = len(o.difeq_state())
-            o.update_state(result[-1, p : p + nvar])
-            p += nvar
-
-        self._time = t[-1]
-        self._last_run_time = t
-        # return SimState(difeq_vars, dep_vars, result.y, t=t)
-        return SimState(difeq_vars, dep_vars, result.T, t=t)
+            self._time = t[-1]
+            self._last_run_time = t
+            return SimState(difeq_vars, dep_vars, result.y, integrator=integrator, t=t)
 
     def derivatives(self, t, state):
         objs = self.all_objects().values()
@@ -158,7 +171,7 @@ class SimState(object):
             Extra name:value pairs that may be accessed from this object
     """
 
-    def __init__(self, difeq_vars, dep_vars=None, difeq_state=None, **extra):
+    def __init__(self, difeq_vars, dep_vars=None, difeq_state=None, integrator='odeint', **extra):
         self.difeq_vars = difeq_vars
         # record indexes of difeq vars for fast retrieval
         self.indexes = dict([(k, i) for i, k in enumerate(difeq_vars)])
@@ -166,6 +179,7 @@ class SimState(object):
         self.dep_vars = dep_vars
         self.state = difeq_state
         self.extra = extra
+        self.integrator = integrator
 
     def set_state(self, difeq_state):
         self.state = difeq_state
@@ -198,8 +212,12 @@ class SimState(object):
         clip = not np.isscalar(self["t"])
         if clip:
             # only get results for the last timepoint
-            s.set_state(self.state[:, -1])
-
+            # print('state: ', self.state)
+            if self.integrator == 'odeint':
+                s.set_state(self.state[:, -1])
+            else:
+                s.set_state(self.state[:, -1])
+            #exit()
         for k in self.difeq_vars:
             state[k] = s[k]
         for k in self.dep_vars:
@@ -213,7 +231,7 @@ class SimState(object):
         return state
 
     def copy(self):
-        return SimState(self.difeq_vars, self.dep_vars, self.state, **self.extra)
+        return SimState(self.difeq_vars, self.dep_vars, self.state, self.integrator, **self.extra)
 
 
 class SimObject(object):
@@ -274,6 +292,7 @@ class SimObject(object):
         begins.
         """
         for i, k in enumerate(self._current_state.keys()):
+            # print("simobject: k, r: ", k, result[i])
             self._current_state[k] = result[i]
 
     def derivatives(self, state):
@@ -398,6 +417,19 @@ class Channel(Mechanism):
         g = self.conductance(state)
         return -g * (vm - self.erev)
 
+    def vtrap(self, x, y):  # Traps for 0 in denominator of rate eqns.
+        if np.fabs(x/y) < 1e-6:
+            vtrap = y*(1.0 - x/y/2.0)
+        else:
+            vtrap = x/(np.exp(x/y) - 1.0)
+        return vtrap
+
+    def vtrap2(self, x, y):  # Traps for 0 in denominator of rate eqns.
+        if np.fabs(x/(np.exp(y)-1.0)) < 1e-6:
+            vtrap = y*(1.0 - x/2.0)
+        else:
+            vtrap = x/(np.exp(y) - 1.0)
+        return vtrap
     
     @staticmethod
     def interpolate_rates(rates, val, minval, step):
@@ -636,12 +668,14 @@ class HHK(Channel):
         vm = np.arange(cls.rates_vmin, cls.rates_vmin + 400, cls.rates_vstep)
         cls.rates = np.empty((len(vm), 2))
         cls.rates[:, 0] = (0.1 - 0.01 * vm) / (np.exp(1.0 - 0.1 * vm) - 1.0)
+
         cls.rates[:, 1] = 0.125 * np.exp(-vm / 80.0)
 
     def __init__(self, gbar=12 * NU.mS / NU.cm**2, **kwds):
         init_state = OrderedDict([("n", 0.3)])
         Channel.__init__(self, gbar=gbar, init_state=init_state, **kwds)
         self.shift = 0
+        self.lastn = init_state["n"]
 
     @property
     def erev(self):
@@ -653,6 +687,16 @@ class HHK(Channel):
     def open_probability(self, state):
         return state[self, "n"] ** 4
 
+    def check_state(self, state, gv, lastgv):
+        n = state[self, gv]
+        if np.isnan(n):
+            n = lastgv
+        if n > 1.0:
+            n = 1.0
+        elif n < 0:
+            n = 0.
+        return n, n
+
     def derivatives(self, state):
         # temperature dependence of rate constants
         q10 = 3 ** ((self.sim.temp - 6.3) / 10.0)
@@ -661,7 +705,7 @@ class HHK(Channel):
         vm = vm + 65e-3  ## gating parameter eqns assume resting is 0mV
         vm *= 1000.0  ##  ..and that Vm is in mV
 
-        n = state[self, "n"]
+        n, self.lastn = self.check_state(state, "n", self.lastn)
 
         # disabled for now -- does not seem to improve speed.
         # an, bn = self.interpolate_rates(self.rates, vm, self.rates_vmin, self.rates_vstep)
@@ -694,6 +738,8 @@ class HHNa(Channel):
         init_state = OrderedDict([("m", 0.05), ("h", 0.6)])
         Channel.__init__(self, gbar=gbar, init_state=init_state, **kwds)
         self.shift = 0
+        self.lastm = init_state["m"]
+        self.lasth = init_state["h"]
 
     @property
     def erev(self):
@@ -705,12 +751,24 @@ class HHNa(Channel):
     def open_probability(self, state):
         return state[self, "m"] ** 3 * state[self, "h"]
 
+    def check_state(self, state, gv, lastgv):
+        n = state[self, gv]
+        if np.isnan(n):
+            n = lastgv
+        if n > 1.0:
+            n = 1.0
+        elif n < 0:
+            n = 0.
+        return n, n
+
     def derivatives(self, state):
         # temperature dependence of rate constants
         q10 = 3 ** ((self.sim.temp - 6.3) / 10.0)
         vm = state[self.section, "V"] - self.shift
-        m = state[self, "m"]
-        h = state[self, "h"]
+        #m = state[self, "m"]
+        m, self.lastm = self.check_state(state, "m", self.lastm)
+
+        h, self.lasth = self.check_state(state, "h", self.lasth) # state[self, "h"]
 
         vm = vm + 65e-3  ## gating parameter eqns assume resting is 0mV
         vm *= 1000.0  ##  ..and that Vm is in mV
@@ -746,6 +804,8 @@ class IH(Channel):
         Channel.__init__(self, gbar=gbar, init_state=init_state, **kwds)
         # self.erev = -43 * NU.mV
         self.shift = 0
+        self.lastf = init_state["f"]
+        self.lasts = init_state["s"]
 
     @property
     def erev(self):
@@ -757,10 +817,20 @@ class IH(Channel):
     def open_probability(self, state):
         return state[self, "f"] * state[self, "s"]
 
+    def check_state(self, state, gv, lastgv):
+        n = state[self, gv]
+        if np.isnan(n):
+            n = lastgv
+        if n > 1.0:
+            n = 1.0
+        elif n < 0:
+            n = 0.
+        return n, n
+
     def derivatives(self, state):
         vm = state[self.section, "V"] - self.shift
-        f = state[self, "f"]
-        s = state[self, "s"]
+        f, self.lastf = self.check_state(state, "f", self.lastf) # [self, "f"]
+        s, self.lasts = self.check_state(state, "s", self.lasts) # state[self, "s"]
 
         # vm = vm + 65e-3   ## gating parameter eqns assume resting is 0mV
         vm *= 1000.0  ##  ..and that Vm is in mV
