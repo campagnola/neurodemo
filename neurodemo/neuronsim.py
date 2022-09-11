@@ -608,7 +608,7 @@ class PatchClamp(Mechanism):
                 break
             elif i1 >= len(data):
                 # this command has expired; remove and try next command
-                self.cmd_queue.pop(0)
+                self.cmd_queue.pop(0)  # NOTE: this does not work with some integration algorithms.
                 continue
             else:
                 v1 = data[i1]
