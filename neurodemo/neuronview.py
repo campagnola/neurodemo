@@ -125,7 +125,6 @@ class NeuronView(pg.GraphicsLayoutWidget):
         cbax = self.colorbar.getAxis('bottom')
         ticks = {-150: '-150', -100: '-100', -50: ' -50',  0: '  0', 50: ' 50'}
         font = QtGui6.QFont()
-        font.setFamily('monospace')
         font.setPointSize(10)
         cbax.setStyle(tickTextOffset=8, tickFont=font)
         self.view.addItem(self.colorbar)
