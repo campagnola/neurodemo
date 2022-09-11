@@ -24,7 +24,7 @@ class SequencePlotWindow(QtGui.QWidget):
         self.clear_btn = QtGui.QPushButton("Clear data")
         self.layout.addWidget(self.clear_btn, 0, 1)
         self.clear_btn.clicked.connect(self.clear_data)
-        self.plotsigns = {}
+
         self.splitter = QtGui.QSplitter(QtCore.Qt.Orientation.Vertical)
         self.layout.addWidget(self.splitter, 1, 0, 1, 2)
         
