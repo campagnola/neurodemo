@@ -17,7 +17,7 @@ import warnings
 class Sim(object):
     """Simulator for a collection of objects that derive from SimObject"""
 
-    def __init__(self, objects=None, temp=37.0, dt=10.):
+    def __init__(self, objects=None, temp=37.0, dt=10., integrator:str='solve_ivp'):
         if objects is None:
             objects = []
         self._objects = objects
@@ -25,6 +25,11 @@ class Sim(object):
         self._time = 0.0
         self.temp = temp
         self.dt = dt
+        self.integrator = integrator
+
+    def set_integrator(self, integrator:str):
+        if integrator in ["odeint", "solve_ivp"]:
+            self.integrator = integrator
 
     def change_dt(self, newdt:float=100.e-6):
         if newdt < 5e-6:
@@ -60,13 +65,13 @@ class Sim(object):
     def time(self):
         return self._time
 
-    def run(self, blocksize:int=1000, integrator:str = 'solve_ivp', **kwds):
+    def run(self, blocksize:int=1000, **kwds):
         """Run the simulation until a number of *samples* have been acquired.
 
         Extra keyword arguments are passed to `scipy.integrate.odeint()`.
         """
         obj = self.all_objects()
-    
+        # print("Integrator: ", self.integrator)
         # reset all_objs cache in case some part of the sim has changed
         self._all_objs = None
         all_objs = self.all_objects().values()
@@ -88,12 +93,12 @@ class Sim(object):
                 dep_vars[pfx + k] = v
         self._simstate = SimState(difeq_vars, dep_vars)
         t = np.arange(0, blocksize) * self.dt + self._time
-        # print("starting run with dt = ", self.dt)
-        opts = {"rtol": 1e-6, "atol": 1e-6, "hmax": 5e-3, "full_output": 1}
+        # print("\nstarting run at:", self._time)
+        opts = {"rtol": 1e-6, "atol": 1e-8, "hmax": 5e-4, "full_output": 1}
         opts.update(kwds)
         # Run the simulation
 
-        if integrator == 'odeint':
+        if self.integrator == 'odeint':
             result, info = scipy.integrate.odeint(self.derivatives, init_state, t, tfirst=True, **opts)
             p = 0
             for o in all_objs:
@@ -102,18 +107,32 @@ class Sim(object):
                 o.update_state(result[-1, p : p + nvar])
                 p += nvar
             self._time = t[-1]
-            self._last_run_time = t
-            return SimState(difeq_vars, dep_vars, result.T, integrator=integrator, t=t)
+            # print(f"   {self.integrator:s}  final state = {str(result.T[:, -1]):s}")
+            # print("   start, finished at : ", t[0],t[-1])
+            # print("   np.min(result.T): ", np.min(result.T), np.max(result.T))
+            return SimState(difeq_vars, dep_vars, result.T, integrator=self.integrator, t=t)
 
-        elif integrator == 'solve_ivp':
+        elif self.integrator == 'solve_ivp':
+            """Notes:
+            Different integrators were tried. 
+            LSODA works ok; RK's seem to stall on AP. 
+            Radau and BDF are very fast, but take some large steps, so the calculation of where the 
+            pulse array is in the derivative via get_cmd are not always correct -
+            the algorithm might step a long time into the future, invalidating all the
+            commands in the queue, which are removed. Thus, only the first cmd
+            is executed.
+            Probably should not pop the queue in get_cmd until we are certain at THIS
+            level (or maybe in runner?) that the trigger arrays are actually finished. 
+            """
         # in future we will need to implement this instead:
             result = scipy.integrate.solve_ivp(
                 self.derivatives,
                 t_span=(t[0], t[-1]),
                 t_eval=t,
                 y0=init_state,
-                method="Radau",
-                dense_output=True,
+                method="LSODA",  # runs ok with LSODA
+ 
+                dense_output=False,
                 # args=dep_vars,
                 rtol = opts['rtol'], #**opts,
                 atol = opts['atol'],
@@ -126,10 +145,12 @@ class Sim(object):
                 # print("solve ivp state: ", p, nvar, result.y[p:p+nvar, -1])
                 o.update_state(result.y[p:p+nvar, -1])
                 p += nvar
-
             self._time = t[-1]
-            self._last_run_time = t
-            return SimState(difeq_vars, dep_vars, result.y, integrator=integrator, t=t)
+            # print(f"\n   {self.integrator:s}  {str(result.y[:, -1]):s}")
+            # print("   start, finished at : ", t[0],t[-1])
+            # print("    np.min(result.y): ", np.min(result.y), np.max(result.y))
+
+            return SimState(difeq_vars, dep_vars, result.y, integrator=self.integrator, t=t)
 
     def derivatives(self, t, state):
         objs = self.all_objects().values()
@@ -138,7 +159,6 @@ class Sim(object):
         d = []
         for o in objs:
             d.extend(o.derivatives(self._simstate))
-
         return d
 
     def state(self):
@@ -213,11 +233,11 @@ class SimState(object):
         if clip:
             # only get results for the last timepoint
             # print('state: ', self.state)
-            if self.integrator == 'odeint':
-                s.set_state(self.state[:, -1])
-            else:
-                s.set_state(self.state[:, -1])
-            #exit()
+            # if self.integrator == 'odeint':
+            s.set_state(self.state[:, -1])
+            # else:
+            #     s.set_state(self.state[:, -1])
+
         for k in self.difeq_vars:
             state[k] = s[k]
         for k in self.dep_vars:
@@ -417,20 +437,6 @@ class Channel(Mechanism):
         g = self.conductance(state)
         return -g * (vm - self.erev)
 
-    def vtrap(self, x, y):  # Traps for 0 in denominator of rate eqns.
-        if np.fabs(x/y) < 1e-6:
-            vtrap = y*(1.0 - x/y/2.0)
-        else:
-            vtrap = x/(np.exp(x/y) - 1.0)
-        return vtrap
-
-    def vtrap2(self, x, y):  # Traps for 0 in denominator of rate eqns.
-        if np.fabs(x/(np.exp(y)-1.0)) < 1e-6:
-            vtrap = y*(1.0 - x/2.0)
-        else:
-            vtrap = x/(np.exp(y) - 1.0)
-        return vtrap
-    
     @staticmethod
     def interpolate_rates(rates, val, minval, step):
         """Helper function for interpolating kinetic rates from precomputed
@@ -578,7 +584,7 @@ class PatchClamp(Mechanism):
         dve = (cmd - self.current(state)) / self.cpip
         return [dve]
 
-    def get_cmd(self, t):
+    def get_cmd(self, t: float):
         """Return command value at time *t*.
 
         Values are interpolated linearly between command points.
@@ -587,6 +593,9 @@ class PatchClamp(Mechanism):
         while len(self.cmd_queue) > 0:
             (start, dt, data) = self.cmd_queue[0]
             i1 = int(np.floor((t - start) / dt))
+            # if i1 >= 0:
+            #     print(f"I!********************* {i1:8d}, {t:.4f}, {start:.3f}, {len(data):6f}")
+
             if i1 < -1:
                 # before start of next command; return holding
                 return hold
