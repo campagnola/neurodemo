@@ -22,5 +22,5 @@ create-dmg \
 "dist/neurodemo_M1.dmg" \
 "dist/dmg/"
 
-hdiutil create -srcFolder dist -o dmg/neurodemo
+# hdiutil create -srcFolder dist -o dmg/neurodemo
 
