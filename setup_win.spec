@@ -7,16 +7,18 @@ binaries = []
 datas = []
 
 a = Analysis(
-    ['demo.py'],
+    ['neurodemo.py'],
     pathex=[],
     binaries=binaries,
     datas = [('neurodemo\\images', 'images'),
+        ('neurodemo\\colormaps', 'colormaps'),
         ],
     hiddenimports=[
         'pyqtgraph.graphicsItems.ViewBox.axisCtrlTemplate_pyqt6',
         'pyqtgraph.graphicsItems.PlotItem.plotConfigTemplate_pyqt6',
         'pyqtgraph.imageview.ImageViewTemplate_pyqt6',
         'pyqtgraph.console.template_pyqt6',
+        # 'pyqtgraph.colors.maps.CET-CBL2.csv',
         'ctypes',
         'numpy',
         'scipy',
