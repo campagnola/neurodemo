@@ -38,7 +38,8 @@ class CellPosition:
     diam_y = 100
     membrane_thickness = 4
 
-colormap = pg.colormap.get("CET-CBL2")  # use a color-blind friendly color map
+# colormap = pg.colormap.get("CET-CBL2")  # use a color-blind friendly color map
+colormap = pg.colormap.get("./neurodemo/colormaps/CET-CBL2.csv")
 colormap.reverse()
 def v_color(v):
     """Return a color corresponding to voltage."""
