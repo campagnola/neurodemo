@@ -584,7 +584,6 @@ class PatchClamp(Mechanism):
         Values are interpolated linearly between command points.
         """
         hold = self.holding[self.mode]
-
         while len(self.cmd_queue) > 0:
             (start, dt, data) = self.cmd_queue[0]
             i1 = int(np.floor((t - start) / dt))
@@ -704,8 +703,8 @@ class HHK(Channel):
 
         vm = vm + 65e-3  ## gating parameter eqns assume resting is 0mV
         vm *= 1000.0  ##  ..and that Vm is in mV
-
-        n, self.lastn = self.check_state(state, "n", self.lastn)
+        n = state[self, "n"]
+        # n, self.lastn = self.check_state(state, "n", self.lastn)
 
         # disabled for now -- does not seem to improve speed.
         # an, bn = self.interpolate_rates(self.rates, vm, self.rates_vmin, self.rates_vstep)
@@ -765,10 +764,10 @@ class HHNa(Channel):
         # temperature dependence of rate constants
         q10 = 3 ** ((self.sim.temp - 6.3) / 10.0)
         vm = state[self.section, "V"] - self.shift
-        #m = state[self, "m"]
-        m, self.lastm = self.check_state(state, "m", self.lastm)
-
-        h, self.lasth = self.check_state(state, "h", self.lasth) # state[self, "h"]
+        m = state[self, "m"]
+        h = state[self, "h"]
+        # m, self.lastm = self.check_state(state, "m", self.lastm)
+        # h, self.lasth = self.check_state(state, "h", self.lasth) # state[self, "h"]
 
         vm = vm + 65e-3  ## gating parameter eqns assume resting is 0mV
         vm *= 1000.0  ##  ..and that Vm is in mV
@@ -829,9 +828,10 @@ class IH(Channel):
 
     def derivatives(self, state):
         vm = state[self.section, "V"] - self.shift
-        f, self.lastf = self.check_state(state, "f", self.lastf) # [self, "f"]
-        s, self.lasts = self.check_state(state, "s", self.lasts) # state[self, "s"]
-
+        # f, self.lastf = self.check_state(state, "f", self.lastf) # [self, "f"]
+        # s, self.lasts = self.check_state(state, "s", self.lasts) # state[self, "s"]
+        f = state[self, "f"]
+        s = state[self, "s"]
         # vm = vm + 65e-3   ## gating parameter eqns assume resting is 0mV
         vm *= 1000.0  ##  ..and that Vm is in mV
         Hinf = 1.0 / (1.0 + np.exp((vm + 68.9) / 6.5))
