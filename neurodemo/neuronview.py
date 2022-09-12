@@ -39,7 +39,9 @@ class CellPosition:
     membrane_thickness = 4
 
 # colormap = pg.colormap.get("CET-CBL2")  # use a color-blind friendly color map
-colormap = pg.colormap.get("./neurodemo/colormaps/CET-CBL2.csv")
+cmapfile = "." + str(resource_path(Path("colormaps", "CET-CBL2.csv")))
+# print('cmap file: ', cmapfile)
+colormap = pg.colormap.get(cmapfile)
 colormap.reverse()
 def v_color(v):
     """Return a color corresponding to voltage."""
