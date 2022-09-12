@@ -17,7 +17,9 @@ from pyqtgraph.Qt import QtGui, QtCore, QtSvg
 from PyQt6 import QtSvgWidgets
 from PyQt6 import QtGui as QtGui6
 from pyqtgraph import ArrowItem
+from neurodemo import colormaps
 
+print(dir(colormaps))
 # for storing dynamically-generated svg files
 tmpdir = tempfile.mkdtemp()
 
@@ -39,10 +41,11 @@ class CellPosition:
     membrane_thickness = 4
 
 # colormap = pg.colormap.get("CET-CBL2")  # use a color-blind friendly color map
-cmapfile = "." + str(resource_path(Path("colormaps", "CET-CBL2.csv")))
+#cmapfile = "." + str(resource_path(Path("colormaps", "CET-CBL2.csv")))
 # print('cmap file: ', cmapfile)
-colormap = pg.colormap.get(cmapfile)
-colormap.reverse()
+#colormap = pg.colormap.get(cmapfile)
+colormap = colormaps.CET_CBL2.convert_to_map()
+# colormap.reverse()
 def v_color(v):
     """Return a color corresponding to voltage."""
     vs = v*1e3  # convert to V
