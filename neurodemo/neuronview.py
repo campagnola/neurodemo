@@ -6,8 +6,9 @@ Updated 2022 pbmanis for Python 3.10 and PyQt6
 
 
 """
+from calendar import c
 from dataclasses import dataclass
-import os, tempfile
+import os, sys, tempfile
 from pathlib import Path
 from typing import Union, List, Tuple
 import numpy as np
@@ -16,13 +17,20 @@ from pyqtgraph.Qt import QtGui, QtCore, QtSvg
 from PyQt6 import QtSvgWidgets
 from PyQt6 import QtGui as QtGui6
 from pyqtgraph import ArrowItem
+from neurodemo import colormaps
 
+print(dir(colormaps))
 # for storing dynamically-generated svg files
 tmpdir = tempfile.mkdtemp()
 
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
 
 def svg_file(name):
-    return Path(Path(__file__).parent, "images", name + ".svg")
+    # return Path(Path(__file__).parent, "images", name + ".svg")
+    return Path(resource_path(Path( "images", name + '.svg')))
 
 @dataclass
 class CellPosition:
@@ -32,19 +40,21 @@ class CellPosition:
     diam_y = 100
     membrane_thickness = 4
 
+# colormap = pg.colormap.get("CET-CBL2")  # use a color-blind friendly color map
+#cmapfile = "." + str(resource_path(Path("colormaps", "CET-CBL2.csv")))
+# print('cmap file: ', cmapfile)
+#colormap = pg.colormap.get(cmapfile)
+colormap = colormaps.CET_CBL2.convert_to_map()
+# colormap.reverse()
 def v_color(v):
     """Return a color corresponding to voltage."""
-    return (
-        np.clip(
-            [(v + 65e-3) * 5e3, (v + 30e-3) * 5e3, (-65e-3 - v) * 10e3, 255], 0, 205
-        )
-        + 50
-    )
+    vs = v*1e3  # convert to V
+    vs = np.interp(vs, [-140.0, 50.0], [0.0, 1.0])
+    return(colormap.map(vs))
 
 class NeuronView(pg.GraphicsLayoutWidget):
     """Displays a graphical representation of the neuron and its attached
     mechanisms.
-
 
     """
 
@@ -110,15 +120,23 @@ class NeuronView(pg.GraphicsLayoutWidget):
             i.circuit.setParentItem(self.circuit)
         self.show_circuit(False)
 
-        # add a color bar scale on the right
-        # vrange = np.linspace(-150e-3, 50e-3, 151)
-        # vc = np.linspace(0, 1, 151)
-        # self.colorbar = pg.ColorBarItem(values=(-150e-3, 50e-3), width=10, interactive=False,
-        #     colorMap = pg.ColorMap((-150e-3, 50e03), [v_color(x) for x in vrange]))
-        # self.view.addItem(self.colorbar)
-        # QtGui.QGraphicsItemGroup.setTransform(
-        #     self.colorbar, QtGui6.QTransform().fromTranslate(120, 0)
-        # )
+        # add a color bar scale on the right bottom. 
+        
+        colormap2 = pg.colormap.get("CET-CBL2")
+        colormap2.reverse()
+        self.colorbar = pg.ColorBarItem(values=(-150, 50), width=10, interactive=False,
+            cmap = colormap, orientation='horizontal')
+        self.colorbar.setTitle("V (mV)")
+        self.colorbar.setGeometry(100, -40, 100, 150)
+        cbax = self.colorbar.getAxis('bottom')
+        ticks = {-150: '-150', -100: '-100', -50: ' -50',  0: '  0', 50: ' 50'}
+        font = QtGui6.QFont()
+        font.setPointSize(10)
+        cbax.setStyle(tickTextOffset=8, tickFont=font)
+        self.view.addItem(self.colorbar)
+        QtGui.QGraphicsItemGroup.setTransform(
+             self.colorbar, QtGui6.QTransform().scale(1, -1))
+        cbax.setTicks([ticks.items()])
 
     def update_state(self, state):
         for item in self.items:
@@ -128,9 +146,6 @@ class NeuronView(pg.GraphicsLayoutWidget):
         self.mask.setVisible(show)
         for i in self.items:
             i.show_circuit(show)
-
-
-
 
 
 class NeuronItem(QtGui.QGraphicsItemGroup):
@@ -183,7 +198,7 @@ class Cell(NeuronItem):
         # Net current
         self.current = Current(self.key, center=False)
         self.current.setParentItem(self.circuit)
-        self.current.setPos(0, CellPosition.center_y)
+        self.current.setPos(0, CellPosition.center_y+60)
         self.current.setZValue(2)
 
         # membrane capacitance, angled off from the pipette a bit

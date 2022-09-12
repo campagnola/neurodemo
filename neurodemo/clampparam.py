@@ -67,18 +67,18 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                     name="Pipette Cap",
                     type="float",
                     value=clamp.cpip,
-                    limits=[0.01 * NU.pF, None],
+                    limits=[0.1*1e-12 * NU.F, 1e-9 * NU.F],
                     suffix="F",
                     siPrefix=True,
                     dec=True,
-                    step=0.5,
+                    step=0.5e-12,
                 ),
                 dict(
                     #name="Access Resistance",
                     name="Access Res",
                     type="float",
                     value=clamp.ra,
-                    limits=[10 * NU.kOhm, None],
+                    limits=[10000 * NU.Ohm, None],
                     suffix="Ω",
                     siPrefix=True,
                     step=0.5,
@@ -97,7 +97,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Hold-duration",
                             type="float",
-                            value=10 * NU.ms,
+                            value=0.010 * NU.s,
                             suffix="s",
                             siPrefix=True,
                             limits=[0, None],
@@ -106,7 +106,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Pre-duration",
                             type="float",
-                            value=10 * NU.ms,
+                            value=0.010 * NU.s,
                             suffix="s",
                             siPrefix=True,
                             limits=[0, None],
@@ -115,7 +115,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Pre-amplitude",
                             type="float",
-                            value=0 * NU.pA,
+                            value=0 * NU.A,
                             suffix="A",
                             siPrefix=True,
                             dec=True,
@@ -123,7 +123,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Duration",
                             type="float",
-                            value=50 * NU.ms,
+                            value=0.050 * NU.s,
                             suffix="s",
                             siPrefix=True,
                             limits=[0, None],
@@ -132,7 +132,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Amplitude",
                             type="float",
-                            value=50 * NU.pA,
+                            value=50e-12 * NU.A,
                             suffix="A",
                             siPrefix=True,
                             dec=True,
@@ -140,7 +140,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Post-duration",
                             type="float",
-                            value=50 * NU.ms,
+                            value=0.050 * NU.s,
                             suffix="s",
                             siPrefix=True,
                             limits=[0, None],
@@ -149,7 +149,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Post-amplitude",
                             type="float",
-                            value=0 * NU.pA,
+                            value=0 * NU.A,
                             suffix="A",
                             siPrefix=True,
                             dec=True,
@@ -163,7 +163,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Start Amplitude",
                             type="float",
-                            value=-50 * NU.pA,
+                            value=-50e-12 * NU.A,
                             suffix="A",
                             siPrefix=True,
                             dec=True,
@@ -171,16 +171,16 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Stop Amplitude",
                             type="float",
-                            value=50 * NU.pA,
+                            value=50e-12 * NU.A,
                             suffix="A",
                             siPrefix=True,
                             dec=True,
                         ),
                         dict(name="Post-holdtime", type="float",
-                            value = 500*NU.ms,
+                            value = 0.500*NU.s,
                             suffix="s",
                             si_refix=True,
-                            limits=[0.01, 2.0],
+                            limits=[0.05, 5.0],
                         ),
 
                         dict(
@@ -196,7 +196,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         self.child("Pulse", "Clear Pulses").sigActivated.connect(self.clear_triggers)
 
     def set_dt(self, dt):
-        self.dt = dt*NU.us
+        self.dt = dt
         self.dt_updated = True
     
     def treeChange(self, root, changes):
@@ -261,6 +261,8 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         durs = [d0, d1, d2, d3, d4]
         idurs = [0]*len(durs)  # indexes
         npts = int(dur / self.dt)  # points in stimulus
+        # print(dur, self.dt)
+        # print("template: npts= ", npts)
         it0 = 0
         t0 = 0.
         for i, d in enumerate(durs):
@@ -269,6 +271,14 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
             t0 = durs[i]
         cmd = np.ones(npts)*self["Holding"]
         return cmd, idurs # i0, i1, i2, i3, i4
+
+    def print_triggers(self):
+        if len(self.triggers) == 0:
+            print("No triggers set")
+            return
+        print("Triggers:\n")
+        for tr in self.triggers:
+            print(f"    {tr.trigger_time:9.5f}  {tr.info['amp']*1e12:8.1f} pA")
 
     def pulse_once(self):
         cmd, idurs = self.pulse_template()
@@ -288,9 +298,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                 "seq_len": 0,
             }
             self.add_trigger(len(cmd), t, info)
-        # print("Triggers:\n")
-        # for tr in self.triggers:
-        #     print("   ", tr)
+        # self.print_triggers()
 
     def pulse_sequence(self):
         cmd, idurs = self.pulse_template()
@@ -319,7 +327,6 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
 
         times = self.clamp.queue_commands(cmds, self.dt)
         for i, t in enumerate(times):
-            # print("i, t", i, t, amps[i])
             info = {
                 "mode": self.mode(),
                 "amp": amps[i],
@@ -327,12 +334,8 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                 "seq_ind": i,
                 "seq_len": len(amps),
             }
-
             self.add_trigger(len(cmd), t, info)
-        # print("Triggers:\n")
-        # for tr in self.triggers:
-        #     print(f"    {tr.trigger_time:9.5f}  {tr.info['amp']*1e12:8.1f} pA")
-
+        # self.print_triggers()
 
     def add_trigger(self, n, t, info):
         buf = np.empty(n, dtype=[(str(k), float) for k in self.plot_keys + ["t"]])
@@ -378,26 +381,30 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
 #            result = self.result_buffer.pop(0)  # when the list is filled, get the oldest available result
         else:
             return # wait until the list is full to plot anything
-
+        # print("new result, time = ", result["t"][0], result["t"][-1])
+        # self.print_triggers()
         if len(self.triggers) == 0:  # no triggers - nothing to plot
             return
 
         time_arr = result["t"]
         TR = self.triggers[0] 
         if TR.trigger_time > time_arr[-1]:  # no trigger yet
+            # print(f"*** Trigger detected at {TR.trigger_time:.4f} for time block: {time_arr[0]:.6f} - {time_arr[-1]:.6f}")
+            # print(len(time_arr))
             return
-        # print(f"*** Trigger detected at {TR.trigger_time:.4f} for time block: {time_arr[0]:.4f} - {time_arr[-1]:.4f}")
         # Copy data from result to trigger buffer
         trigger_index = max(
-            0, int(np.floor((TR.trigger_time - time_arr[0]) / self.dt))
+            0, int(np.round((TR.trigger_time - time_arr[0]) / self.dt))
         )  # index of trigger within new data
         # number of points available is the smaller of the remainder of the current
         # part of the unused buffer, or the remainder of the time array
         npts = min(
             len(TR.buf) - TR.curr_buff_ptr, len(time_arr) - trigger_index
         )  # number of samples to copy from new data
+        # print("Trigger index: ", trigger_index, "npts: ", npts, "TR.curr: ", TR.curr_buff_ptr)
         for k in self.plot_keys:  # self.plot_keys is a list, buf is a recarray
-            TR.buf[k][TR.curr_buff_ptr : TR.curr_buff_ptr + npts] = result[k][trigger_index : trigger_index + npts]
+            if k in result.keys():
+                TR.buf[k][TR.curr_buff_ptr : TR.curr_buff_ptr + npts] = result[k][trigger_index : trigger_index + npts]
 
         TR.curr_buff_ptr += npts
         # print('buff shape [0]: ', TR.buf.shape[0], time_arr[0])
@@ -406,14 +413,9 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
             # If the trigger buffer would run over on next call, plot the current buffer
             #  and remove it - TR.trigger_time
             self.plot_win.plot((np.arange(TR.buf.shape[0]) * self.dt), TR.buf, TR.info)
-           # self.plot_win.plot_triggers(time_arr[0], 0.020)
-
             self.triggers.pop(0)
             if len(time_arr) > npts:
                 # If there is data left over, try feeding it to the next trigger
                 result = dict([(k, result[k][trigger_index+npts :]) for k in result])
                 self.new_result(result)
-        else:
-            # otherwise, update the pointer and wait for the next result
-           pass
-        #self.triggers[0].curr_buff_ptr = TR.curr_buff_ptr
+

@@ -9,6 +9,7 @@ flake8
 isort==5.0.2
 mypy==0.961
 pytest==4.5.0
+pyinstaller
 
 # appnope>=0.1.3
 lmfit==0.9.13
@@ -18,7 +19,7 @@ pyqt6
 pyqt6-sip
 pyqtgraph>=0.12.4
 
-scipy==1.8.0
+scipy==1.9.1
 
 #-e /Users/pbmanis/Desktop/Python/pyqtgraph
 

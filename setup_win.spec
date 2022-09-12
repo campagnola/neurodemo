@@ -1,30 +1,29 @@
 # -*- mode: python ; coding: utf-8 -*-
-
+from PyInstaller.utils.hooks import collect_data_files, collect_all
 
 block_cipher = None
-
 datafiles = []
-#("neurodemo_venv\Lib\site-packages\pyqtgraph\graphicsItems\ViewBox\\axisCtrlTemplate_pyqt6.py", 'pyqtgraph'),
-#            ("neurodemo_venv\Lib\site-packages\pyqtgraph\graphicsItems\PlotItem\\plotConfigTemplate_pyqt6.py", 'pyqtgraph'),
-#            ("neurodemo_venv\Lib\site-packages\pyqtgraph\imageview\\ImageViewTemplate_pyqt6.py",'pyqtgraph'),
-#            ("neurodemo_venv\Lib\site-packages\pyqtgraph\console\template_pyqt6.py", "pyqtgraph"),
-#            ]
+binaries = []
+datas = []
+
 a = Analysis(
-    ['demo.py'],
+    ['neurodemo.py'],
     pathex=[],
-    binaries=[],
-    datas=datafiles,
+    binaries=binaries,
+    datas = [('neurodemo\\images', 'images'),
+        ('neurodemo\\colormaps', 'colormaps'),
+        ],
     hiddenimports=[
         'pyqtgraph.graphicsItems.ViewBox.axisCtrlTemplate_pyqt6',
         'pyqtgraph.graphicsItems.PlotItem.plotConfigTemplate_pyqt6',
         'pyqtgraph.imageview.ImageViewTemplate_pyqt6',
         'pyqtgraph.console.template_pyqt6',
+        # 'pyqtgraph.colors.maps.CET-CBL2.csv',
         'ctypes',
         'numpy',
         'scipy',
         # 'c:\api-ms-win-shcore-scaling-l1-1-1.dll',
         ],
-
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

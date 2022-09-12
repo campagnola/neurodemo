@@ -17,7 +17,7 @@ import warnings
 class Sim(object):
     """Simulator for a collection of objects that derive from SimObject"""
 
-    def __init__(self, objects=None, temp=37.0, dt=10.):
+    def __init__(self, objects=None, temp=37.0, dt=10., integrator:str='solve_ivp'):
         if objects is None:
             objects = []
         self._objects = objects
@@ -25,13 +25,18 @@ class Sim(object):
         self._time = 0.0
         self.temp = temp
         self.dt = dt
+        self.integrator = integrator
 
-    def change_dt(self, newdt:float=100.):
-        if newdt < 5:
-            newdt = 5
-        elif newdt > 1001:
-            newdt = 1000
-        self.dt = newdt * NU.us
+    def set_integrator(self, integrator:str):
+        if integrator in ["odeint", "solve_ivp"]:
+            self.integrator = integrator
+
+    def change_dt(self, newdt:float=100.e-6):
+        if newdt < 5e-6:
+            newdt = 5e-6
+        elif newdt > 1001e-6:
+            newdt = 1000e-6
+        self.dt = newdt * NU.s
     
     def add(self, obj):
         assert obj._sim is None
@@ -60,13 +65,13 @@ class Sim(object):
     def time(self):
         return self._time
 
-    def run(self, blocksize=1000, **kwds):
+    def run(self, blocksize:int=1000, **kwds):
         """Run the simulation until a number of *samples* have been acquired.
 
         Extra keyword arguments are passed to `scipy.integrate.odeint()`.
         """
         obj = self.all_objects()
-    
+        # print("Integrator: ", self.integrator)
         # reset all_objs cache in case some part of the sim has changed
         self._all_objs = None
         all_objs = self.all_objects().values()
@@ -88,35 +93,64 @@ class Sim(object):
                 dep_vars[pfx + k] = v
         self._simstate = SimState(difeq_vars, dep_vars)
         t = np.arange(0, blocksize) * self.dt + self._time
-        # print("starting run with dt = ", self.dt)
-        opts = {"rtol": 1e-8, "atol": 1e-9, "hmax": 5e-3, "full_output": 1}
-        #opts = {"hmax": 1e-5, "full_output": 1}  # need fine integration or else system can be unstable
-        #opts = {"rtol": 1e-6, "atol": 1e-9}
+        # print("\nstarting run at:", self._time)
+        opts = {"rtol": 1e-6, "atol": 1e-8, "hmax": 5e-4, "full_output": 1}
         opts.update(kwds)
         # Run the simulation
-        result, info = scipy.integrate.odeint(self.derivatives, init_state, t, tfirst=True, **opts)
+
+        if self.integrator == 'odeint':
+            result, info = scipy.integrate.odeint(self.derivatives, init_state, t, tfirst=True, **opts)
+            p = 0
+            for o in all_objs:
+                nvar = len(o.difeq_state())
+                # print("odeint state: ", p, nvar, result[-1, p:p+nvar])
+                o.update_state(result[-1, p : p + nvar])
+                p += nvar
+            self._time = t[-1]
+            # print(f"   {self.integrator:s}  final state = {str(result.T[:, -1]):s}")
+            # print("   start, finished at : ", t[0],t[-1])
+            # print("   np.min(result.T): ", np.min(result.T), np.max(result.T))
+            return SimState(difeq_vars, dep_vars, result.T, integrator=self.integrator, t=t)
+
+        elif self.integrator == 'solve_ivp':
+            """Notes:
+            Different integrators were tried. 
+            LSODA works ok; RK's seem to stall on AP. 
+            Radau and BDF are very fast, but take some large steps, so the calculation of where the 
+            pulse array is in the derivative via get_cmd are not always correct -
+            the algorithm might step a long time into the future, invalidating all the
+            commands in the queue, which are removed. Thus, only the first cmd
+            is executed.
+            Probably should not pop the queue in get_cmd until we are certain at THIS
+            level (or maybe in runner?) that the trigger arrays are actually finished. 
+            """
         # in future we will need to implement this instead:
-        # result = scipy.integrate.solve_ivp(
-        #      self.derivatives,
-        #      t_span=(t[0], t[-1]),
-        #      t_eval=t,
-        #      y0=init_state,
-        #      method="LSODA",
-        #      args=dep_vars,
-        #      **opts,
-        #  )
+            result = scipy.integrate.solve_ivp(
+                self.derivatives,
+                t_span=(t[0], t[-1]),
+                t_eval=t,
+                y0=init_state,
+                method="LSODA",  # runs ok with LSODA
+ 
+                dense_output=False,
+                # args=dep_vars,
+                rtol = opts['rtol'], #**opts,
+                atol = opts['atol'],
+                max_step = opts['hmax'],
+            )
+            # Update current state variables
+            p = 0
+            for i, o in enumerate(all_objs):
+                nvar = len(o.difeq_state())
+                # print("solve ivp state: ", p, nvar, result.y[p:p+nvar, -1])
+                o.update_state(result.y[p:p+nvar, -1])
+                p += nvar
+            self._time = t[-1]
+            # print(f"\n   {self.integrator:s}  {str(result.y[:, -1]):s}")
+            # print("   start, finished at : ", t[0],t[-1])
+            # print("    np.min(result.y): ", np.min(result.y), np.max(result.y))
 
-        # Update current state variables
-        p = 0
-        for o in all_objs:
-            nvar = len(o.difeq_state())
-            o.update_state(result[-1, p : p + nvar])
-            p += nvar
-
-        self._time = t[-1]
-        self._last_run_time = t
-        # return SimState(difeq_vars, dep_vars, result.y, t=t)
-        return SimState(difeq_vars, dep_vars, result.T, t=t)
+            return SimState(difeq_vars, dep_vars, result.y, integrator=self.integrator, t=t)
 
     def derivatives(self, t, state):
         objs = self.all_objects().values()
@@ -125,7 +159,6 @@ class Sim(object):
         d = []
         for o in objs:
             d.extend(o.derivatives(self._simstate))
-
         return d
 
     def state(self):
@@ -158,7 +191,7 @@ class SimState(object):
             Extra name:value pairs that may be accessed from this object
     """
 
-    def __init__(self, difeq_vars, dep_vars=None, difeq_state=None, **extra):
+    def __init__(self, difeq_vars, dep_vars=None, difeq_state=None, integrator='odeint', **extra):
         self.difeq_vars = difeq_vars
         # record indexes of difeq vars for fast retrieval
         self.indexes = dict([(k, i) for i, k in enumerate(difeq_vars)])
@@ -166,6 +199,7 @@ class SimState(object):
         self.dep_vars = dep_vars
         self.state = difeq_state
         self.extra = extra
+        self.integrator = integrator
 
     def set_state(self, difeq_state):
         self.state = difeq_state
@@ -198,7 +232,11 @@ class SimState(object):
         clip = not np.isscalar(self["t"])
         if clip:
             # only get results for the last timepoint
+            # print('state: ', self.state)
+            # if self.integrator == 'odeint':
             s.set_state(self.state[:, -1])
+            # else:
+            #     s.set_state(self.state[:, -1])
 
         for k in self.difeq_vars:
             state[k] = s[k]
@@ -213,7 +251,7 @@ class SimState(object):
         return state
 
     def copy(self):
-        return SimState(self.difeq_vars, self.dep_vars, self.state, **self.extra)
+        return SimState(self.difeq_vars, self.dep_vars, self.state, self.integrator, **self.extra)
 
 
 class SimObject(object):
@@ -274,6 +312,7 @@ class SimObject(object):
         begins.
         """
         for i, k in enumerate(self._current_state.keys()):
+            # print("simobject: k, r: ", k, result[i])
             self._current_state[k] = result[i]
 
     def derivatives(self, state):
@@ -398,7 +437,6 @@ class Channel(Mechanism):
         g = self.conductance(state)
         return -g * (vm - self.erev)
 
-    
     @staticmethod
     def interpolate_rates(rates, val, minval, step):
         """Helper function for interpolating kinetic rates from precomputed
@@ -419,7 +457,7 @@ class Channel(Mechanism):
 class Section(SimObject):
     type = "section"
 
-    def __init__(self, radius=None, cap=10 * NU.pF, vm=-65 * NU.mV, **kwds):
+    def __init__(self, radius=None, cap=10e-12 * NU.F, vm=-65 * NU.mV, **kwds):
         self.cap_bar = 1 * NU.uF / NU.cm**2
         if radius is None:
             self.cap = cap
@@ -469,7 +507,7 @@ class Section(SimObject):
 class PatchClamp(Mechanism):
     type = "PatchClamp"
 
-    def __init__(self, mode="ic", ra=0.1 * NU.MOhm, cpip=0.5 * NU.pF, **kwds):
+    def __init__(self, mode="ic", ra=0.1 * NU.MOhm, cpip=0.5e-12 * NU.F, **kwds):
         self.ra = ra
         self.cpip = cpip
         self._mode = mode
@@ -546,16 +584,18 @@ class PatchClamp(Mechanism):
         dve = (cmd - self.current(state)) / self.cpip
         return [dve]
 
-    def get_cmd(self, t):
+    def get_cmd(self, t: float):
         """Return command value at time *t*.
 
         Values are interpolated linearly between command points.
         """
         hold = self.holding[self.mode]
-
         while len(self.cmd_queue) > 0:
             (start, dt, data) = self.cmd_queue[0]
             i1 = int(np.floor((t - start) / dt))
+            # if i1 >= 0:
+            #     print(f"I!********************* {i1:8d}, {t:.4f}, {start:.3f}, {len(data):6f}")
+
             if i1 < -1:
                 # before start of next command; return holding
                 return hold
@@ -568,7 +608,7 @@ class PatchClamp(Mechanism):
                 break
             elif i1 >= len(data):
                 # this command has expired; remove and try next command
-                self.cmd_queue.pop(0)
+                self.cmd_queue.pop(0)  # NOTE: this does not work with some integration algorithms.
                 continue
             else:
                 v1 = data[i1]
@@ -636,12 +676,14 @@ class HHK(Channel):
         vm = np.arange(cls.rates_vmin, cls.rates_vmin + 400, cls.rates_vstep)
         cls.rates = np.empty((len(vm), 2))
         cls.rates[:, 0] = (0.1 - 0.01 * vm) / (np.exp(1.0 - 0.1 * vm) - 1.0)
+
         cls.rates[:, 1] = 0.125 * np.exp(-vm / 80.0)
 
     def __init__(self, gbar=12 * NU.mS / NU.cm**2, **kwds):
         init_state = OrderedDict([("n", 0.3)])
         Channel.__init__(self, gbar=gbar, init_state=init_state, **kwds)
         self.shift = 0
+        self.lastn = init_state["n"]
 
     @property
     def erev(self):
@@ -653,6 +695,16 @@ class HHK(Channel):
     def open_probability(self, state):
         return state[self, "n"] ** 4
 
+    def check_state(self, state, gv, lastgv):
+        n = state[self, gv]
+        if np.isnan(n):
+            n = lastgv
+        if n > 1.0:
+            n = 1.0
+        elif n < 0:
+            n = 0.
+        return n, n
+
     def derivatives(self, state):
         # temperature dependence of rate constants
         q10 = 3 ** ((self.sim.temp - 6.3) / 10.0)
@@ -660,8 +712,8 @@ class HHK(Channel):
 
         vm = vm + 65e-3  ## gating parameter eqns assume resting is 0mV
         vm *= 1000.0  ##  ..and that Vm is in mV
-
         n = state[self, "n"]
+        # n, self.lastn = self.check_state(state, "n", self.lastn)
 
         # disabled for now -- does not seem to improve speed.
         # an, bn = self.interpolate_rates(self.rates, vm, self.rates_vmin, self.rates_vstep)
@@ -694,6 +746,8 @@ class HHNa(Channel):
         init_state = OrderedDict([("m", 0.05), ("h", 0.6)])
         Channel.__init__(self, gbar=gbar, init_state=init_state, **kwds)
         self.shift = 0
+        self.lastm = init_state["m"]
+        self.lasth = init_state["h"]
 
     @property
     def erev(self):
@@ -705,12 +759,24 @@ class HHNa(Channel):
     def open_probability(self, state):
         return state[self, "m"] ** 3 * state[self, "h"]
 
+    def check_state(self, state, gv, lastgv):
+        n = state[self, gv]
+        if np.isnan(n):
+            n = lastgv
+        if n > 1.0:
+            n = 1.0
+        elif n < 0:
+            n = 0.
+        return n, n
+
     def derivatives(self, state):
         # temperature dependence of rate constants
         q10 = 3 ** ((self.sim.temp - 6.3) / 10.0)
         vm = state[self.section, "V"] - self.shift
         m = state[self, "m"]
         h = state[self, "h"]
+        # m, self.lastm = self.check_state(state, "m", self.lastm)
+        # h, self.lasth = self.check_state(state, "h", self.lasth) # state[self, "h"]
 
         vm = vm + 65e-3  ## gating parameter eqns assume resting is 0mV
         vm *= 1000.0  ##  ..and that Vm is in mV
@@ -746,6 +812,8 @@ class IH(Channel):
         Channel.__init__(self, gbar=gbar, init_state=init_state, **kwds)
         # self.erev = -43 * NU.mV
         self.shift = 0
+        self.lastf = init_state["f"]
+        self.lasts = init_state["s"]
 
     @property
     def erev(self):
@@ -757,11 +825,22 @@ class IH(Channel):
     def open_probability(self, state):
         return state[self, "f"] * state[self, "s"]
 
+    def check_state(self, state, gv, lastgv):
+        n = state[self, gv]
+        if np.isnan(n):
+            n = lastgv
+        if n > 1.0:
+            n = 1.0
+        elif n < 0:
+            n = 0.
+        return n, n
+
     def derivatives(self, state):
         vm = state[self.section, "V"] - self.shift
+        # f, self.lastf = self.check_state(state, "f", self.lastf) # [self, "f"]
+        # s, self.lasts = self.check_state(state, "s", self.lasts) # state[self, "s"]
         f = state[self, "f"]
         s = state[self, "s"]
-
         # vm = vm + 65e-3   ## gating parameter eqns assume resting is 0mV
         vm *= 1000.0  ##  ..and that Vm is in mV
         Hinf = 1.0 / (1.0 + np.exp((vm + 68.9) / 6.5))

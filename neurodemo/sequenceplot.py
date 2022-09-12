@@ -24,7 +24,7 @@ class SequencePlotWindow(QtGui.QWidget):
         self.clear_btn = QtGui.QPushButton("Clear data")
         self.layout.addWidget(self.clear_btn, 0, 1)
         self.clear_btn.clicked.connect(self.clear_data)
-        
+
         self.splitter = QtGui.QSplitter(QtCore.Qt.Orientation.Vertical)
         self.layout.addWidget(self.splitter, 1, 0, 1, 2)
         
@@ -66,7 +66,11 @@ class SequencePlotWindow(QtGui.QWidget):
             pen = (info['seq_ind'], info['seq_len'] * 4./3.)
         
         for k, plt in self.plots.items():
-            plt.plot(t, data[k], pen=pen)
+            sign = 1.0
+            if k in ["soma.IK.I", "soma.IKf.I", "soma.IKs.I", "soma.INa.I",
+                "soma.IH.I", "soma.INa1.I"]:
+                sign = -1.0   # flip sign of cation currents for display
+            plt.plot(t, sign*data[k], pen=pen)
         
         try:
             self.analyzer.add_data(t, data, info)
