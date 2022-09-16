@@ -14,10 +14,11 @@ from typing import Union, List, Tuple
 import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore, QtSvg
-from PyQt6 import QtSvgWidgets
-from PyQt6 import QtGui as QtGui6
 from pyqtgraph import ArrowItem
 from neurodemo import colormaps
+if pg.Qt.QT_LIB == 'PyQt6':
+    from PyQt6 import QtSvgWidgets as QtSvg
+
 
 print(dir(colormaps))
 # for storing dynamically-generated svg files
@@ -91,17 +92,17 @@ class NeuronView(pg.GraphicsLayoutWidget):
                 item = Pipette(mech)
                 self.view.addItem(item)
                 item.setZValue(1)
-                item.setTransform(QtGui6.QTransform().translate(0, CellPosition.center_y))
+                item.setTransform(QtGui.QTransform().translate(0, CellPosition.center_y))
             else:  # add ion channels
                 item = Channel(
                     mech, translation=(0, 40), angle=angle
                 )  # set all transforms at once
                 self.view.addItem(item)  # add to graphic view of the cell
-                # item.setTransform(QtGui6.QTransform().rotate(angle))
+                # item.setTransform(QtGui.QTransform().rotate(angle))
                 angle += anglestep
                 if 195 > angle > 165:
                     angle += anglestep  # skip region aroun pipette
-                # item.setTransform(QtGui6.QTransform().translate(0, 50))
+                # item.setTransform(QtGui.QTransform().translate(0, 50))
                 self.channels.append(item)  # keep a list
 
             self.items.append(item)  # all of the items in the view
@@ -130,12 +131,12 @@ class NeuronView(pg.GraphicsLayoutWidget):
         self.colorbar.setGeometry(100, -40, 100, 150)
         cbax = self.colorbar.getAxis('bottom')
         ticks = {-150: '-150', -100: '-100', -50: ' -50',  0: '  0', 50: ' 50'}
-        font = QtGui6.QFont()
+        font = QtGui.QFont()
         font.setPointSize(10)
         cbax.setStyle(tickTextOffset=8, tickFont=font)
         self.view.addItem(self.colorbar)
         QtGui.QGraphicsItemGroup.setTransform(
-             self.colorbar, QtGui6.QTransform().scale(1, -1))
+             self.colorbar, QtGui.QTransform().scale(1, -1))
         cbax.setTicks([ticks.items()])
 
     def update_state(self, state):
@@ -157,14 +158,14 @@ class NeuronItem(QtGui.QGraphicsItemGroup):
     def rotate(self, angle):
         QtGui.QGraphicsItemGroup.setRotation(
             self, angle
-        )  # QtGui6.QTransform().rotate(angle)) #  angle)
+        )  # QtGui.QTransform().rotate(angle)) #  angle)
         self.circuit.setRotation(angle)
 
     def translate(self, x, y):
         QtGui.QGraphicsItemGroup.setTransform(
-            self, QtGui6.QTransform().fromTranslate(x, y)
+            self, QtGui.QTransform().fromTranslate(x, y)
         )
-        self.circuit.setTransform(QtGui6.QTransform().fromTranslate(x, y))
+        self.circuit.setTransform(QtGui.QTransform().fromTranslate(x, y))
 
     def setVisible(self, v):
         QtGui.QGraphicsItemGroup.setVisible(self, v)
@@ -222,7 +223,7 @@ class Cell(NeuronItem):
         angle: float = 0.0,
         translate: Union[List, Tuple] = (0, 0),
     ):
-        new_transform = QtGui6.QTransform()
+        new_transform = QtGui.QTransform()
         new_transform.scale(scale[0], scale[1])
         new_transform.rotate(angle)
         new_transform.translate(translate[0], translate[1])
@@ -278,8 +279,8 @@ class Channel(NeuronItem):
 
         NeuronItem.__init__(self)
         self.channel_svg = [
-            QtSvgWidgets.QGraphicsSvgItem(self.get_svg(color)),
-            # QtSvgWidgets.QGraphicsSvgItem(self.get_svg(color)),   # not needed with channel2.svg
+            QtSvg.QGraphicsSvgItem(self.get_svg(color)),
+            # QtSvg.QGraphicsSvgItem(self.get_svg(color)),   # not needed with channel2.svg
         ]
         scale = [[1, -1], [1, -1]]
         transl = list(self.translation)
@@ -343,7 +344,7 @@ class Channel(NeuronItem):
     #     scale = scale,
     #     angle = self.current_angle,
     #     translate = self.current_translation)
-    # new_transform = QtGui6.QTransform()
+    # new_transform = QtGui.QTransform()
     # new_transform.scale(1, scale)
     # new_transform.rotate(self.angle)
     # new_transform.translate(self.translation[0], self.translation[1])
@@ -357,7 +358,7 @@ class Channel(NeuronItem):
         angle: float = 0.0,
         translate: Union[List, Tuple] = (0, 50),
     ):
-        new_transform = QtGui6.QTransform()
+        new_transform = QtGui.QTransform()
         new_transform.scale(scale[0], scale[1])
         new_transform.rotate(angle)
         new_transform.translate(translate[0], translate[1])
@@ -436,8 +437,8 @@ class Pipette(NeuronItem):
         self.key = clamp.name
         
         # install a pipette
-        self.pipette_svg = QtSvgWidgets.QGraphicsSvgItem(str(svg_file("pipette")))
-        pip_transform = QtGui6.QTransform()
+        self.pipette_svg = QtSvg.QGraphicsSvgItem(str(svg_file("pipette")))
+        pip_transform = QtGui.QTransform()
         pip_transform.scale(1.0, 1.0)  # put pipette at the top of the cell
         pip_transform.rotate(-180.0)
         pip_transform.translate(CellPosition.center_x, 
@@ -457,7 +458,7 @@ class Pipette(NeuronItem):
         self.voltage = QtGui.QGraphicsPathItem(path)
         self.voltage.setParentItem(self)
         self.voltage.setPen(pg.mkPen(None))
-        voltage_transform = QtGui6.QTransform()
+        voltage_transform = QtGui.QTransform()
         voltage_transform.translate(0, CellPosition.diam_y)
         self.voltage.setTransform(voltage_transform)
         self.voltage.setZValue(-1)
@@ -474,14 +475,14 @@ class Pipette(NeuronItem):
         # connected to the center  of the cell, but in the pipette
         self.res = Resistor(l1=CellPosition.diam_y/2+40, l2=140)
         self.res.setParentItem(self.circuit)
-        res_transform = QtGui6.QTransform()
+        res_transform = QtGui.QTransform()
         res_transform.translate(0, CellPosition.center_y+CellPosition.diam_y/2)
         self.res.setTransform(res_transform)
 
         # Add the pipette transmural capacitance outside the cell and horizontal
         self.cap = Capacitor(l1=15, l2=15)
         self.cap.setParentItem(self.circuit)
-        cap_transform = QtGui6.QTransform()
+        cap_transform = QtGui.QTransform()
         cap_transform.translate(0, CellPosition.center_y+CellPosition.diam_y+15)  # 40
         cap_transform.rotate(-90.0)
         self.cap.setTransform(cap_transform)
