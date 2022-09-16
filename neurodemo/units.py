@@ -7,5 +7,5 @@ be written with scaled units. For example, `10*mV` is equivalent to `10e-3`.
 """
 for unit in ['m', 's', 'V', 'A', 'Ohm', 'F', 'S']:
     for pfx, val in [('f', -15), ('p', -12), ('n', -9), ('u', -6), ('m', -3), 
-                     ('c', -2), ('k', 3), ('M', 6), ('G', 9)]:
+                     ('c', -2), ('', 0), ('k', 3), ('M', 6), ('G', 9)]:
         locals()[pfx+unit] = 10**val

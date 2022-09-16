@@ -3,11 +3,11 @@
 NeuroDemo - Physiological neuron sandbox for educational purposes
 Luke Campagnola 2015
 """
-from __future__ import division, unicode_literals
+
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore
 
-#from .analysisplot import AnalysisPlot   # simpler code-based analyzer
+from .analysisplot import AnalysisPlot   # simpler code-based analyzer
 from .traceanalyzer import TraceAnalyzer  # user friendly analyzer
 
 
@@ -24,8 +24,8 @@ class SequencePlotWindow(QtGui.QWidget):
         self.clear_btn = QtGui.QPushButton("Clear data")
         self.layout.addWidget(self.clear_btn, 0, 1)
         self.clear_btn.clicked.connect(self.clear_data)
-        
-        self.splitter = QtGui.QSplitter(QtCore.Qt.Vertical)
+
+        self.splitter = QtGui.QSplitter(QtCore.Qt.Orientation.Vertical)
         self.layout.addWidget(self.splitter, 1, 0, 1, 2)
         
         self.plot_layout = pg.GraphicsLayoutWidget()
@@ -55,6 +55,7 @@ class SequencePlotWindow(QtGui.QWidget):
     def plot(self, t, data, info):
         if not self.hold_check.isChecked():
             self.clear_data()
+        # check to see if mode has changed, and if so, clear the plot
         if self.mode != info['mode']:
             self.mode = info['mode']
             self.clear_data()
@@ -65,7 +66,11 @@ class SequencePlotWindow(QtGui.QWidget):
             pen = (info['seq_ind'], info['seq_len'] * 4./3.)
         
         for k, plt in self.plots.items():
-            plt.plot(t, data[k], pen=pen)
+            sign = 1.0
+            if k in ["soma.IK.I", "soma.IKf.I", "soma.IKs.I", "soma.INa.I",
+                "soma.IH.I", "soma.INa1.I"]:
+                sign = -1.0   # flip sign of cation currents for display
+            plt.plot(t, sign*data[k], pen=pen)
         
         try:
             self.analyzer.add_data(t, data, info)
@@ -77,3 +82,7 @@ class SequencePlotWindow(QtGui.QWidget):
         for plt in self.plots.values():
             plt.clear()
         self.analyzer.clear()
+    
+    def plot_triggers(self, t, d):
+        for k, plt in self.plots.items():
+            plt.plot([t,t], [-d, d], pen=pg.mkPen(color="w", width=1.5))

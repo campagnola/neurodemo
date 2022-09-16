@@ -3,12 +3,13 @@
 NeuroDemo - Physiological neuron sandbox for educational purposes
 Luke Campagnola 2015
 """
-from __future__ import division, unicode_literals
+
 import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph.parametertree as pt
-
+from lmfit import Model
+from lmfit.models import ExponentialModel
 
 class TraceAnalyzer(QtGui.QWidget):
     def __init__(self, seq_plotter):
@@ -18,7 +19,7 @@ class TraceAnalyzer(QtGui.QWidget):
         self.layout = QtGui.QGridLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
-        self.hsplitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
+        self.hsplitter = QtGui.QSplitter(QtCore.Qt.Orientation.Horizontal)
         self.layout.addWidget(self.hsplitter)
         
         self.ptree = pt.ParameterTree(showHeader=False)
@@ -35,7 +36,7 @@ class TraceAnalyzer(QtGui.QWidget):
         
         self.clear()
         
-        self.params = TraceAnalyzerGroup(name='analyzers')
+        self.params = TraceAnalyzerGroup(name="Analyzers")
         self.params.need_update.connect(self.update_analyzers)
         self.ptree.setParameters(self.params)
 
@@ -59,8 +60,8 @@ class TraceAnalyzer(QtGui.QWidget):
         for i, rec in enumerate(self.data):
             t, d, info = rec
             data['cmd'][i] = info['amp']
-            for anal in self.params.children():
-                data[anal.name()][i] = anal.process(t, d)
+            for analysis in self.params.children():
+                data[analysis.name()][i] = analysis.process(t, d)
         self.table.setData(data)
         self.analysis_plot.update_data(data)
         
@@ -163,9 +164,11 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
                 else:
                     return spikes[0] * dt
         elif typ == 'exp_tau':
-            return self.measure_tau(data, t)
+            return self.measure_tauDecay(data, t)
+        elif typ == 'expTauRise4':
+            return(self.measure_tauRise4(data, t))
             
-    def measure_tau(self, data, t):
+    def measure_tau_old(self, data, t):
         from scipy.optimize import curve_fit
         dt = t[1] - t[0]
         def expfn(x, yoff, amp, tau):
@@ -173,8 +176,27 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
         guess = (data[-1], data[0] - data[-1], t[-1] - t[0])
         fit = curve_fit(expfn, t-t[0], data, guess)
         return fit[0][2]
-            
+
+    def measure_tauDecay(self, data, t):
+        model = ExponentialModel()
+        pars = model.guess(data-data[-1], x=t-t[0])
+        result = model.fit(data-data[-1], pars,  x=t-t[0])
+        return result.params['decay'] # fit[0][2]            
         
+    def measure_tauRise4(self, data, t):
+        # this is not working quite right yet... 
+        print('taurise4')
+        def expfn4(x, amp, tau):
+            return amp * ((1.0-np.exp(-x / tau))**4.0)
+        emodel = Model(expfn4)
+        params = emodel.make_params()
+        d = data-data[0]
+        tp = t-t[0]
+        emodel.set_param_hint('tau', value=t[-1]-t[0], min=0.0001)
+        emodel.set_param_hint('amp', value=data[-1]-data[0])
+        result = emodel.fit(d[1:], params, x=tp[1:])
+        print(result.params)
+        return result.params['tau'] # fit[0][2]       
 
 class EvalPlotter(QtGui.QWidget):
     def __init__(self):
