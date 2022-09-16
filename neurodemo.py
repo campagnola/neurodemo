@@ -99,7 +99,7 @@ class DemoWindow(QtWidgets.QWidget):
         QtGui.QWidget.__init__(self)
         "Qtext::font-weight: light"
         self.fullscreen_widget = None
-        self.resize(1024, 768)
+        self.resize(1400, 800)
         self.layout = QtWidgets.QGridLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
@@ -109,22 +109,17 @@ class DemoWindow(QtWidgets.QWidget):
         self.ptree = pt.ParameterTree(showHeader=False)
         self.splitter.addWidget(self.ptree)
  
-        self.stim_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
-        self.layout.addWidget(self.stim_splitter, 0, 1, 1, 1 )
         self.ptree_stim = pt.ParameterTree(showHeader=False)
-        self.stim_splitter.addWidget(self.ptree_stim)
+        self.splitter.addWidget(self.ptree_stim)
         
         self.plot_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
-        self.layout.addWidget(self.plot_splitter, 0, 2, 1, 5)
-        # self.plot_splitter.addWidget(self.plot_splitter)
+        self.splitter.addWidget(self.plot_splitter)
         
-
         self.neuronview = NeuronView(self.neuron, mechanisms)
         self.plot_splitter.addWidget(self.neuronview)
         
         self.clamp_param = ClampParameter(self.clamp, self)
         self.ptree_stim.setParameters(self.clamp_param)
-        self.stim_splitter.addWidget(self.ptree_stim)
         self.clamp_param.plots_changed.connect(self.plots_changed)
 
         self.channel_plots = {}
@@ -152,8 +147,7 @@ class DemoWindow(QtWidgets.QWidget):
         
         self.vm_plot = self.add_plot('soma.V', 'Membrane Potential', 'V')
         
-        self.splitter.setSizes([200])
-        self.stim_splitter.setSizes([100])
+        self.splitter.setSizes([300, 300, 800])
 
         self.params = pt.Parameter.create(name='Parameters', type='group', children=[
             dict(name='Preset', type='list', value='HH AP', values=['Passive', 'HH AP', 'LG AP']),
