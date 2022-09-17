@@ -345,6 +345,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
 
     def clear_triggers(self):
         self.triggers = []
+        self.clamp.clear_queue()
         
     def add_plot(self, key, label):
         self.plot_keys.append(key)
