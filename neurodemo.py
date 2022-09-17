@@ -28,22 +28,25 @@ pg.setConfigOption('antialias', True)
 
 # Disable obnoxious app nap on OSX 
 # Many thanks to https://github.com/minrk/appnope
-app = pg.mkQApp()
 # if sys.platform == 'darwin':
     # v = [int(x) for x in platform.mac_ver()[0].split('.')]
     # if (v[0] == 10 and v[1] >= 9) or v[0] >= 11:
     #     import appnope
     #     appnope.nope()
+
+app = pg.mkQApp()
 app.setStyle("Fusion")  # necessary to remove double labels on mac os w/pyqtgraph until PR is done
+
 
 @dataclass
 class IonClass:
-    name: str=""
+    name: str = ""
     Cout: float = 1.0
     Cin: float = 1.0
     valence: float = 1.0
     Erev: float = 0.0
-    enabled: bool=False
+    enabled: bool = False
+
 
 class DemoWindow(QtWidgets.QWidget):
     def __init__(self, proc=None):
@@ -52,14 +55,13 @@ class DemoWindow(QtWidgets.QWidget):
         self.app.setStyleSheet("QLabel{font-size: 11pt;} QText{font-size: 11pt;} {QWidget{font-size: 8pt;}")
         self.app.setStyleSheet("QTreeWidgetItem{font-size: 9pt;}") #  QText{font-size: 11pt;} {QWidget{font-size: 8pt;}")
 
-        #self.proc = proc
-        self.proc = None
+        self.proc = proc
         if self.proc is None:
-            print(sys.platform, "Running without mp")
+            print(sys.platform, "running without mp")
             # do not use remote process:
             self.ndemo = neurodemo
         else:
-            print(sys.platform, "Running with mp")
+            print(sys.platform, "running with mp")
             self.ndemo = self.proc._import('neurodemo')
         
         self.dt = 20e-6 * NU.s
@@ -97,7 +99,7 @@ class DemoWindow(QtWidgets.QWidget):
 
         # set up GUI
         QtGui.QWidget.__init__(self)
-        "Qtext::font-weight: light"
+
         self.fullscreen_widget = None
         self.resize(1400, 800)
         self.layout = QtWidgets.QGridLayout()
@@ -364,7 +366,6 @@ class DemoWindow(QtWidgets.QWidget):
             if k not in result:
                 continue
             if isinstance(result[k], float):
-                pass
                 plt.append(result[k])
             else:
                 plt.append(result[k][1:])
@@ -578,14 +579,10 @@ class ScrollingPlot(pg.PlotWidget):
 
 if __name__ == '__main__':
     proc = None
-    if sys.platform == 'darwin':
-        pass
-    else:
-        #import pyqtgraph.multiprocess as mp
-        #proc = mp.QtProcess(debug=False)
-        pass
+    # Enable running simulation in background process:
+    # import pyqtgraph.multiprocess as mp
+    # proc = mp.QtProcess(debug=False)
 
     win = DemoWindow(proc)
     if (sys.flags.interactive != 1) or not hasattr(QtCore, "PYQT_VERSION"):
         QtWidgets.QApplication.instance().exec()
-    # app.processEvents()

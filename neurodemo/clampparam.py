@@ -159,7 +159,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(
                             name="Start Amplitude",
                             type="float",
-                            value=-50e-12 * NU.A,
+                            value=-50 * NU.pA,
                             suffix="A",
                             siPrefix=True,
                             dec=True,
@@ -353,16 +353,13 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
 
     def get_oldest_result(self):
         earliest = -1
-        early_index = -1
         for i, r in enumerate(self.result_buffer):
             t = r["t"][0]
             if earliest == -1:
                 earliest = t
-                early_index = i
             else:
                 if t < earliest:
                     earliest = t
-                    early_index = i
         if i >= 0:
             return self.result_buffer.pop(i)
         else:
@@ -375,7 +372,6 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         if len(self.result_buffer) > self.result_buffer_size: 
             # find the OLDEST time in the buffer, and return it
             result = self.get_oldest_result()
-#            result = self.result_buffer.pop(0)  # when the list is filled, get the oldest available result
         else:
             return # wait until the list is full to plot anything
         # print("new result, time = ", result["t"][0], result["t"][-1])

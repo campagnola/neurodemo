@@ -5,7 +5,6 @@ Luke Campagnola 2015
 """
 from pyqtgraph.Qt import QtCore
 from timeit import default_timer as def_timer
-from datetime import timedelta
 
 
 class SimRunner(QtCore.QObject):
@@ -52,8 +51,6 @@ class SimRunner(QtCore.QObject):
         
     def run_once(self):
         self.counter += 1
-        now = def_timer()
-        elapsed = now - self.starttime
         blocksize = int(max(2, self.blocksize * self.speed))
         result = self.sim.run(blocksize, **self.run_args)
         rec = {}

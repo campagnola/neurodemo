@@ -70,7 +70,6 @@ class Sim(object):
 
         Extra keyword arguments are passed to `scipy.integrate.odeint()`.
         """
-        obj = self.all_objects()
         # print("Integrator: ", self.integrator)
         # reset all_objs cache in case some part of the sim has changed
         self._all_objs = None
@@ -149,7 +148,6 @@ class Sim(object):
             # print(f"\n   {self.integrator:s}  {str(result.y[:, -1]):s}")
             # print("   start, finished at : ", t[0],t[-1])
             # print("    np.min(result.y): ", np.min(result.y), np.max(result.y))
-
             return SimState(difeq_vars, dep_vars, result.y, integrator=self.integrator, t=t)
 
     def derivatives(self, t, state):

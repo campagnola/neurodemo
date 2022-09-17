@@ -20,7 +20,6 @@ if pg.Qt.QT_LIB == 'PyQt6':
     from PyQt6 import QtSvgWidgets as QtSvg
 
 
-print(dir(colormaps))
 # for storing dynamically-generated svg files
 tmpdir = tempfile.mkdtemp()
 
@@ -30,7 +29,6 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 def svg_file(name):
-    # return Path(Path(__file__).parent, "images", name + ".svg")
     return Path(resource_path(Path( "images", name + '.svg')))
 
 @dataclass
@@ -41,17 +39,14 @@ class CellPosition:
     diam_y = 100
     membrane_thickness = 4
 
-# colormap = pg.colormap.get("CET-CBL2")  # use a color-blind friendly color map
-#cmapfile = "." + str(resource_path(Path("colormaps", "CET-CBL2.csv")))
-# print('cmap file: ', cmapfile)
-#colormap = pg.colormap.get(cmapfile)
 colormap = colormaps.CET_CBL2.convert_to_map()
-# colormap.reverse()
+
 def v_color(v):
     """Return a color corresponding to voltage."""
     vs = v*1e3  # convert to V
     vs = np.interp(vs, [-140.0, 50.0], [0.0, 1.0])
     return(colormap.map(vs))
+
 
 class NeuronView(pg.GraphicsLayoutWidget):
     """Displays a graphical representation of the neuron and its attached
@@ -79,8 +74,6 @@ class NeuronView(pg.GraphicsLayoutWidget):
         self.cell = Cell(soma)
         self.view.addItem(self.cell)
         self.cell.setRotation(90)
-        # self.grid = pg.GridItem()
-        # self.view.addItem(self.grid)
 
         self.items = [self.cell]
         self.channels = []
@@ -98,11 +91,9 @@ class NeuronView(pg.GraphicsLayoutWidget):
                     mech, translation=(0, 40), angle=angle
                 )  # set all transforms at once
                 self.view.addItem(item)  # add to graphic view of the cell
-                # item.setTransform(QtGui.QTransform().rotate(angle))
                 angle += anglestep
                 if 195 > angle > 165:
                     angle += anglestep  # skip region aroun pipette
-                # item.setTransform(QtGui.QTransform().translate(0, 50))
                 self.channels.append(item)  # keep a list
 
             self.items.append(item)  # all of the items in the view
@@ -156,9 +147,7 @@ class NeuronItem(QtGui.QGraphicsItemGroup):
         self.current = None
 
     def rotate(self, angle):
-        QtGui.QGraphicsItemGroup.setRotation(
-            self, angle
-        )  # QtGui.QTransform().rotate(angle)) #  angle)
+        QtGui.QGraphicsItemGroup.setRotation(self, angle)
         self.circuit.setRotation(angle)
 
     def translate(self, x, y):
@@ -179,18 +168,23 @@ class Cell(NeuronItem):
 
         self.soma = QtGui.QGraphicsEllipseItem(
             QtCore.QRectF(
-                CellPosition.center_x, CellPosition.center_y, 
-                CellPosition.diam_x, CellPosition.diam_y))
+                CellPosition.center_x, 
+                CellPosition.center_y, 
+                CellPosition.diam_x, 
+                CellPosition.diam_y
+            )
+        )
         self.soma.setPen(pg.mkPen(0.5, width=1, cosmetic=False))
         self.soma.setParentItem(self)
+        
         self.soma2 = QtGui.QGraphicsEllipseItem(
             QtCore.QRectF(
-                CellPosition.center_x - CellPosition.membrane_thickness/2,
-                CellPosition.center_y - CellPosition.membrane_thickness/2,
+                CellPosition.center_x - CellPosition.membrane_thickness / 2,
+                CellPosition.center_y - CellPosition.membrane_thickness / 2,
                 CellPosition.diam_x + CellPosition.membrane_thickness,
                 CellPosition.diam_x + CellPosition.membrane_thickness,
-                )
             )
+        )
         self.soma2.setPen(pg.mkPen(0.5, width=1, cosmetic=False))
         self.soma2.setParentItem(self)
 
@@ -330,27 +324,6 @@ class Channel(NeuronItem):
         self.I_angle = 0.0
         self.I_translation = [0, 15]
 
-    # def update_currents(self, scale):
-    #     """Update the current arrow associated with this channel
-
-    #     Parameters
-    #     ----------
-    #     scale : float
-    #         scaled current
-    #     """
-    #     pass
-    # print("update currents: in Channels")
-    # self.set_transform(self.current,
-    #     scale = scale,
-    #     angle = self.current_angle,
-    #     translate = self.current_translation)
-    # new_transform = QtGui.QTransform()
-    # new_transform.scale(1, scale)
-    # new_transform.rotate(self.angle)
-    # new_transform.translate(self.translation[0], self.translation[1])
-
-    # self.current.setTransform(new_transform)
-
     def set_transform(
         self,
         item: object,
@@ -373,8 +346,6 @@ class Channel(NeuronItem):
             self.setVisible(False)
             return
         nop = np.clip(op / self.maxop, 0, 1)
-        # self.channel_svg[0].setPos(nop * -4, 0)
-        # self.svg[1].setPos(nop * 4, 0)
         self.current.update_state(state)
 
     def show_circuit(self, show):
@@ -532,27 +503,11 @@ class Battery(QtGui.QGraphicsItemGroup):
     def __init__(self, l1, l2, w1=10, w2=10, gap=4, polarity:str=""):
         QtGui.QGraphicsItemGroup.__init__(self)
 
-
         g2 = gap / 2
-        off_x = 6
-        off_y = 8
-        signsz = 2.0
         path = QtGui.QPainterPath()
         # wire:
         path.moveTo(0, 0)
         path.lineTo(0, l1 - g2)
-
-        # the sign (+)
-        # if polarity == '+':
-        #     g2w = -g2
-        #     g2n = g2
-        # else:
-        #     g2n = -g2
-        #     g2w = g2
-        # path.moveTo(off_x - signsz, l1+g2w-off_y)
-        # path.lineTo(off_x + signsz, l1+g2w-off_y)
-        # path.moveTo(off_x, l1+g2w-off_y - signsz)
-        # path.lineTo(off_x, l1+g2w-off_y + signsz)
         
         # now the plates. Make battery polarity match Nernst at rest.
         if polarity == '+':
