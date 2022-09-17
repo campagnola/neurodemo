@@ -515,7 +515,9 @@ class PatchClamp(Mechanism):
         self.holding = {"ic": 0.0 * NU.pA, "vc": -65 * NU.mV}
         self.gain = 50e-6  # arbitrary VC gain
         init_state = OrderedDict([("V", -65 * NU.mV)])
+
         Mechanism.__init__(self, init_state, **kwds)
+        self.dep_state_vars['cmd'] = self.get_cmd_from_state
 
     def queue_command(self, cmd, dt, start=None):
         """Execute a command as soon as possible.
@@ -581,6 +583,12 @@ class PatchClamp(Mechanism):
         # Compute change in electrode potential
         dve = (cmd - self.current(state)) / self.cpip
         return [dve]
+
+    def get_cmd_from_state(self, state):
+        if isinstance(state['t'], np.ndarray):
+            return [self.get_cmd(t) for t in state['t']]            
+        else:
+            return self.get_cmd(state['t'])
 
     def get_cmd(self, t: float):
         """Return command value at time *t*.
