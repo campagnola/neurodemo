@@ -90,6 +90,7 @@ class DemoWindow(QtWidgets.QWidget):
         # loop to run the simulation indefinitely
         self.running = False
         self.runner = self.ndemo.SimRunner(self.sim)
+        self.runner.set_speed(0.2)
         self.runner.add_request('t') 
         # if using remote process (only on Windows):
         if self.proc is not None:
@@ -156,7 +157,7 @@ class DemoWindow(QtWidgets.QWidget):
             dict(name='Run/Stop', type='action', value=False),
             dict(name="dt", type='float', value=20e-6, limits=[2e-6, 200e-6], suffix='s', siPrefix=True),
             dict(name="Method", type='list', value="solve_ivp", values=['solve_ivp', 'odeint']),
-            dict(name='Speed', type='float', value=1.0, limits=[0.01, 10], step=0.5, dec=True),
+            dict(name='Speed', type='float', value=self.runner.speed, limits=[0.001, 10], step=0.5, minStep=0.001, dec=True),
             dict(name="Plot Duration", type='float', value=1.0, limits=[0.1, 10], suffix='s', siPrefix=True, step=0.2),
             dict(name='Temp', type='float', value=self.sim.temp, limits=[0., 41.], suffix='C', step=1.0),
             dict(name='Capacitance', type='float', value=self.neuron.cap, limits=[0.1e-12, 1000.e-12], suffix='F', siPrefix=True, dec=True),
