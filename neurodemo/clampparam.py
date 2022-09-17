@@ -24,6 +24,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
     plots_changed = QtCore.Signal(
         object, object, object, object
     )  # self, channel, name, on/off
+    mode_changed = QtCore.Signal(object, object)  # self, mode
 
     def __init__(self, clamp, sim):
         self.clamp = clamp
@@ -251,6 +252,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
             )
         finally:
             self.sigTreeStateChanged.connect(self.treeChange)
+        self.mode_changed.emit(self, mode)
 
     def pulse_template(self):
         d0 = self["Pulse", "Hold-duration"]

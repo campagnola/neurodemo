@@ -124,6 +124,7 @@ class DemoWindow(QtWidgets.QWidget):
         self.clamp_param = ClampParameter(self.clamp, self)
         self.ptree_stim.setParameters(self.clamp_param)
         self.clamp_param.plots_changed.connect(self.plots_changed)
+        self.clamp_param.mode_changed.connect(self.mode_changed)
 
         self.channel_plots = {}
         
@@ -252,11 +253,20 @@ class DemoWindow(QtWidgets.QWidget):
         else:
             self.remove_plot(key)
 
+    def command_units(self):
+        return 'V' if self.clamp_param['Mode'] == 'vc' else 'A'
+
+    def mode_changed(self):
+        key = self.clamp.name + '.cmd'
+        if key in self.channel_plots:
+            plt = self.channel_plots[key]
+            plt.setLabels(left=(plt.label_name, self.command_units()))
+
     def add_plot(self, key, pname, name):
         # decide on y range, label, and units for new plot
         yranges = {
             'V': (-100*NU.mV, 50*NU.mV),
-            'Icmd': (-1*NU.nA, 1*NU.nA),
+            'cmd': None,
             'I': (-1*NU.nA, 1*NU.nA),
             'G': (0, 100*NU.nS),
             'OP': (0, 1),
@@ -265,7 +275,7 @@ class DemoWindow(QtWidgets.QWidget):
             'n': (0, 1),
         }
         color = {'I': 'c', 'G': 'y', 'OP': 'g', 'V': 'w'}.get(name, 0.7)
-        units = {'I': 'A', 'G': 'S', 'V': 'V'}
+        units = {'I': 'A', 'G': 'S', 'V': 'V', 'cmd': self.command_units()}
         label = pname + ' ' + name
         if name in units:
             label = (label, units[name])
@@ -273,11 +283,17 @@ class DemoWindow(QtWidgets.QWidget):
         # create new scrolling plot
         plt = ScrollingPlot(dt=self.dt, npts=int(self.scrolling_plot_duration / self.dt),
                             labels={'left': label}, pen=color)
+        plt.label_name = label[0]
+
         if hasattr(self, 'vm_plot'):
             plt.setXLink(self.vm_plot)
         else:
             plt.setXRange(-self.scrolling_plot_duration, 0)
-        plt.setYRange(*yranges.get(name, (0, 1)))
+        yrange = yranges.get(name, (0, 1))
+        if yrange is None:
+            plt.enableAutoRange(y=True)
+        else:
+            plt.setYRange(*yrange)
         
         # register this plot for later..
         self.channel_plots[key] = plt
