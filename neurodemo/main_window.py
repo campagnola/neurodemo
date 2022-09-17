@@ -46,13 +46,19 @@ class IonClass:
 
 
 class DemoWindow(QtWidgets.QWidget):
-    def __init__(self, proc=None):
+    def __init__(self, multiprocessing=False):
+        if multiprocessing:
+            # Enable running simulation in background process:
+            import pyqtgraph.multiprocess as mp
+            self.proc = mp.QtProcess(debug=False)
+        else:
+            self.proc = None
+
         self.app = pg.mkQApp()
         self.app.setStyle("fusion")
         self.app.setStyleSheet("QLabel{font-size: 11pt;} QText{font-size: 11pt;} {QWidget{font-size: 8pt;}")
         self.app.setStyleSheet("QTreeWidgetItem{font-size: 9pt;}") #  QText{font-size: 11pt;} {QWidget{font-size: 8pt;}")
 
-        self.proc = proc
         if self.proc is None:
             print(sys.platform, "running without mp")
             # do not use remote process:
@@ -65,7 +71,8 @@ class DemoWindow(QtWidgets.QWidget):
         self.integrator = 'solve_ivp'
         self.scrolling_plot_duration = 1.0 * NU.s
         self.sim = self.ndemo.Sim(temp=6.3, dt=self.dt)
-        # self.sim._setProxyOptions(deferGetattr=True)  # only if using remote process
+        if self.proc is not None:
+            self.sim._setProxyOptions(deferGetattr=True)  # only if using remote process
         self.neuron = self.ndemo.Section(name='soma')
         self.sim.add(self.neuron)
         

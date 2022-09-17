@@ -4,11 +4,6 @@ from neurodemo.main_window import DemoWindow
 
 
 if __name__ == '__main__':
-    proc = None
-    # Enable running simulation in background process:
-    # import pyqtgraph.multiprocess as mp
-    # proc = mp.QtProcess(debug=False)
-
-    win = DemoWindow(proc)
+    win = DemoWindow(multiprocessing=False)
     if (sys.flags.interactive != 1) or not hasattr(QtCore, "PYQT_VERSION"):
         QtWidgets.QApplication.instance().exec()
