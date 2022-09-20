@@ -166,7 +166,9 @@ class DemoWindow(QtWidgets.QWidget):
             dict(name='Speed', type='float', value=self.runner.speed, limits=[0.001, 10], step=0.5, minStep=0.001, dec=True),
             dict(name="Plot Duration", type='float', value=1.0, limits=[0.1, 10], suffix='s', siPrefix=True, step=0.2),
             dict(name='Temp', type='float', value=self.sim.temp, limits=[0., 41.], suffix='C', step=1.0),
-            dict(name='Capacitance', type='float', value=self.neuron.cap, limits=[0.1e-12, 1000.e-12], suffix='F', siPrefix=True, dec=True),
+            dict(name='Capacitance', type='float', value=self.neuron.cap, limits=[0.1e-12, 1000.e-12], suffix='F', siPrefix=True, dec=True, children=[
+                dict(name='Plot Current', type='bool', value=False),
+            ]),
             dict(name='Ions', type='group', children=self.ion_concentrations),            
             dict(name='Cell Schematic', type='bool', value=True, children=[
                 dict(name='Show Circuit', type='bool', value=False),
@@ -227,6 +229,11 @@ class DemoWindow(QtWidgets.QWidget):
                     ion.updateErev(self.sim.temp)
             elif param is self.params.child('Capacitance'):
                 self.neuron.cap = val
+            elif param is self.params.child('Capacitance', 'Plot Current'):
+                if val:
+                    self.add_plot('soma.I', "Membrane Capactiance", 'I')
+                else:
+                    self.remove_plot('soma.I')
             elif param is self.params.child('Preset'):
                 self.load_preset(val)
             elif param is self.params.child('Cell Schematic'):
