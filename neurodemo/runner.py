@@ -8,13 +8,9 @@ from timeit import default_timer as def_timer
 
 
 class SimRunner(QtCore.QObject):
-    """Run a simulation continuously and emit signals whenever results are ready.
-    
-    Results are emitted with a dictionary containing all state variables for the
-    final timepoint in the simulation, as well as the complete time-record for
-    any variables that have been requested using add_request().
+    """Run a simulation continuously and emit signals whenever results are ready.    
     """
-    new_result = QtCore.Signal(object, object)  # final_state, requested_records
+    new_result = QtCore.Signal(object)
     
     def __init__(self, sim):
         QtCore.QObject.__init__(self)
@@ -29,16 +25,9 @@ class SimRunner(QtCore.QObject):
         
         self.sim = sim
         self.speed = 1.0
-        self.requests = []
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.run_once)
         self.counter = 0
-        
-    def add_request(self, key):
-        self.requests.append(key)
-
-    def remove_request(self, key):
-        self.requests.remove(key)
         
     def start(self, blocksize=500, **kwds):
         self.starttime = def_timer()
@@ -49,19 +38,14 @@ class SimRunner(QtCore.QObject):
     def stop(self):
         self.timer.stop()
         
+    def running(self):
+        return self.timer.isActive()
+
     def run_once(self):
         self.counter += 1
         blocksize = int(max(2, self.blocksize * self.speed))
         result = self.sim.run(blocksize, **self.run_args)
-        rec = {}
-        for key in self.requests:
-            try:
-                data = result[key]
-            except KeyError:
-                continue
-            rec[key] = data
-        state = result.get_final_state()
-        self.new_result.emit(state, rec)
+        self.new_result.emit(result)
         
     def set_speed(self, speed):
         self.speed = speed

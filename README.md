@@ -21,7 +21,7 @@ Requirements
 
 * Python 3.10 or higher
 * NumPy, SciPy
-* PyQt6
+* PyQt5 or 6
 * PyQtGraph
 * lmfit
 

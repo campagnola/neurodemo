@@ -66,10 +66,12 @@ class DemoWindow(QtWidgets.QWidget):
         else:
             print(sys.platform, "running with mp")
             self.ndemo = self.proc._import('neurodemo')
-        
+
+        self.scrolling_plot_duration = 1.0 * NU.s
+        self.result_buffer = ResultBuffer(max_duration=self.scrolling_plot_duration)
+
         self.dt = 20e-6 * NU.s
         self.integrator = 'solve_ivp'
-        self.scrolling_plot_duration = 1.0 * NU.s
         self.sim = self.ndemo.Sim(temp=6.3, dt=self.dt)
         if self.proc is not None:
             self.sim._setProxyOptions(deferGetattr=True)  # only if using remote process
@@ -92,15 +94,14 @@ class DemoWindow(QtWidgets.QWidget):
         
         mechanisms = [self.clamp, self.hhna, self.leak, self.hhk, self.dexh, self.lgna, self.lgkf, self.lgks]
         # loop to run the simulation indefinitely
-        self.running = False
         self.runner = self.ndemo.SimRunner(self.sim)
         self.runner.set_speed(0.2)
-        self.runner.add_request('t') 
+
         # if using remote process (only on Windows):
         if self.proc is not None:
             self.runner.new_result.connect(mp.proxy(self.new_result, autoProxy=False, callSync='off'))
         else: # Darwin (macOS) and Linux:
-            self.runner.new_result.connect(self.new_result,) 
+            self.runner.new_result.connect(self.new_result) 
 
         # set up GUI
         QtGui.QWidget.__init__(self)
@@ -199,17 +200,14 @@ class DemoWindow(QtWidgets.QWidget):
         #self.fullscreen_shortcut.setContext().Qt.ShortcutContext(QtCore.Qt.ApplicationShortcut)
         self.show()
 
-
     def params_changed(self, root, changes):
         for param, change, val in changes:
             path = self.params.childPath(param)
             if path[0] == "Run/Stop":
-                if self.running is True:
+                if self.running() is True:
                     self.stop()
-                    self.running = False
                 else:
                     self.start()
-                    self.running = True
             if change != 'value':
                 continue
 
@@ -298,10 +296,14 @@ class DemoWindow(QtWidgets.QWidget):
             plt.enableAutoRange(y=True)
         else:
             plt.setYRange(*yrange)
-        
+
+        # Add a vertical line
+        plt.hover_line = pg.InfiniteLine(pos=0, angle=90, movable=False)
+        plt.addItem(plt.hover_line, ignoreBounds=True)
+        plt.hover_line.setVisible(False)
+
         # register this plot for later..
         self.channel_plots[key] = plt
-        self.runner.add_request(key)
         
         # add new plot to splitter and resize all accordingly
         sizes = self.plot_splitter.sizes()
@@ -313,26 +315,54 @@ class DemoWindow(QtWidgets.QWidget):
         
         # Ask sequence plotter to update as well
         self.clamp_param.add_plot(key, label)
+
+        # Track mouse over plot
+        plt.plotItem.scene().sigMouseHover.connect(self.mouse_moved_over_plot)
+
         return plt
             
     def remove_plot(self, key):
         plt = self.channel_plots.pop(key)
-        self.runner.remove_request(key)
         self.clamp_param.remove_plot(key)
+        plt.plotItem.scene().sigMouseHover.disconnect(self.mouse_moved_over_plot)
         plt.setParent(None)
         plt.close()
         
+    def mouse_moved_over_plot(self, items):
+        # only process hover events while paused
+        if self.running():
+            return
+        item = items[0]
+        widget = item.getViewWidget()
+        globalPos = pg.QtGui.QCursor.pos()
+        localPos = widget.mapFromGlobal(globalPos)
+        scenePos = item.mapFromDevice(localPos)
+        viewPos = item.vb.mapSceneToView(scenePos)
+        self.set_hover_time(viewPos.x())
+
+    def set_hover_time(self, t):
+        """Move vertical lines to time *t* and update the schematic accordingly.
+        """
+        for plt in self.channel_plots.values():
+            plt.hover_line.setVisible(True)
+            plt.hover_line.setPos(t)
+        state = self.result_buffer.get_state_at_time(t)
+        if state is not None:
+            self.neuronview.update_state(state)
+
+    def running(self):
+        return self.runner.running()
+
     def start(self):
         self.runner.start(blocksize=2048)
-        # set button color
+        for plt in self.channel_plots.values():
+            plt.hover_line.setVisible(False)
         
     def stop(self):
         self.runner.stop()
-        # reset button color
 
     def reset_dt(self, val):
-
-        was_running = self.running
+        was_running = self.running()
         if was_running:
             self.stop()
         self.dt = val
@@ -345,7 +375,7 @@ class DemoWindow(QtWidgets.QWidget):
         self.set_scrolling_plot_dt(self.dt)
 
     def set_scrolling_plot_dt(self, val):
-        was_running = self.running
+        was_running = self.running()
         if was_running:
             self.stop()
         for k in self.channel_plots.keys():
@@ -382,7 +412,7 @@ class DemoWindow(QtWidgets.QWidget):
             self.plot_splitter.insertWidget(self.fs_widget_index, self.fullscreen_widget)
             self.fullscreen_widget = None
         
-    def new_result(self, final_state, result):
+    def new_result(self, result):
         for k, plt in self.channel_plots.items():
             if k not in result:
                 continue
@@ -396,7 +426,10 @@ class DemoWindow(QtWidgets.QWidget):
         self.clamp_param.new_result(result)
         
         # update the schematic
-        self.neuronview.update_state(final_state)
+        self.neuronview.update_state(result.get_final_state())
+
+        # store a running buffer of results
+        self.result_buffer.add(result)
 
     def _get_Eh(self):
         ENa = self.params.child('Ions', 'Na')
@@ -452,7 +485,6 @@ class DemoWindow(QtWidgets.QWidget):
             chans[f"soma.{ch:s}", 'Erev'] = Eh_revs[ch]
         self.set_hh_erev(ENa_revs["INa"], EK_revs["IK"], -55*NU.mV, Eh_revs["IH"])
         self.set_lg_erev(ENa_revs["INa1"], EK_revs["IKf"], EK_revs["IKs"], -55*NU.mV, )
-
 
     def set_hh_erev(self, ENa_erev=50*NU.mV, EK_erev=-74*NU.mV,
                     Eleak_erev=-55*NU.mV, Eh_erev=-43*NU.mV):
@@ -588,7 +620,6 @@ class ScrollingPlot(pg.PlotWidget):
 
     def append(self, data):
         # print("len data, len self.data: ", len(data), len(self.data))
-        #self.data = np.append(self.data, data)
         self.data = np.concatenate((self.data, data), axis=0)
         if len(self.data) >= self.npts:
             self.data = self.data[-self.npts:]
@@ -597,3 +628,21 @@ class ScrollingPlot(pg.PlotWidget):
         # print("appending npts: ", len(self.data), self.npts, self.dt, self.plot_duration)
         self.data_curve.setData(t, self.data)
 
+
+class ResultBuffer:
+    def __init__(self, max_duration=10):
+        self.max_duration = max_duration
+        self.results = []
+
+    def add(self, result):
+        self.results.append(result)
+
+    def get_state_at_time(self, t):
+        if len(self.results) == 0:
+            return None
+        if t < 0:
+            t = self.results[-1]['t'][-1] + t
+        for result in self.results:
+            if result['t'][0] <= t <= result['t'][-1]:
+                return result.get_state_at_time(t)
+        return None

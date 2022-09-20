@@ -215,6 +215,12 @@ class SimState(object):
             else:
                 return self.extra[key]
 
+    def __contains__(self, key):
+        # allow lookup by (object, var)
+        if isinstance(key, tuple):
+            key = key[0].name + "." + key[1]
+        return key in self.indexes or key in self.dep_vars or key in self.extra
+
     def __str__(self):
         rep = "SimState:\n"
         for i, k in enumerate(self.difeq_vars):
@@ -225,6 +231,13 @@ class SimState(object):
         """Return a dictionary of all diff. eq. state variables and dependent
         variables for all objects in the simulation.
         """
+        return self.get_state_at_index(-1)
+
+    def get_state_at_time(self, t):
+        index = np.searchsorted(self['t'], t)
+        return self.get_state_at_index(index)
+
+    def get_state_at_index(self, index):
         state = {}
         s = self.copy()
         clip = not np.isscalar(self["t"])
@@ -232,7 +245,7 @@ class SimState(object):
             # only get results for the last timepoint
             # print('state: ', self.state)
             # if self.integrator == 'odeint':
-            s.set_state(self.state[:, -1])
+            s.set_state(self.state[:, index])
             # else:
             #     s.set_state(self.state[:, -1])
 
@@ -242,7 +255,7 @@ class SimState(object):
             state[k] = s[k]
         for k, v in self.extra.items():
             if clip:
-                state[k] = v[-1]
+                state[k] = v[index]
             else:
                 state[k] = v
 
