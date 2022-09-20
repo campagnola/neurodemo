@@ -203,6 +203,8 @@ class SimState(object):
         self.state = difeq_state
 
     def __getitem__(self, key):
+        if isinstance(key, slice):
+            return self.get_slice(key)
         # allow lookup by (object, var)
         if isinstance(key, tuple):
             key = key[0].name + "." + key[1]
@@ -214,6 +216,9 @@ class SimState(object):
                 return self.dep_vars[key](self)
             else:
                 return self.extra[key]
+
+    def keys(self):
+        return list(self.indexes.keys()) + list(self.dep_vars.keys()) + list(self.extra.keys())
 
     def __contains__(self, key):
         # allow lookup by (object, var)
@@ -261,8 +266,22 @@ class SimState(object):
 
         return state
 
-    def copy(self):
-        return SimState(self.difeq_vars, self.dep_vars, self.state, self.integrator, **self.extra)
+    def get_slice(self, sl):
+        kwds = {'difeq_state': self.state[:, sl]}
+        for k,v in self.extra.items():
+            kwds[k] = v[sl]
+        return self.copy(**kwds)
+
+    def copy(self, **kwds):
+        default_kwds = {
+            'difeq_vars': self.difeq_vars,
+            'dep_vars': self.dep_vars,
+            'difeq_state': self.state, 
+            'integrator': self.integrator,
+        }
+        default_kwds.update(self.extra)
+        default_kwds.update(kwds)
+        return SimState(**default_kwds)
 
 
 class SimObject(object):

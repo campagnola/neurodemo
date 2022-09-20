@@ -417,6 +417,6 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
             self.triggers.pop(0)
             if len(time_arr) > npts:
                 # If there is data left over, try feeding it to the next trigger
-                result = dict([(k, result[k][trigger_index+npts :]) for k in result])
+                result = result[trigger_index+npts:]
                 self.new_result(result)
 
