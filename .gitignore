@@ -1,5 +1,6 @@
 __pycache__
 .pytest_cache/*
+.idea
 gprof2dot/*
 *.pyc
 neurodemo_venv/*
