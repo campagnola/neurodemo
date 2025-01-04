@@ -19,6 +19,9 @@ from neurodemo import colormaps
 if pg.Qt.QT_LIB == 'PyQt6':
     from PyQt6 import QtSvgWidgets as QtSvg
 
+if pg.Qt.QT_LIB == 'PySide6':
+    from PySide6 import QtSvgWidgets as QtSvg
+
 
 # for storing dynamically-generated svg files
 tmpdir = tempfile.mkdtemp()
@@ -253,13 +256,13 @@ class Channel(NeuronItem):
         self.angle = angle
         self.svg_items = [None, None]
         color = {
-            "INa": "dd0000",  # HH
-            "IK": "0000dd",   # HH
-            "Ileak": "00dd00",  # HH
-            "IH": "aa00aa",  # Not in HH model, but included here
-            "INa1": "880000",  # LG
-            "IKf": "0088ff", # LG
-            "IKs": "8800ff", # LG
+            "INa": "#dd0000",  # HH
+            "IK": "#0000dd",   # HH
+            "Ileak": "#00dd00",  # HH
+            "IH": "#aa00aa",  # Not in HH model, but included here
+            "INa1": "#880000",  # LG
+            "IKf": "#0088ff", # LG
+            "IKs": "#8800ff", # LG
         }.get(channel.type, "999999")
         polarity = {
             "INa": "-",  # HH

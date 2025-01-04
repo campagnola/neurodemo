@@ -16,7 +16,7 @@
 
 import sys
 import re
-from pyqtgraph.Qt import QtGui, QtCore
+from pyqtgraph.Qt import QtGui, QtCore, QtWidgets, _copy_attrs
 
 try:
     from PyQt4 import Qsci
@@ -24,6 +24,9 @@ try:
     HAVE_QSCI = True
 except ImportError:
     HAVE_QSCI = False
+
+_copy_attrs(QtWidgets, QtGui)
+
 
 if not HAVE_QSCI:
     # backup editor in case QScintilla is not available
