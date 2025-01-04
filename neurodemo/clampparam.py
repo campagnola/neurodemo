@@ -47,7 +47,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                 dict(
                     name="Mode",
                     type="list",
-                    values={"CC": "ic", "VC": "vc"},
+                    limits={"CC": "ic", "VC": "vc"},
                     value="ic",
                 ),
                 dict(
@@ -154,7 +154,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                         dict(name="Pulse Sequence", type="action"),
                         dict(name="Sequence Pulse", 
                             type="list",
-                            values={"Pre": 1, "Pulse": 2, "Post": 3},
+                            limits={"Pre": 1, "Pulse": 2, "Post": 3},
                             value=2,
                             ),
                         dict(

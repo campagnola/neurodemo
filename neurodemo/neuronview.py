@@ -120,7 +120,7 @@ class NeuronView(pg.GraphicsLayoutWidget):
         colormap2 = pg.colormap.get("CET-CBL2")
         colormap2.reverse()
         self.colorbar = pg.ColorBarItem(values=(-150, 50), width=10, interactive=False,
-            cmap = colormap, orientation='horizontal')
+            colorMap=colormap, orientation='horizontal')
         self.colorbar.setTitle("V (mV)")
         self.colorbar.setGeometry(100, -40, 100, 150)
         cbax = self.colorbar.getAxis('bottom')
