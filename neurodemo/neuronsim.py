@@ -170,6 +170,9 @@ class Sim(object):
         return state
 
 
+class MissingCurrentException(Exception):
+    pass
+
 class SimState(object):
     """Contains the state of all diff. eq. variables in the simulation.
 
@@ -214,8 +217,11 @@ class SimState(object):
         except KeyError:
             if key in self.dep_vars:
                 return self.dep_vars[key](self)
-            else:
+            elif key in self.extra.keys():
+                # Key is usually 't' here
                 return self.extra[key]
+            else:
+                raise MissingCurrentException
 
     def keys(self):
         return list(self.indexes.keys()) + list(self.dep_vars.keys()) + list(self.extra.keys())
@@ -459,7 +465,10 @@ class Channel(Mechanism):
         self._gmax = None
 
     def conductance(self, state):
-        op = self.open_probability(state)
+        try:
+            op = self.open_probability(state)
+        except MissingCurrentException:
+            return 0
         return self.gmax * op
 
     def current(self, state):
