@@ -11,7 +11,7 @@ import numpy as np
 import pyqtgraph as pg
 
 import pyqtgraph.parametertree as pt
-from pyqtgraph.Qt import QtCore, QtGui, QtWidgets
+from . import qt
 import pyqtgraph.multiprocess as mp
 
 import neurodemo
@@ -45,7 +45,7 @@ class IonClass:
     enabled: bool = False
 
 
-class DemoWindow(QtWidgets.QWidget):
+class DemoWindow(qt.QWidget):
     def __init__(self, multiprocessing=False):
         if multiprocessing:
             # Enable running simulation in background process:
@@ -104,15 +104,15 @@ class DemoWindow(QtWidgets.QWidget):
             self.runner.new_result.connect(self.new_result) 
 
         # set up GUI
-        QtGui.QWidget.__init__(self)
+        qt.QWidget.__init__(self)
 
         self.fullscreen_widget = None
         self.resize(1400, 800)
-        self.layout = QtWidgets.QGridLayout()
+        self.layout = qt.QGridLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
  
-        self.splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
+        self.splitter = qt.QSplitter(qt.Qt.Orientation.Horizontal)
         self.layout.addWidget(self.splitter, 0, 0,1, 1)
         self.ptree = pt.ParameterTree(showHeader=False)
         self.splitter.addWidget(self.ptree)
@@ -120,7 +120,7 @@ class DemoWindow(QtWidgets.QWidget):
         self.ptree_stim = pt.ParameterTree(showHeader=False)
         self.splitter.addWidget(self.ptree_stim)
         
-        self.plot_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
+        self.plot_splitter = qt.QSplitter(qt.Qt.Orientation.Vertical)
         self.splitter.addWidget(self.plot_splitter)
         
         self.neuronview = NeuronView(self.neuron, mechanisms)
@@ -190,16 +190,16 @@ class DemoWindow(QtWidgets.QWidget):
         self.clamp_param['Plot Current'] = True
         self.plot_splitter.setSizes([300, 500, 200])
         
-        self.pause_shortcut = QtGui.QShortcut(QtGui.QKeySequence('Space'), self)
+        self.pause_shortcut = qt.QShortcut(qt.QKeySequence('Space'), self)
         self.pause_shortcut.activated.connect(self.pause)
-        self.slow_shortcut = QtGui.QShortcut(QtGui.QKeySequence('-'), self)
+        self.slow_shortcut = qt.QShortcut(qt.QKeySequence('-'), self)
         self.slow_shortcut.activated.connect(self.slower)
-        self.fast_shortcut = QtGui.QShortcut(QtGui.QKeySequence('='), self)
+        self.fast_shortcut = qt.QShortcut(qt.QKeySequence('='), self)
         self.fast_shortcut.activated.connect(self.faster)
-        self.fullscreen_shortcut = QtGui.QShortcut(QtGui.QKeySequence('F11'), self)
+        self.fullscreen_shortcut = qt.QShortcut(qt.QKeySequence('F11'), self)
         self.fullscreen_shortcut.activated.connect(self.fullscreen)
 
-        #self.fullscreen_shortcut.setContext().Qt.ShortcutContext(QtCore.Qt.ApplicationShortcut)
+        #self.fullscreen_shortcut.setContext().Qt.ShortcutContext(qt.Qt.ApplicationShortcut)
         self.show()
 
     def params_changed(self, root, changes):
@@ -341,7 +341,7 @@ class DemoWindow(QtWidgets.QWidget):
             return
         item = items[0]
         widget = item.getViewWidget()
-        globalPos = pg.QtGui.QCursor.pos()
+        globalPos = qt.QCursor.pos()
         localPos = widget.mapFromGlobal(globalPos)
         scenePos = item.mapFromDevice(localPos)
         viewPos = item.vb.mapSceneToView(scenePos)
@@ -406,7 +406,7 @@ class DemoWindow(QtWidgets.QWidget):
 
     def fullscreen(self):
         if self.fullscreen_widget is None:
-            w = QtGui.QApplication.focusWidget()
+            w = qt.QApplication.focusWidget()
             ind = self.plot_splitter.indexOf(w)
             if ind < 0:
                 return
@@ -600,7 +600,7 @@ class DemoWindow(QtWidgets.QWidget):
     def closeEvent(self, ev):
         self.runner.stop()
         # self.proc.close()
-        QtWidgets.QApplication.instance().quit()
+        qt.QApplication.instance().quit()
 
 
 class ScrollingPlot(pg.PlotWidget):

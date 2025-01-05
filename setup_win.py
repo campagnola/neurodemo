@@ -29,9 +29,9 @@ OPTIONS = {
             'PyQt6.sip',
             'pkg_resources',
             'PyQt6',
-            'PyQt6.QtCore',
+            'PyQt6.qt.,
             'PyQt6.QtOpenGL',
-            'PyQt6.QtGui',
+            'PyQt6.qt.,
             'pyqtgraph.graphicsItems.ViewBox.axisCtrlTemplate_pyqt6', # Add This one
             'pyqtgraph.graphicsItems.PlotItem.plotConfigTemplate_pyqt6', # Add This one
             'pyqtgraph.imageview.ImageViewTemplate_pyqt6', # Add This one

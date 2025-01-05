@@ -6,7 +6,7 @@ Luke Campagnola 2015
 
 from dataclasses import dataclass
 import numpy as np
-from pyqtgraph.Qt import QtCore
+from . import qt
 import pyqtgraph.parametertree as pt
 from .sequenceplot import SequencePlotWindow
 import neurodemo.units as NU
@@ -21,10 +21,10 @@ class Trigger:
 
 class ClampParameter(pt.parameterTypes.SimpleParameter):
     # emitted when a plot should be shown or hidden
-    plots_changed = QtCore.Signal(
+    plots_changed = qt.Signal(
         object, object, object, object
     )  # self, channel, name, on/off
-    mode_changed = QtCore.Signal(object, object)  # self, mode
+    mode_changed = qt.Signal(object, object)  # self, mode
 
     def __init__(self, clamp, sim):
         self.clamp = clamp

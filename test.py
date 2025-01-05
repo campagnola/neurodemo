@@ -10,9 +10,9 @@ import neurodemo as ND
 import numpy as np
 
 pg.setConfigOption('antialias', True)
-app = pg.mkQApp() # QtGui.QWidget.QApplication([])
+app = pg.mkQApp() # qt.QWidget.QApplication([])
 app.setStyle("fusion")
-class TestSim(pg.QtWidgets.QWidget):
+class TestSim(qt.QWidget):
     def __init__(self):
         super().__init__()
 
@@ -92,10 +92,10 @@ class TestSim(pg.QtWidgets.QWidget):
     
     def set_window(self, parent=None):
         super(TestSim, self).__init__(parent=parent)
-        QtGui.QWidget.__init__(self)
+        qt.QWidget.__init__(self)
         self.fullscreen_widget = None
         self.resize(1024, 768)
-        self.layout = pg.QtWidgets.QGridLayout()
+        self.layout = qt.QGridLayout()
         #self.win = pg.GraphicsLayoutWidget(title="Test Simulator")
         # self.win = pg.GraphicsLayoutWidget()
         #self.win.resize(1000, 600)

@@ -5,27 +5,27 @@ Luke Campagnola 2015
 """
 
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtGui, QtCore
+from . import qt
 
 from .analysisplot import AnalysisPlot   # simpler code-based analyzer
 from .traceanalyzer import TraceAnalyzer  # user friendly analyzer
 
 
-class SequencePlotWindow(QtGui.QWidget):
+class SequencePlotWindow(qt.QWidget):
     def __init__(self):
-        QtGui.QWidget.__init__(self)
+        qt.QWidget.__init__(self)
         self.mode = 'ic'
-        self.layout = QtGui.QGridLayout()
+        self.layout = qt.QGridLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
-        self.hold_check = QtGui.QCheckBox("Hold data")
+        self.hold_check = qt.QCheckBox("Hold data")
         self.hold_check.setChecked(True)
         self.layout.addWidget(self.hold_check, 0, 0)
-        self.clear_btn = QtGui.QPushButton("Clear data")
+        self.clear_btn = qt.QPushButton("Clear data")
         self.layout.addWidget(self.clear_btn, 0, 1)
         self.clear_btn.clicked.connect(self.clear_data)
 
-        self.splitter = QtGui.QSplitter(QtCore.Qt.Orientation.Vertical)
+        self.splitter = qt.QSplitter(qt.Qt.Orientation.Vertical)
         self.layout.addWidget(self.splitter, 1, 0, 1, 2)
         
         self.plot_layout = pg.GraphicsLayoutWidget()

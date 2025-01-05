@@ -3,17 +3,17 @@
 NeuroDemo - Physiological neuron sandbox for educational purposes
 Luke Campagnola 2015
 """
-from pyqtgraph.Qt import QtCore
+from . import qt
 from timeit import default_timer as def_timer
 
 
-class SimRunner(QtCore.QObject):
+class SimRunner(qt.QObject):
     """Run a simulation continuously and emit signals whenever results are ready.    
     """
-    new_result = QtCore.Signal(object)
+    new_result = qt.Signal(object)
     
     def __init__(self, sim):
-        QtCore.QObject.__init__(self)
+        qt.QObject.__init__(self)
         
         # dumps profiling data to prof.pstat
         # view with: python gprof2dot/gprof2dot.py -f pstats prof.pstat  | dot -Tpng -o prof.png && gwenview prof.png
@@ -25,7 +25,7 @@ class SimRunner(QtCore.QObject):
         
         self.sim = sim
         self.speed = 1.0
-        self.timer = QtCore.QTimer()
+        self.timer = qt.QTimer()
         self.timer.timeout.connect(self.run_once)
         self.counter = 0
         

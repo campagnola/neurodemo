@@ -2,12 +2,12 @@
 Taken from future modifications to pyqtgraph..
 
 """
-from pyqtgraph.Qt import QtGui, QtCore
+from . import qt
 import pyqtgraph.functions as fn
 import numpy as np
 
 
-class ArrowItem(QtGui.QGraphicsPathItem):
+class ArrowItem(qt.QGraphicsPathItem):
     """
     For displaying scale-invariant arrows.
     For arrows pointing to a location on a curve, see CurveArrow
@@ -21,7 +21,7 @@ class ArrowItem(QtGui.QGraphicsPathItem):
         the setStyle() method.
         """
         self.opts = {}
-        QtGui.QGraphicsPathItem.__init__(self, opts.get('parent', None))
+        qt.QGraphicsPathItem.__init__(self, opts.get('parent', None))
 
         if 'size' in opts:
             opts['headLen'] = opts['size']
@@ -75,7 +75,7 @@ class ArrowItem(QtGui.QGraphicsPathItem):
         self.opts.update(opts)
         
         opt = dict([(k,self.opts[k]) for k in ['headLen', 'tipAngle', 'baseAngle', 'tailLen', 'tailWidth']])
-        tr = QtGui.QTransform()
+        tr = qt.QTransform()
         tr.rotate(self.opts['angle'])
         self.path = tr.map(fn.makeArrowPath(**opt))
 
@@ -90,8 +90,8 @@ class ArrowItem(QtGui.QGraphicsPathItem):
 
 
     def paint(self, p, *args):
-        p.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
-        QtGui.QGraphicsPathItem.paint(self, p, *args)
+        p.setRenderHint(qt.QPainter.RenderHint.Antialiasing)
+        qt.QGraphicsPathItem.paint(self, p, *args)
         
         #p.setPen(fn.mkPen('r'))
         #p.setBrush(fn.mkBrush(None))
@@ -99,7 +99,7 @@ class ArrowItem(QtGui.QGraphicsPathItem):
 
     def shape(self):
         #if not self.opts['pxMode']:
-            #return QtGui.QGraphicsPathItem.shape(self)
+            #return qt.QGraphicsPathItem.shape(self)
         return self.path
     
     ## dataBounds and pixelPadding methods are provided to ensure ViewBox can

@@ -1,6 +1,6 @@
 import sys
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
+from . import qt
 import pyqtgraph.parametertree as pt
 #import qdarktheme
 STYLE_SHEET = """
@@ -59,15 +59,15 @@ app = pg.mkQApp()
 #app.setStyleSheet(qdarktheme.load_stylesheet())
 #app.setStyleSheet("QPushButton {color: #8ab4f7;border: 1px solid #3f4042;padding: 4px 8px;border-radius: $radius{4px};}")
 #app.setStyleSheet("QPushButton:!window {background: opaque; border: 2px solid #8f8f91;} QPushButton:!open {color:#aaaaaa;} QPushButton:!closed {color:#aa0000;}")
-# app.setStyleSheet("QPushButton:pressed {background-color: QtGui.qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,stop: 0 #dadbde, stop: 1 #f6f7fa);}")
+# app.setStyleSheet("QPushButton:pressed {background-color: qt.qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,stop: 0 #dadbde, stop: 1 #f6f7fa);}")
 # app.setStyleSheet("QPushButton:!window {background: opaque;}") 
-class PGTest(QtWidgets.QWidget):
+class PGTest(qt.QWidget):
     def __init__(self):
 
-        QtWidgets.QWidget.__init__(self)
+        qt.QWidget.__init__(self)
         self.fullscreen_widget = None
         self.resize(320, 320)
-        self.layout = QtWidgets.QGridLayout()
+        self.layout = qt.QGridLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
         self.ptree = pg.parametertree.ParameterTree(showHeader=False)

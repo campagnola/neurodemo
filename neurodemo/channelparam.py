@@ -4,14 +4,14 @@ NeuroDemo - Physiological neuron sandbox for educational purposes
 Luke Campagnola 2015
 """
 import numpy as np
-from pyqtgraph.Qt import QtGui, QtCore
+from . import qt
 import pyqtgraph.parametertree as pt
 import neurodemo.units as NU
 
 class ChannelParameter(pt.parameterTypes.SimpleParameter):
     
     # emitted when a plot should be shown or hidden
-    plots_changed = QtCore.Signal(object, object, object, object)  # self, channel, name, on/off
+    plots_changed = qt.Signal(object, object, object, object)  # self, channel, name, on/off
     
     def __init__(self, channel):
         self.channel = channel

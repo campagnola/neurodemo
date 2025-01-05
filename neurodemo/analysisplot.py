@@ -7,7 +7,7 @@ from __future__ import division, unicode_literals
 import sys
 import numpy as np
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtGui, QtCore
+from . import qt
 import pyqtgraph.console
 from pyqtgraph.metaarray import MetaArray
 from .editor import Editor
@@ -23,9 +23,9 @@ x = ipulse
 y = vpulse - vbase
 '''
 
-class AnalysisPlot(QtGui.QSplitter):
+class AnalysisPlot(qt.QSplitter):
     def __init__(self):
-        QtGui.QSplitter.__init__(self, QtCore.Qt.Vertical)
+        qt.QSplitter.__init__(self, qt.Qt.Vertical)
         self.ns = {}
         
         self.plot = pg.PlotWidget()
@@ -34,21 +34,21 @@ class AnalysisPlot(QtGui.QSplitter):
         self.addWidget(self.editor)
         self.editor.setText(analysis_code)
         
-        self.output = QtGui.QTextEdit()
+        self.output = qt.QTextEdit()
         self.output.setVisible(False)
         self.addWidget(self.output)
         
-        self.btn_widget = QtGui.QWidget()
+        self.btn_widget = qt.QWidget()
         self.addWidget(self.btn_widget)
-        self.btn_layout = QtGui.QGridLayout()
+        self.btn_layout = qt.QGridLayout()
         self.btn_widget.setLayout(self.btn_layout)
         
-        self.replot_btn = QtGui.QPushButton('Replot')
+        self.replot_btn = qt.QPushButton('Replot')
         self.btn_layout.addWidget(self.replot_btn, 0, 0)
         self.replot_btn.clicked.connect(self.update_plot)
         
         self.console = pg.console.ConsoleWidget(namespace=self.ns)
-        self.console_btn = QtGui.QPushButton('Console')
+        self.console_btn = qt.QPushButton('Console')
         self.console_btn.setCheckable(True)
         self.console_btn.toggled.connect(self.console.setVisible)
         self.btn_layout.addWidget(self.console_btn, 0, 1)

@@ -13,14 +13,14 @@ from pathlib import Path
 from typing import Union, List, Tuple
 import numpy as np
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtGui, QtCore, QtSvg
+from . import qt
 from pyqtgraph import ArrowItem
 from neurodemo import colormaps
 if pg.Qt.QT_LIB == 'PyQt6':
-    from PyQt6 import QtSvgWidgets as QtSvg
+    from . import qt
 
 if pg.Qt.QT_LIB == 'PySide6':
-    from PySide6 import QtSvgWidgets as QtSvg
+    from . import qt
 
 
 # for storing dynamically-generated svg files
@@ -69,10 +69,10 @@ class NeuronView(pg.GraphicsLayoutWidget):
         """
         pg.GraphicsLayoutWidget.__init__(self)
         self.soma = soma
-        self.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
+        self.setRenderHint(qt.QPainter.RenderHint.Antialiasing)
         self.view = self.addViewBox(0, 0)
         self.view.setAspectLocked()
-        self.view.setRange(QtCore.QRectF(-90, -90, 180, 180))
+        self.view.setRange(qt.QRectF(-90, -90, 180, 180))
 
         self.cell = Cell(soma)
         self.view.addItem(self.cell)
@@ -88,7 +88,7 @@ class NeuronView(pg.GraphicsLayoutWidget):
                 item = Pipette(mech)
                 self.view.addItem(item)
                 item.setZValue(1)
-                item.setTransform(QtGui.QTransform().translate(0, CellPosition.center_y))
+                item.setTransform(qt.QTransform().translate(0, CellPosition.center_y))
             else:  # add ion channels
                 item = Channel(
                     mech, translation=(0, 40), angle=angle
@@ -102,13 +102,13 @@ class NeuronView(pg.GraphicsLayoutWidget):
             self.items.append(item)  # all of the items in the view
 
         # translucent mask to obscure cell when circuit is visible
-        self.mask = QtGui.QGraphicsRectItem(QtCore.QRectF(-1000, -1000, 2000, 2000))
+        self.mask = qt.QGraphicsRectItem(qt.QRectF(-1000, -1000, 2000, 2000))
         self.view.addItem(self.mask)
         self.mask.setBrush(pg.mkBrush(0, 0, 0, 180))
         self.mask.setZValue(5)
 
         # circuit items are added separately so they appear above the mask
-        self.circuit = QtGui.QGraphicsItemGroup()
+        self.circuit = qt.QGraphicsItemGroup()
         self.view.addItem(self.circuit)
         self.circuit.setZValue(10)
         for i in self.items:
@@ -125,12 +125,12 @@ class NeuronView(pg.GraphicsLayoutWidget):
         self.colorbar.setGeometry(100, -40, 100, 150)
         cbax = self.colorbar.getAxis('bottom')
         ticks = {-150: '-150', -100: '-100', -50: ' -50',  0: '  0', 50: ' 50'}
-        font = QtGui.QFont()
+        font = qt.QFont()
         font.setPointSize(10)
         cbax.setStyle(tickTextOffset=8, tickFont=font)
         self.view.addItem(self.colorbar)
-        QtGui.QGraphicsItemGroup.setTransform(
-             self.colorbar, QtGui.QTransform().scale(1, -1))
+        qt.QGraphicsItemGroup.setTransform(
+             self.colorbar, qt.QTransform().scale(1, -1))
         cbax.setTicks([ticks.items()])
 
     def update_state(self, state):
@@ -143,24 +143,24 @@ class NeuronView(pg.GraphicsLayoutWidget):
             i.show_circuit(show)
 
 
-class NeuronItem(QtGui.QGraphicsItemGroup):
+class NeuronItem(qt.QGraphicsItemGroup):
     def __init__(self):
-        QtGui.QGraphicsItemGroup.__init__(self)
+        qt.QGraphicsItemGroup.__init__(self)
         self.circuit = None
         self.current = None
 
     def rotate(self, angle):
-        QtGui.QGraphicsItemGroup.setRotation(self, angle)
+        qt.QGraphicsItemGroup.setRotation(self, angle)
         self.circuit.setRotation(angle)
 
     def translate(self, x, y):
-        QtGui.QGraphicsItemGroup.setTransform(
-            self, QtGui.QTransform().fromTranslate(x, y)
+        qt.QGraphicsItemGroup.setTransform(
+            self, qt.QTransform().fromTranslate(x, y)
         )
-        self.circuit.setTransform(QtGui.QTransform().fromTranslate(x, y))
+        self.circuit.setTransform(qt.QTransform().fromTranslate(x, y))
 
     def setVisible(self, v):
-        QtGui.QGraphicsItemGroup.setVisible(self, v)
+        qt.QGraphicsItemGroup.setVisible(self, v)
         self.circuit.setVisible(v)
 
 
@@ -169,8 +169,8 @@ class Cell(NeuronItem):
         self.key = section.name
         NeuronItem.__init__(self)
 
-        self.soma = QtGui.QGraphicsEllipseItem(
-            QtCore.QRectF(
+        self.soma = qt.QGraphicsEllipseItem(
+            qt.QRectF(
                 CellPosition.center_x, 
                 CellPosition.center_y, 
                 CellPosition.diam_x, 
@@ -180,8 +180,8 @@ class Cell(NeuronItem):
         self.soma.setPen(pg.mkPen(0.5, width=1, cosmetic=False))
         self.soma.setParentItem(self)
         
-        self.soma2 = QtGui.QGraphicsEllipseItem(
-            QtCore.QRectF(
+        self.soma2 = qt.QGraphicsEllipseItem(
+            qt.QRectF(
                 CellPosition.center_x - CellPosition.membrane_thickness / 2,
                 CellPosition.center_y - CellPosition.membrane_thickness / 2,
                 CellPosition.diam_x + CellPosition.membrane_thickness,
@@ -191,7 +191,7 @@ class Cell(NeuronItem):
         self.soma2.setPen(pg.mkPen(0.5, width=1, cosmetic=False))
         self.soma2.setParentItem(self)
 
-        self.circuit = QtGui.QGraphicsItemGroup()
+        self.circuit = qt.QGraphicsItemGroup()
 
         # Net current
         self.current = Current(self.key, center=False)
@@ -220,7 +220,7 @@ class Cell(NeuronItem):
         angle: float = 0.0,
         translate: Union[List, Tuple] = (0, 0),
     ):
-        new_transform = QtGui.QTransform()
+        new_transform = qt.QTransform()
         new_transform.scale(scale[0], scale[1])
         new_transform.rotate(angle)
         new_transform.translate(translate[0], translate[1])
@@ -276,8 +276,8 @@ class Channel(NeuronItem):
 
         NeuronItem.__init__(self)
         self.channel_svg = [
-            QtSvg.QGraphicsSvgItem(self.get_svg(color)),
-            # QtSvg.QGraphicsSvgItem(self.get_svg(color)),   # not needed with channel2.svg
+            qt.QGraphicsSvgItem(self.get_svg(color)),
+            # qt.QGraphicsSvgItem(self.get_svg(color)),   # not needed with channel2.svg
         ]
         scale = [[1, -1], [1, -1]]
         transl = list(self.translation)
@@ -294,7 +294,7 @@ class Channel(NeuronItem):
         transl[1] += 32
         self.set_transform(label, scale[0], angle=self.angle, translate=transl)
 
-        self.bg = QtGui.QGraphicsRectItem(QtCore.QRectF(-5, -10, 10, 20))
+        self.bg = qt.QGraphicsRectItem(qt.QRectF(-5, -10, 10, 20))
         self.bg.setParentItem(self)
         self.bg.setZValue(-1)
         color = pg.mkColor(color)
@@ -302,7 +302,7 @@ class Channel(NeuronItem):
             pg.mkBrush(color.red() // 2, color.green() // 2, color.blue() // 2, 255)
         )
 
-        self.circuit = QtGui.QGraphicsItemGroup()
+        self.circuit = qt.QGraphicsItemGroup()
 
         self.current = Current(channel.name, center=False)
         self.current.setParentItem(self.circuit)
@@ -334,7 +334,7 @@ class Channel(NeuronItem):
         angle: float = 0.0,
         translate: Union[List, Tuple] = (0, 50),
     ):
-        new_transform = QtGui.QTransform()
+        new_transform = qt.QTransform()
         new_transform.scale(scale[0], scale[1])
         new_transform.rotate(angle)
         new_transform.translate(translate[0], translate[1])
@@ -356,9 +356,9 @@ class Channel(NeuronItem):
         self.res.setVisible(show)
 
 
-class Current(QtGui.QGraphicsItemGroup):
+class Current(qt.QGraphicsItemGroup):
     def __init__(self, channel_name, color="y", center=False):
-        QtGui.QGraphicsItemGroup.__init__(self)
+        qt.QGraphicsItemGroup.__init__(self)
         self.key = channel_name + ".I"
         self.center = center
         self.length = 20
@@ -411,8 +411,8 @@ class Pipette(NeuronItem):
         self.key = clamp.name
         
         # install a pipette
-        self.pipette_svg = QtSvg.QGraphicsSvgItem(str(svg_file("pipette")))
-        pip_transform = QtGui.QTransform()
+        self.pipette_svg = qt.QGraphicsSvgItem(str(svg_file("pipette")))
+        pip_transform = qt.QTransform()
         pip_transform.scale(1.0, 1.0)  # put pipette at the top of the cell
         pip_transform.rotate(-180.0)
         pip_transform.translate(CellPosition.center_x, 
@@ -421,7 +421,7 @@ class Pipette(NeuronItem):
         self.pipette_svg.setParentItem(self)
 
         # draw a box for the voltage
-        path = QtGui.QPainterPath()
+        path = qt.QPainterPath()
         path.moveTo(-8, -2)
         path.lineTo(-26, 256)
         path.lineTo(26, 256) # , 260) # 80, 260)
@@ -429,15 +429,15 @@ class Pipette(NeuronItem):
         path.lineTo(-8, -2)
         path.closeSubpath()
 
-        self.voltage = QtGui.QGraphicsPathItem(path)
+        self.voltage = qt.QGraphicsPathItem(path)
         self.voltage.setParentItem(self)
         self.voltage.setPen(pg.mkPen(None))
-        voltage_transform = QtGui.QTransform()
+        voltage_transform = qt.QTransform()
         voltage_transform.translate(0, CellPosition.diam_y)
         self.voltage.setTransform(voltage_transform)
         self.voltage.setZValue(-1)
 
-        self.circuit = QtGui.QGraphicsItemGroup()
+        self.circuit = qt.QGraphicsItemGroup()
 
        # pipette current indicator
         self.current = Current(self.key)
@@ -449,14 +449,14 @@ class Pipette(NeuronItem):
         # connected to the center  of the cell, but in the pipette
         self.res = Resistor(l1=CellPosition.diam_y/2+40, l2=140)
         self.res.setParentItem(self.circuit)
-        res_transform = QtGui.QTransform()
+        res_transform = qt.QTransform()
         res_transform.translate(0, CellPosition.center_y+CellPosition.diam_y/2)
         self.res.setTransform(res_transform)
 
         # Add the pipette transmural capacitance outside the cell and horizontal
         self.cap = Capacitor(l1=15, l2=15)
         self.cap.setParentItem(self.circuit)
-        cap_transform = QtGui.QTransform()
+        cap_transform = qt.QTransform()
         cap_transform.translate(0, CellPosition.center_y+CellPosition.diam_y+15)  # 40
         cap_transform.rotate(-90.0)
         self.cap.setTransform(cap_transform)
@@ -470,10 +470,10 @@ class Pipette(NeuronItem):
             self.setVisible(False)
             return
         y = self.voltage.boundingRect().top()
-        grad = QtGui.QLinearGradient(QtCore.QPointF(0, y), QtCore.QPointF(0, y + 25))
+        grad = qt.QLinearGradient(qt.QPointF(0, y), qt.QPointF(0, y + 25))
         grad.setColorAt(0, pg.mkColor(v_color(vm)))
         grad.setColorAt(1, pg.mkColor(v_color(ve)))
-        self.voltage.setBrush(QtGui.QBrush(grad))
+        self.voltage.setBrush(qt.QBrush(grad))
         self.current.update_state(state)
 
     def show_circuit(self, show):
@@ -481,12 +481,12 @@ class Pipette(NeuronItem):
         self.res.setVisible(show)
 
 
-class Capacitor(QtGui.QGraphicsItemGroup):
+class Capacitor(qt.QGraphicsItemGroup):
     def __init__(self, l1, l2, w1=10, w2=10, gap=6):
-        QtGui.QGraphicsItemGroup.__init__(self)
+        qt.QGraphicsItemGroup.__init__(self)
 
         g2 = gap / 2
-        path = QtGui.QPainterPath()
+        path = qt.QPainterPath()
         path.moveTo(0, 0)
         path.lineTo(0, l1 - g2)
         path.moveTo(-w1 / 2, l1 - g2)
@@ -496,18 +496,18 @@ class Capacitor(QtGui.QGraphicsItemGroup):
         path.moveTo(0, l1 + g2)
         path.lineTo(0, l1 + l2)
 
-        self.line = QtGui.QGraphicsPathItem(path)
+        self.line = qt.QGraphicsPathItem(path)
         self.line.setBrush(pg.mkBrush(None))
         self.line.setPen(pg.mkPen("w", width=1, cosmetic=False))
         self.line.setParentItem(self)
 
 
-class Battery(QtGui.QGraphicsItemGroup):
+class Battery(qt.QGraphicsItemGroup):
     def __init__(self, l1, l2, w1=10, w2=10, gap=4, polarity:str=""):
-        QtGui.QGraphicsItemGroup.__init__(self)
+        qt.QGraphicsItemGroup.__init__(self)
 
         g2 = gap / 2
-        path = QtGui.QPainterPath()
+        path = qt.QPainterPath()
         # wire:
         path.moveTo(0, 0)
         path.lineTo(0, l1 - g2)
@@ -527,13 +527,13 @@ class Battery(QtGui.QGraphicsItemGroup):
         path.moveTo(0, l1 + g2)
         path.lineTo(0, l1 + l2)
 
-        self.line = QtGui.QGraphicsPathItem(path)
+        self.line = qt.QGraphicsPathItem(path)
         self.line.setBrush(pg.mkBrush(None))
         self.line.setPen(pg.mkPen("w", width=1, cosmetic=False))
         self.line.setParentItem(self)
 
 
-class Resistor(QtGui.QGraphicsItemGroup):
+class Resistor(qt.QGraphicsItemGroup):
     """Draw a resistor. Lead lengths are l1, l2
        The resistor width is 3, and the height (length)
        is a function of the width, so we get 3 zig-zags
@@ -545,12 +545,12 @@ class Resistor(QtGui.QGraphicsItemGroup):
 
     """
     def __init__(self, l1, l2):
-        QtGui.QGraphicsItemGroup.__init__(self)
+        qt.QGraphicsItemGroup.__init__(self)
 
         w = 3
         h = w / 3**0.5
 
-        path = QtGui.QPainterPath()
+        path = qt.QPainterPath()
         path.moveTo(0, 0)
         y = l1 - h * 6
         path.lineTo(0, y)
@@ -562,7 +562,7 @@ class Resistor(QtGui.QGraphicsItemGroup):
         path.lineTo(0, y - h)
         path.lineTo(0, l1 + l2)
 
-        self.line = QtGui.QGraphicsPathItem(path)
+        self.line = qt.QGraphicsPathItem(path)
         self.line.setBrush(pg.mkBrush(None))
         self.line.setPen(pg.mkPen("w", width=1, cosmetic=False))
         self.line.setParentItem(self)
