@@ -1,7 +1,7 @@
 Neuron Demonstration
 ====================
 
-![screenshot](https://github.com/campagnola/neurodemo/blob/master/screenshot.png?raw=true)
+<div align="center"><img src="https://github.com/campagnola/neurodemo/blob/master/screenshot.png" width="800"></div>
 
 Luke Campagnola & Paul Manis
 
@@ -17,7 +17,7 @@ This is an educational simulation of a simple neuron.
 * Analysis tool for generating I/V curves and similar analyses.
 * Pure python simulation; relatively easy to add new channels
 
-![analysis screenshot](https://github.com/campagnola/neurodemo/blob/master/analysis_screenshot.png?raw=true)
+<div align="center"><img src="https://github.com/campagnola/neurodemo/blob/master/analysis_screenshot.png" width="500"></div>
 
 
 Requirements
