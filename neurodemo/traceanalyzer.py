@@ -67,7 +67,7 @@ class TraceAnalyzer(qt.QWidget):
         
 
 class TraceAnalyzerGroup(pt.parameterTypes.GroupParameter):
-    need_update = qt.Signal()
+    need_update = qt.Signal()    
 
     def __init__(self, **kwds):
         analyses = ['min', 'max', 'mean', 'exp_tau', 'spike_count', 'spike_latency']
@@ -105,6 +105,7 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
         self.sigTreeStateChanged.connect(self.tree_changed)
         
         self.rgn = pg.LinearRegionItem([self['Start'], self['End']])
+        self.rgn_label = pg.InfLineLabel(self.rgn.lines[0], text=self.name(), angle=90, anchors=[(0, 0), (0, 0)])
         self.rgn.sigRegionChanged.connect(self.region_changed)
 
         self.show_threshold_param()
@@ -121,6 +122,8 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
                     self.rgn.sigRegionChanged.connect(self.region_changed)
             elif param is self.child('Type'):
                 self.show_threshold_param()
+            elif param is self and change == 'name':
+                self.rgn_label.setText(self.name())
             self.need_update.emit(self)
 
     def show_threshold_param(self):
