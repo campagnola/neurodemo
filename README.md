@@ -1,7 +1,9 @@
 Neuron Demonstration
 ====================
 
-Luke Campagnola, 2015
+![screenshot](https://github.com/campgnola/neurodemo/blob/main/screenshot.png?raw=true)
+
+Luke Campagnola & Paul Manis
 
 
 This is an educational simulation of a simple neuron.
