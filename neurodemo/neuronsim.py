@@ -901,7 +901,7 @@ class IH(Channel):
 class LGNa(Channel):
     """Cortical sodium channel (Lewis & Gerstner 2002, p.124)"""
 
-    type = "INa"
+    type = "INa1"
 
     def __init__(self, gbar=112.5 * NU.mS / NU.cm**2, **kwds):
         init_state = OrderedDict([("m", 0.019), ("h", 0.876)])
