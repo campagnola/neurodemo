@@ -2,6 +2,7 @@ Neuron Demonstration
 ====================
 
 ![screenshot](https://github.com/campagnola/neurodemo/blob/master/screenshot.png?raw=true)
+
 Luke Campagnola & Paul Manis
 
 
@@ -12,9 +13,11 @@ This is an educational simulation of a simple neuron.
 * Destexhe 1993 Ih channel
 * Current/voltage clamp electrode with access resistance
 * Diagram of cell membrane with circuit schematic
-* Realtime simulation and plotting of voltages, currents, open probabilities, etc.
+* Realtime simulation and plotting of voltages, currents, open probabilities, gating parameters, etc.
 * Analysis tool for generating I/V curves and similar analyses.
+* Pure python simulation; relatively easy to add new channels
 
+![analysis screenshot](https://github.com/campagnola/neurodemo/blob/master/analysis_screenshot.png?raw=true)
 
 
 Requirements
