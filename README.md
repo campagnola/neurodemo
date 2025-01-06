@@ -1,8 +1,7 @@
 Neuron Demonstration
 ====================
 
-![screenshot](https://github.com/campgnola/neurodemo/blob/main/screenshot.png?raw=true)
-
+![screenshot](https://github.com/campagnola/neurodemo/blob/master/screenshot.png?raw=true)
 Luke Campagnola & Paul Manis
 
 
