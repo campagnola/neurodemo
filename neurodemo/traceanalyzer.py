@@ -16,11 +16,11 @@ class TraceAnalyzer(qt.QWidget):
         qt.QWidget.__init__(self)
         self.plotter = seq_plotter
         
-        self.layout = qt.QGridLayout()
-        self.layout.setContentsMargins(0, 0, 0, 0)
-        self.setLayout(self.layout)
+        self.main_layout = qt.QGridLayout()
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(self.main_layout)
         self.hsplitter = qt.QSplitter(qt.Qt.Orientation.Horizontal)
-        self.layout.addWidget(self.hsplitter)
+        self.main_layout.addWidget(self.hsplitter)
         
         self.ptree = pt.ParameterTree(showHeader=False)
         self.hsplitter.addWidget(self.ptree)
@@ -50,12 +50,12 @@ class TraceAnalyzer(qt.QWidget):
         self.update_analysis()
 
     def update_analyzers(self):
-        for anal in self.params.children():
-            self.plotter.plots[anal['Input']].addItem(anal.rgn, ignoreBounds=True)
+        for analyzer in self.params.children():
+            self.plotter.plots[analyzer['Input']].addItem(analyzer.rgn, ignoreBounds=True)
         self.update_analysis()
         
     def update_analysis(self):
-        fields = ['cmd'] + [anal.name() for anal in self.params.children()]
+        fields = ['cmd'] + [analyzer.name() for analyzer in self.params.children()]
         data = np.empty(len(self.data), dtype=[(str(f), float) for f in fields])
         for i, rec in enumerate(self.data):
             t, d, info = rec
@@ -93,8 +93,8 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
     def __init__(self, **kwds):
         kwds.update({'removable': True, 'renamable': False})
         childs = [
-            dict(name='Input', type='list', values=kwds.pop('inputs')),
-            dict(name='Type', type='list', value=kwds.pop('analysis_type'), values=['mean', 'min', 'max', 'exp_tau', 'spike_count', 'spike_latency']),
+            dict(name='Input', type='list', limits=kwds.pop('inputs')),
+            dict(name='Type', type='list', value=kwds.pop('analysis_type'), limits=['mean', 'min', 'max', 'exp_tau', 'spike_count', 'spike_latency']),
             dict(name='Start', type='float', value=0, suffix='s', siPrefix=True, step=5e-3),
             dict(name='End', type='float', value=10e-3, suffix='s', siPrefix=True, step=5e-3),
             dict(name='Threshold', type='float', value=-30e-3, suffix='V', siPrefix=True, step=5e-3, visible=False),
@@ -205,37 +205,37 @@ class EvalPlotter(qt.QWidget):
         self.held_index = 0
         
         qt.QWidget.__init__(self)
-        self.layout = qt.QGridLayout()
-        self.layout.setContentsMargins(0, 0, 0, 0)
-        self.setLayout(self.layout)
+        self.main_layout = qt.QGridLayout()
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(self.main_layout)
         
         self.x_label = qt.QLabel('X data')
         self.y_label = qt.QLabel('Y data')
-        self.layout.addWidget(self.x_label, 0, 0)
-        self.layout.addWidget(self.y_label, 1, 0)
+        self.main_layout.addWidget(self.x_label, 0, 0)
+        self.main_layout.addWidget(self.y_label, 1, 0)
         
         self.x_code = qt.QLineEdit('cmd')
         self.y_code = qt.QLineEdit()
-        self.layout.addWidget(self.x_code, 0, 1)
-        self.layout.addWidget(self.y_code, 1, 1)
+        self.main_layout.addWidget(self.x_code, 0, 1)
+        self.main_layout.addWidget(self.y_code, 1, 1)
         
         self.x_units_label = qt.QLabel('units')
         self.y_units_label = qt.QLabel('units')
-        self.layout.addWidget(self.x_units_label, 0, 2)
-        self.layout.addWidget(self.y_units_label, 1, 2)
+        self.main_layout.addWidget(self.x_units_label, 0, 2)
+        self.main_layout.addWidget(self.y_units_label, 1, 2)
         
         self.x_units_text = qt.QLineEdit('A')
         self.y_units_text = qt.QLineEdit()
-        self.layout.addWidget(self.x_units_text, 0, 3)
-        self.layout.addWidget(self.y_units_text, 1, 3)
+        self.main_layout.addWidget(self.x_units_text, 0, 3)
+        self.main_layout.addWidget(self.y_units_text, 1, 3)
 
         self.plot = pg.PlotWidget()
-        self.layout.addWidget(self.plot, 2, 0, 1, 4)
+        self.main_layout.addWidget(self.plot, 2, 0, 1, 4)
 
         self.hold_plot_btn = qt.QPushButton('Hold Plot')
-        self.layout.addWidget(self.hold_plot_btn, 3, 0, 1, 2)
+        self.main_layout.addWidget(self.hold_plot_btn, 3, 0, 1, 2)
         self.clear_plot_btn = qt.QPushButton('Clear Plot')
-        self.layout.addWidget(self.clear_plot_btn, 3, 2, 1, 2)
+        self.main_layout.addWidget(self.clear_plot_btn, 3, 2, 1, 2)
         
         self.x_code.editingFinished.connect(self.replot)
         self.y_code.editingFinished.connect(self.replot)

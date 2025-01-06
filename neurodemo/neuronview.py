@@ -89,7 +89,6 @@ class NeuronView(pg.GraphicsLayoutWidget):
             'INa1': -35.0,
             'IKs': -70.0,
             'IKf': -105.0,
-            # 'next': 180.0,  # starting point for all others
         }
 
         for mech in mechanisms:
@@ -101,7 +100,6 @@ class NeuronView(pg.GraphicsLayoutWidget):
             else:  # add ion channels
                 angle = channel_angles[mech.type]
                 item = Channel(mech, translation=(0, 40), angle=angle)
-                print(f"Adding channel: {mech.type} at angle: {angle}")
                 self.view.addItem(item)  # add to graphic view of the cell
                 self.channels.append(item)  # keep a list
 
@@ -290,7 +288,6 @@ class Channel(NeuronItem):
         self.channel_svg.setParentItem(self)
         self.set_transform(self.channel_svg, scale, angle=self.angle, translate=transl)
 
-        print(f"Channel: {channel.type} at angle: {angle}")
         # add a label to the channel
         label = pg.LabelItem(channel.type, color=pg.mkColor(color),
             angle=-angle, anchor=[0.5, 0.5])

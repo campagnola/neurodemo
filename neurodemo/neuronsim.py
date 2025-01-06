@@ -686,9 +686,7 @@ class PatchClamp(Mechanism):
 class Leak(Channel):
     type = "Ileak"
 
-    def __init__(
-        self, gbar=0.1 * NU.mS / NU.cm**2, **kwds
-    ):
+    def __init__(self, gbar=0.1 * NU.mS / NU.cm**2, **kwds):
         Channel.__init__(self, gbar=gbar, init_state={}, **kwds)
     
     @property
