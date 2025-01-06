@@ -91,7 +91,7 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
     need_update = qt.Signal(object)  # self
 
     def __init__(self, **kwds):
-        kwds.update({'removable': True, 'renamable': False})
+        kwds.update({'removable': True, 'renamable': True})
         childs = [
             dict(name='Input', type='list', limits=kwds.pop('inputs')),
             dict(name='Type', type='list', value=kwds.pop('analysis_type'), limits=['mean', 'min', 'max', 'exp_tau', 'spike_count', 'spike_latency']),
@@ -111,7 +111,7 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
     
     def tree_changed(self, root, changes):
         for param, change, val in changes:
-            if change != 'value':
+            if change not in ('value', 'name'):
                 continue
             if param is self.child('Start') or param is self.child('End'):
                 self.rgn.sigRegionChanged.disconnect(self.region_changed)

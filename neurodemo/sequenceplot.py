@@ -31,7 +31,8 @@ class SequencePlotWindow(qt.QWidget):
         self.plot_layout = pg.GraphicsLayoutWidget()
         self.splitter.addWidget(self.plot_layout)
         self.plots = {}
-        
+        self.plotted_data = []
+
         self.analyzer = TraceAnalyzer(self)
         self.splitter.addWidget(self.analyzer)
         
@@ -70,7 +71,8 @@ class SequencePlotWindow(qt.QWidget):
             if k in ["soma.IK.I", "soma.IKf.I", "soma.IKs.I", "soma.INa.I",
                 "soma.IH.I", "soma.INa1.I"]:
                 sign = -1.0   # flip sign of cation currents for display
-            plt.plot(t, sign*data[k], pen=pen)
+            plt_data = plt.plot(t, sign*data[k], pen=pen)
+            self.plotted_data.append((plt_data, plt))
         
         try:
             self.analyzer.add_data(t, data, info)
@@ -79,8 +81,9 @@ class SequencePlotWindow(qt.QWidget):
         self.show()
         
     def clear_data(self):
-        for plt in self.plots.values():
-            plt.clear()
+        for item, plt in self.plotted_data:
+            plt.removeItem(item)
+        self.plotted_data = []
         self.analyzer.clear()
     
     def plot_triggers(self, t, d):
