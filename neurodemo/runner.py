@@ -32,8 +32,10 @@ class SimRunner(qt.QObject):
     def start(self, blocksize=500, **kwds):
         self.starttime = def_timer()
         self.blocksize = blocksize
-        self.run_args = kwds
-        self.timer.start(20)  # determines the width of the display window/update interval
+
+        self.run_args = {"stop_after_cmd": False}  # If True, then stop after all queued commands are exhausted
+        self.run_args.update(**kwds)
+        self.timer.start(20)  # Argument (in milliseconds) determines width of the display window/update interval
         
     def stop(self):
         self.timer.stop()
@@ -46,6 +48,9 @@ class SimRunner(qt.QObject):
         blocksize = int(max(2, self.blocksize * self.speed))
         result = self.sim.run(blocksize, **self.run_args)
         self.new_result.emit(result)
-        
+        if self.run_args['stop_after_cmd'] and self.sim.cmd_done():
+            # We have elected to stop when command is done
+            self.stop()
+
     def set_speed(self, speed):
         self.speed = speed
