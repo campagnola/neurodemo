@@ -16,11 +16,6 @@ import pyqtgraph as pg
 from . import qt
 from pyqtgraph import ArrowItem
 from neurodemo import colormaps
-if pg.Qt.QT_LIB == 'PyQt6':
-    from . import qt
-
-if pg.Qt.QT_LIB == 'PySide6':
-    from . import qt
 
 
 # for storing dynamically-generated svg files

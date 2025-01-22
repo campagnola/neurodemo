@@ -301,6 +301,11 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                 "seq_len": 0,
             }
             self.add_trigger(len(cmd), t, info)
+
+        if not self.sim.running():
+            # If not already running, then start a time-limited run.
+            self.sim.start(stop_after_cmd=True)
+
         # self.print_triggers()
 
     def pulse_sequence(self):
@@ -340,6 +345,10 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
             }
             self.add_trigger(len(cmd), t, info)
         # self.print_triggers()
+        if not self.sim.running():
+            # If not already running, then start a time-limited run
+            self.sim.start(stop_after_cmd=True)
+
 
     def add_trigger(self, n, t, info):
         buf = np.empty(n, dtype=[(str(k), float) for k in self.plot_keys + ["t"]])

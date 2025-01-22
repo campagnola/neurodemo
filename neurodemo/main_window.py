@@ -361,8 +361,8 @@ class DemoWindow(qt.QWidget):
     def running(self):
         return self.runner.running()
 
-    def start(self):
-        self.runner.start(blocksize=2048)
+    def start(self, **kwargs):
+        self.runner.start(blocksize=2048, **kwargs)
         for plt in self.channel_plots.values():
             plt.hover_line.setVisible(False)
         

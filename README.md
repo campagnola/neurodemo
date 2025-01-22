@@ -68,6 +68,17 @@ There are multiple ways to install:
     -  type "python demo.py" to run the program. 
     - To make an installable file (dmg), run the shell script that is appropriate for the processor: make_M1_dmg.sh or make_x86_64_dmg.sh. The resulting dmg file will be in the folder dist/demo_(architecture).dmg. You can then install the app as you would with any other dmg file.  
 
+3. Creating a standalone Windows or Mac executable file to distribute to others.
+
+    - Git clone the repository. 
+    - Create a python venv in the main directory.
+    - In cmd window, install pyinstaller as follows:
+    -     pip install pyinstaller
+    - In cmd window, cd to main directory, activate the venv, then enter:
+    -     pyinstaller neurodemo.spec
+    - Executable neurodemo.exe will be created in the dist directory. Pyinstaller will also put a bunch of files into the build/neurodemo folder, which can be ignored.
+
+
 Running the Demo
 ----------------
 

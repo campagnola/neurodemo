@@ -169,6 +169,11 @@ class Sim(object):
                 state[k] = v
         return state
 
+    def cmd_done(self):
+        if 'soma.PatchClamp' in self.all_objects():
+            return len(self.all_objects()['soma.PatchClamp'].cmd_queue) == 0
+        return False
+
 
 class MissingCurrentException(Exception):
     pass
