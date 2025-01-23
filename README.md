@@ -71,12 +71,19 @@ There are multiple ways to install:
 3. Creating a standalone Windows or Mac executable file to distribute to others.
 
     - Git clone the repository. 
-    - Create a python venv in the main directory.
+    - Create and activate a python venv in the main directory and install all dependencies.
     - In cmd window, install pyinstaller as follows:
     -     pip install pyinstaller
-    - In cmd window, cd to main directory, activate the venv, then enter:
-    -     pyinstaller neurodemo.spec
-    - Executable neurodemo.exe will be created in the dist directory. Pyinstaller will also put a bunch of files into the build/neurodemo folder, which can be ignored.
+    - In cmd window, cd to main directory, making sure the venv is active, then enter one of the following, based on whether you are on Windows or Mac:
+    -     pyinstaller neurodemo_windows.spec
+    -     pyinstaller neurodemo_mac.spec
+    - Executable neurodemo.exe will be created in the dist directory. You can run it by double-clicking it.
+    - It does NOT need any other files, and you can give this file to others and they should be able to run it without
+    - having to install anything.
+    - 
+    - The Windows version will show a splash screen while starting up (which takes a few seconds). Unfortunately the
+    - splash screen is not compatible with Mac (which is why it needs a separate .spec file) so you just have to trust it is working
+    - while waiting for it to start up.
 
 
 Running the Demo

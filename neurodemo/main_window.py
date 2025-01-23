@@ -4,6 +4,8 @@ NeuroDemo - Physiological neuron sandbox for educational purposes
 Luke Campagnola 2015
 """
 
+from __future__ import annotations
+
 # make sure we get the right pyqtgraph.
 from dataclasses import dataclass
 import sys
@@ -154,10 +156,6 @@ class DemoWindow(qt.QWidget):
         for ion in self.ion_concentrations:
             ion.updateErev(self.sim.temp)  # match temperature with an update
         
-        self.vm_plot = self.add_plot('soma.V', 'Membrane Potential', 'V')
-        
-        self.splitter.setSizes([300, 300, 800])
-
         self.params = pt.Parameter.create(name='Parameters', type='group', children=[
             dict(name='Preset', type='list', value='HH AP', values=['Passive', 'HH AP', 'LG AP']),
             dict(name='Run/Stop', type='action', value=False),
@@ -176,6 +174,10 @@ class DemoWindow(qt.QWidget):
             # self.clamp_param,  # now in the adjacent window
             dict(name='Ion Channels', type='group', children=self.channel_params),
         ])
+
+        self.vm_plot = self.add_plot('soma.V', 'Membrane Potential', 'V')
+        self.splitter.setSizes([300, 300, 800])
+
         self.ptree.setParameters(self.params)
         self.params.sigTreeStateChanged.connect(self.params_changed)
         # make Run/Stop button change color to indicate running state
@@ -271,7 +273,7 @@ class DemoWindow(qt.QWidget):
             plt = self.channel_plots[key]
             plt.setLabels(left=(plt.label_name, self.command_units()))
 
-    def add_plot(self, key, pname, name):
+    def add_plot(self, key, pname, name) -> ScrollingPlot:
         # decide on y range, label, and units for new plot
         yranges = {
             'V': (-100*NU.mV, 50*NU.mV),
@@ -311,6 +313,9 @@ class DemoWindow(qt.QWidget):
 
         # register this plot for later..
         self.channel_plots[key] = plt
+
+        # Prevent user from zooming out beyond actual data time limits
+        plt.setLimits(xMin=-self.params['Plot Duration'], xMax=0)
         
         # add new plot to splitter and resize all accordingly
         sizes = self.plot_splitter.sizes()
@@ -339,11 +344,17 @@ class DemoWindow(qt.QWidget):
         # only process hover events while paused
         if self.running():
             return
+        if len(items) == 0:
+            # Can happen if mouse is dragged past limit
+            return
         item = items[0]
         widget = item.getViewWidget()
         globalPos = qt.QCursor.pos()
         localPos = widget.mapFromGlobal(globalPos)
         scenePos = item.mapFromDevice(localPos)
+        if not hasattr(item, 'vb'):
+            # Can happen if mouse dragged past limit
+            return
         viewPos = item.vb.mapSceneToView(scenePos)
         self.set_hover_time(viewPos.x())
 
@@ -392,8 +403,10 @@ class DemoWindow(qt.QWidget):
 
     def set_scrolling_plot_duration(self, val):
         self.scrolling_plot_duration = val
+        self.vm_plot.setLimits(xMin=-val)
         for k in self.channel_plots.keys():
             self.channel_plots[k].set_duration(val)
+            self.channel_plots[k].setLimits(xMin=-val, xMax=0)
 
     def pause(self):
         self.params['Run'] = not self.params['Run']
