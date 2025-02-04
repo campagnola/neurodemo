@@ -360,11 +360,9 @@ class DemoWindow(qt.QWidget):
         globalPos = qt.QCursor.pos()
         localPos = widget.mapFromGlobal(globalPos)
         scenePos = item.mapFromDevice(localPos)
-        if not hasattr(item, 'vb'):
-            # Can happen if mouse dragged past valid time limit
-            return
-        viewPos = item.vb.mapSceneToView(scenePos)
-        self.set_hover_time(viewPos.x())
+        if isinstance(item, pg.PlotItem):
+            viewPos = item.vb.mapSceneToView(scenePos)
+            self.set_hover_time(viewPos.x())
 
     def set_hover_time(self, t):
         """Move vertical lines to time *t* and update the schematic accordingly.
