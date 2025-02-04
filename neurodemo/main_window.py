@@ -4,6 +4,10 @@ NeuroDemo - Physiological neuron sandbox for educational purposes
 Luke Campagnola 2015
 """
 
+# Starting to add a few type hints. This is very preliminary.
+from __future__ import annotations
+import typing
+
 # make sure we get the right pyqtgraph.
 from dataclasses import dataclass
 import sys
@@ -131,7 +135,7 @@ class DemoWindow(qt.QWidget):
         self.clamp_param.plots_changed.connect(self.plots_changed)
         self.clamp_param.mode_changed.connect(self.mode_changed)
 
-        self.channel_plots = {}
+        self.channel_plots: typing.Dict[str, ScrollingPlot] = {}
         
         self.channel_params = [
             ChannelParameter(self.leak),
@@ -154,10 +158,6 @@ class DemoWindow(qt.QWidget):
         for ion in self.ion_concentrations:
             ion.updateErev(self.sim.temp)  # match temperature with an update
         
-        self.vm_plot = self.add_plot('soma.V', 'Membrane Potential', 'V')
-        
-        self.splitter.setSizes([300, 300, 800])
-
         self.params = pt.Parameter.create(name='Parameters', type='group', children=[
             dict(name='Preset', type='list', value='HH AP', values=['Passive', 'HH AP', 'LG AP']),
             dict(name='Run/Stop', type='action', value=False),
@@ -176,6 +176,12 @@ class DemoWindow(qt.QWidget):
             # self.clamp_param,  # now in the adjacent window
             dict(name='Ion Channels', type='group', children=self.channel_params),
         ])
+
+        # Now that add_plot() sets x-axis limits, it must be called after defining self.params,
+        # which contains info about the plot duration.
+        self.vm_plot = self.add_plot('soma.V', 'Membrane Potential', 'V')
+        self.splitter.setSizes([300, 300, 800])
+
         self.ptree.setParameters(self.params)
         self.params.sigTreeStateChanged.connect(self.params_changed)
         # make Run/Stop button change color to indicate running state
@@ -188,8 +194,12 @@ class DemoWindow(qt.QWidget):
         # self.start()  # if autostart desired
 
         self.clamp_param['Plot Current'] = True
-        self.plot_splitter.setSizes([300, 500, 200])
-        
+        self.clamp_param['Plot Command'] = True
+
+        # Set default heights of neuronview, membrane voltage, and other initial scrolling graphs.
+        self.plot_splitter.setSizes([300, 500] + [200] * (len(self.plot_splitter.sizes()) - 2))
+
+        # Any additional plots must be added after setting default heights
         self.pause_shortcut = qt.QShortcut(qt.QKeySequence('Space'), self)
         self.pause_shortcut.activated.connect(self.pause)
         self.slow_shortcut = qt.QShortcut(qt.QKeySequence('-'), self)
@@ -271,7 +281,7 @@ class DemoWindow(qt.QWidget):
             plt = self.channel_plots[key]
             plt.setLabels(left=(plt.label_name, self.command_units()))
 
-    def add_plot(self, key, pname, name):
+    def add_plot(self, key, pname, name) -> ScrollingPlot:
         # decide on y range, label, and units for new plot
         yranges = {
             'V': (-100*NU.mV, 50*NU.mV),
@@ -311,6 +321,9 @@ class DemoWindow(qt.QWidget):
 
         # register this plot for later..
         self.channel_plots[key] = plt
+
+        # Prevent user from zooming out beyond actual data time limits
+        plt.setLimits(xMin=-self.params['Plot Duration'], xMax=0)
         
         # add new plot to splitter and resize all accordingly
         sizes = self.plot_splitter.sizes()
@@ -319,7 +332,7 @@ class DemoWindow(qt.QWidget):
         r = len(sizes) / (len(sizes)+1)
         sizes = [int(s * r) for s in sizes] + [int(size)]
         self.plot_splitter.setSizes(sizes)
-        
+
         # Ask sequence plotter to update as well
         self.clamp_param.add_plot(key, label)
 
@@ -338,6 +351,9 @@ class DemoWindow(qt.QWidget):
     def mouse_moved_over_plot(self, items):
         # only process hover events while paused
         if self.running():
+            return
+        if len(items) == 0:
+            # Can happen if mouse is dragged past valid time limit
             return
         item = items[0]
         widget = item.getViewWidget()
@@ -393,8 +409,14 @@ class DemoWindow(qt.QWidget):
 
     def set_scrolling_plot_duration(self, val):
         self.scrolling_plot_duration = val
+        # Update x-axis limits for membrane voltage plot, so we don't "lose" the traces by accident.
+        self.vm_plot.setLimits(xMin=-val)
         for k in self.channel_plots.keys():
             self.channel_plots[k].set_duration(val)
+            # Update range and x-limits on all other ScrollingPlot objects
+            # Note: ScrollingPLot.setLimits() and .setXRange() are wrapped from pyqtgraph ViewBox
+            self.channel_plots[k].setLimits(xMin=-val, xMax=0)
+            self.channel_plots[k].setXRange(-val, 0)
 
     def pause(self):
         self.params['Run'] = not self.params['Run']

@@ -369,16 +369,20 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         self.plot_win.remove_plot(key)
 
     def get_oldest_result(self):
-        earliest = -1
+        # Find index of result_buffer having the lowest timestamp
+        earliest_t = -1
+        earliest_i = -1
         for i, r in enumerate(self.result_buffer):
             t = r["t"][0]
-            if earliest == -1:
-                earliest = t
+            if earliest_t == -1:
+                earliest_t = t
+                earliest_i = i
             else:
-                if t < earliest:
-                    earliest = t
-        if i >= 0:
-            return self.result_buffer.pop(i)
+                if t < earliest_t:
+                    earliest_t = t
+                    earliest_i = i
+        if earliest_i >= 0:
+            return self.result_buffer.pop(int(earliest_i))
         else:
             raise ValueError("Cannot find oldest result in queue")
 

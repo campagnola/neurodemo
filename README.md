@@ -60,7 +60,6 @@ There are multiple ways to install:
     - In the main directory, under the windows cmd terminal, run win_install.bat.
     - Create a shortcut on the desktop to the file win_start_demo.bat, and set the "window" to minimized. 
         Clicking on the shortcut should start the program. 
-    - There is no working way to make an exe file at the moment - the .spec file are getting close but not working yet (missing a windows dll).
     
     b. macOS
     - Git clone the repository.
@@ -68,15 +67,17 @@ There are multiple ways to install:
     -  type "python demo.py" to run the program. 
     - To make an installable file (dmg), run the shell script that is appropriate for the processor: make_M1_dmg.sh or make_x86_64_dmg.sh. The resulting dmg file will be in the folder dist/demo_(architecture).dmg. You can then install the app as you would with any other dmg file.  
 
-3. Creating a standalone Windows or Mac executable file to distribute to others.
+3. Create a single standalone executable file to distribute to others.
 
     - Git clone the repository. 
-    - Create a python venv in the main directory.
-    - In cmd window, install pyinstaller as follows:
+    - Create *and activate* a python virtual environment (venv) in the main repository directory and install all dependencies. Also, install pyinstaller:
     -     pip install pyinstaller
-    - In cmd window, cd to main directory, activate the venv, then enter:
-    -     pyinstaller neurodemo.spec
-    - Executable neurodemo.exe will be created in the dist directory. Pyinstaller will also put a bunch of files into the build/neurodemo folder, which can be ignored.
+    - At the command line, cd to main repository directory, making sure the venv is active, then enter one of the following, based on whether you are on Windows or Mac:
+    -     pyinstaller neurodemo_windows.spec
+    -     pyinstaller neurodemo_mac.spec
+    - This will create a subfolder "dist" containing a stand-alone executable that you can run by double-clicking. It will also create a subfolder "build" with intermediate files that you can generally ignore.
+    - 
+    - The Windows executable should take 4-5 seconds to launch, during which it shows a splash screen. The splash screen feature is not compatible with Mac. The Mac version also might take curiously long to launch (almost 30 seconds). Not sure why, but it seems fine after that. 
 
 
 Running the Demo
