@@ -4,6 +4,7 @@ NeuroDemo - Physiological neuron sandbox for educational purposes
 Luke Campagnola 2015
 """
 
+# Starting to add a few type hints. This is very preliminary.
 from __future__ import annotations
 import typing
 
@@ -176,6 +177,8 @@ class DemoWindow(qt.QWidget):
             dict(name='Ion Channels', type='group', children=self.channel_params),
         ])
 
+        # Now that add_plot() sets x-axis limits, it must be called after defining self.params,
+        # which contains info about the plot duration.
         self.vm_plot = self.add_plot('soma.V', 'Membrane Potential', 'V')
         self.splitter.setSizes([300, 300, 800])
 
@@ -408,10 +411,13 @@ class DemoWindow(qt.QWidget):
 
     def set_scrolling_plot_duration(self, val):
         self.scrolling_plot_duration = val
+        # Set x-axis limits for membrane voltage plot, so that user can't zoom
+        # out farther than the max plot time. This reduces chance of accidentally
+        # "losing" the plot trace.
         self.vm_plot.setLimits(xMin=-val)
         for k in self.channel_plots.keys():
             self.channel_plots[k].set_duration(val)
-            # Set new range, and also set limits so user can't scroll out too far.
+            # Set new range, and also set x-limits on remaining scrolling plots.
             # ScrollingPLot.setLimits() and .setXRange() are wrapped from ViewBox
             self.channel_plots[k].setLimits(xMin=-val, xMax=0)
             self.channel_plots[k].setXRange(-val, 0)
