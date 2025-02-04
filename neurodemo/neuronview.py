@@ -290,13 +290,13 @@ class Channel(NeuronItem):
         transl[1] += 32
         self.set_transform(label, scale, angle=self.angle, translate=transl)
 
-        self.bg = qt.QGraphicsRectItem(qt.QRectF(-5, -10, 10, 20))
-        self.bg.setParentItem(self)
-        self.bg.setZValue(-1)
-        color = pg.mkColor(color)
-        self.bg.setBrush(
-            pg.mkBrush(color.red() // 2, color.green() // 2, color.blue() // 2, 255)
-        )
+        # self.bg = qt.QGraphicsRectItem(qt.QRectF(-5, -10, 10, 20))
+        # self.bg.setParentItem(self)
+        # self.bg.setZValue(-1)
+        # color = pg.mkColor(color)
+        # self.bg.setBrush(
+        #     pg.mkBrush(color.red() // 2, color.green() // 2, color.blue() // 2, 255)
+        # )
 
         self.circuit = qt.QGraphicsItemGroup()
 
