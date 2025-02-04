@@ -411,14 +411,12 @@ class DemoWindow(qt.QWidget):
 
     def set_scrolling_plot_duration(self, val):
         self.scrolling_plot_duration = val
-        # Set x-axis limits for membrane voltage plot, so that user can't zoom
-        # out farther than the max plot time. This reduces chance of accidentally
-        # "losing" the plot trace.
+        # Update x-axis limits for membrane voltage plot, so we don't "lose" the traces by accident.
         self.vm_plot.setLimits(xMin=-val)
         for k in self.channel_plots.keys():
             self.channel_plots[k].set_duration(val)
-            # Set new range, and also set x-limits on remaining scrolling plots.
-            # ScrollingPLot.setLimits() and .setXRange() are wrapped from ViewBox
+            # Update range and x-limits on all other ScrollingPlot objects
+            # Note: ScrollingPLot.setLimits() and .setXRange() are wrapped from pyqtgraph ViewBox
             self.channel_plots[k].setLimits(xMin=-val, xMax=0)
             self.channel_plots[k].setXRange(-val, 0)
 
