@@ -190,6 +190,7 @@ class DemoWindow(qt.QWidget):
         # self.start()  # if autostart desired
 
         self.clamp_param['Plot Current'] = True
+        self.clamp_param['Plot Command'] = True
         self.plot_splitter.setSizes([300, 500, 200])
         
         self.pause_shortcut = qt.QShortcut(qt.QKeySequence('Space'), self)
@@ -406,7 +407,10 @@ class DemoWindow(qt.QWidget):
         self.vm_plot.setLimits(xMin=-val)
         for k in self.channel_plots.keys():
             self.channel_plots[k].set_duration(val)
+            # Set new range, and also set limits so user can't scroll out too far.
+            # ScrollingPLot.setLimits() and .setXRange() are wrapped from ViewBox
             self.channel_plots[k].setLimits(xMin=-val, xMax=0)
+            self.channel_plots[k].setXRange(-val, 0)
 
     def pause(self):
         self.params['Run'] = not self.params['Run']
