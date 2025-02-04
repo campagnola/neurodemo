@@ -5,6 +5,7 @@ Luke Campagnola 2015
 """
 
 from __future__ import annotations
+import typing
 
 # make sure we get the right pyqtgraph.
 from dataclasses import dataclass
@@ -133,7 +134,7 @@ class DemoWindow(qt.QWidget):
         self.clamp_param.plots_changed.connect(self.plots_changed)
         self.clamp_param.mode_changed.connect(self.mode_changed)
 
-        self.channel_plots = {}
+        self.channel_plots: typing.Dict[str, ScrollingPlot] = {}
         
         self.channel_params = [
             ChannelParameter(self.leak),
@@ -191,8 +192,11 @@ class DemoWindow(qt.QWidget):
 
         self.clamp_param['Plot Current'] = True
         self.clamp_param['Plot Command'] = True
-        self.plot_splitter.setSizes([300, 500, 200])
-        
+
+        # Set default heights of neuronview, membrane voltage, and other initial scrolling graphs.
+        self.plot_splitter.setSizes([300, 500] + [200] * (len(self.plot_splitter.sizes()) - 2))
+
+        # Any additional plots must be added after setting default heights
         self.pause_shortcut = qt.QShortcut(qt.QKeySequence('Space'), self)
         self.pause_shortcut.activated.connect(self.pause)
         self.slow_shortcut = qt.QShortcut(qt.QKeySequence('-'), self)
@@ -325,7 +329,7 @@ class DemoWindow(qt.QWidget):
         r = len(sizes) / (len(sizes)+1)
         sizes = [int(s * r) for s in sizes] + [int(size)]
         self.plot_splitter.setSizes(sizes)
-        
+
         # Ask sequence plotter to update as well
         self.clamp_param.add_plot(key, label)
 
