@@ -77,13 +77,10 @@ There are multiple ways to install:
     - In cmd window, cd to main directory, making sure the venv is active, then enter one of the following, based on whether you are on Windows or Mac:
     -     pyinstaller neurodemo_windows.spec
     -     pyinstaller neurodemo_mac.spec
-    - This will create an executable file in the "dist" directory. You can run it by double-clicking it.
-    - It does NOT need any other files, and you can give this file to others and they should be able to run it without
-    - having to install anything.
+    - This will create a stand-alone executable file in the "dist" directory. You can run it by double-clicking it.
     - 
-    - The Windows version will show a splash screen while starting up (which takes a few seconds). Unfortunately the
-    - splash screen is not compatible with Mac (which is why it needs a separate .spec file) so you just have to trust it is working
-    - while waiting for it to start up.
+    - The Windows version shows a splash screen while starting up (which takes several seconds). Unfortunately the
+    - splash screen is not compatible with Mac (which is why it needs a separate .spec file).
 
 
 Running the Demo
