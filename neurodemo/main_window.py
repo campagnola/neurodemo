@@ -353,7 +353,7 @@ class DemoWindow(qt.QWidget):
         if self.running():
             return
         if len(items) == 0:
-            # Can happen if mouse is dragged past limit
+            # Can happen if mouse is dragged past valid time limit
             return
         item = items[0]
         widget = item.getViewWidget()
@@ -361,7 +361,7 @@ class DemoWindow(qt.QWidget):
         localPos = widget.mapFromGlobal(globalPos)
         scenePos = item.mapFromDevice(localPos)
         if not hasattr(item, 'vb'):
-            # Can happen if mouse dragged past limit
+            # Can happen if mouse dragged past valid time limit
             return
         viewPos = item.vb.mapSceneToView(scenePos)
         self.set_hover_time(viewPos.x())

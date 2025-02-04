@@ -369,7 +369,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         self.plot_win.remove_plot(key)
 
     def get_oldest_result(self):
-        # Find index of buffer having the lowest timestamp
+        # Find index of result_buffer having the lowest timestamp
         earliest_t = -1
         earliest_i = -1
         for i, r in enumerate(self.result_buffer):
