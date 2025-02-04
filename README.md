@@ -97,4 +97,4 @@ Windows version:
 https://www.dropbox.com/scl/fi/yedf08m6xw9zmrb9d7xof/neurodemo_windows.exe?rlkey=tco9rfib57a04l86fprqiieuc&dl=0
 
 Mac M1 version:
-https://www.dropbox.com/scl/fi/jlngjjo0mgle9b5uykaik/neurodemo_mac?rlkey=ighya392m7hk841mnkkd7j0g9&dl=0
+https://www.dropbox.com/scl/fi/d4ii27zbuib7h8he2nda6/neurodemo.dmg?rlkey=r7nfyk0aflh7nqkk2f8bhv4c5&dl=0
