@@ -456,6 +456,7 @@ class DemoWindow(qt.QWidget):
         self.clamp_param.new_result(result)
 
         if 'stop_after_cmd' in self.runner.run_args and self.runner.run_args['stop_after_cmd']:
+            # We have elected to stop after command (either single pulse or sequence) is done
             if len(self.clamp_param.triggers) == 0 and self.runner.sim.cmd_done():
                 # Stop after command queue and trigger queue are BOTH empty
                 self.runner.stop()
