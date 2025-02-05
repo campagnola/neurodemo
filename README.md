@@ -87,4 +87,14 @@ You can launch the demo from the terminal by navigating to the location where yo
 
 Windows: Open the folder where you extracted the neurodemo source code. Right click `demo.py` and select "Open with..". Navigate to the location where you installed anaconda or miniconda (you may need to click something like "browse" or "choose another application" depending on your version of windows). Select `python.exe`.
 
-macOS: You can launch as above, or install the dmg file and just start the app. 
+macOS: You can launch as above, or install the dmg file and just start the app.
+
+
+Links to standalone executables (not guaranteed to be up to date):
+----------------
+
+Windows version:
+https://www.dropbox.com/scl/fi/yedf08m6xw9zmrb9d7xof/neurodemo_windows.exe?rlkey=tco9rfib57a04l86fprqiieuc&dl=0
+
+Mac M1 version:
+https://www.dropbox.com/scl/fi/d4ii27zbuib7h8he2nda6/neurodemo.dmg?rlkey=r7nfyk0aflh7nqkk2f8bhv4c5&dl=0
