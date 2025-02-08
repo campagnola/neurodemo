@@ -169,7 +169,7 @@ class DemoWindow(qt.QWidget):
             dict(name='Capacitance', type='float', value=self.neuron.cap, limits=[0.1e-12, 1000.e-12], suffix='F', siPrefix=True, dec=True, children=[
                 dict(name='Plot Current', type='bool', value=False),
             ]),
-            dict(name='Ions', type='group', children=self.ion_concentrations),            
+            dict(name='Ions', type='bool', children=self.ion_concentrations),
             dict(name='Cell Schematic', type='bool', value=True, children=[
                 dict(name='Show Circuit', type='bool', value=False),
             ]),
@@ -177,8 +177,8 @@ class DemoWindow(qt.QWidget):
             dict(name='Ion Channels', type='group', children=self.channel_params),
         ])
 
-        # Now that add_plot() sets x-axis limits, it must be called after defining self.params,
-        # which contains info about the plot duration.
+        # Now that add_plot() sets x-axis limits, it must be called AFTER defining self.params,
+        # rather than before, since it uses self.params info about the plot duration.
         self.vm_plot = self.add_plot('soma.V', 'Membrane Potential', 'V')
         self.splitter.setSizes([300, 300, 800])
 
@@ -250,7 +250,7 @@ class DemoWindow(qt.QWidget):
                 self.neuronview.setVisible(val)
             elif param is self.params.child('Cell Schematic', 'Show Circuit'):
                 self.neuronview.show_circuit(val)
-            elif param is self.params.child('Ions', 'Na'):
+            elif param is self.params.child('Ions'):
                 if val: # checkbox checked
                     self.use_calculated_erev()
                 else:  # not checked
@@ -262,7 +262,7 @@ class DemoWindow(qt.QWidget):
                     self.params.child('Ions', "K", "[C]out"),
                     self.params.child('Ions', "Cl", "[C]in"),
                     self.params.child('Ions', "Cl", "[C]out"),
-                ] and self.params.child('Ions', 'Na').value():
+                ] and self.params.child('Ions').value():
                 self.use_calculated_erev()  # force update of erevs
 
     def plots_changed(self, param, channel, name, plot):
@@ -509,14 +509,14 @@ class DemoWindow(qt.QWidget):
         self.set_lg_erev(ENa_erev, EK_erev, EK_erev, -55*NU.mV)
     
     def use_default_erev(self):
-        chans = self.params.child('Ion Channels')
-        ENa_revs = {"INa": 50, "INa1": 74}
+        chans: pt.parameterTypes.basetypes.GroupParameter = self.params.child('Ion Channels')
+        ENa_revs = {"INa": 50*NU.mV, "INa1": 74*NU.mV}
         for ch in ["INa", "INa1"]:
             chans[f"soma.{ch:s}", 'Erev'] = ENa_revs[ch]
-        EK_revs = {"IK": -74, "IKf": -90, "IKs": -90}
+        EK_revs = {"IK": -74*NU.mV, "IKf": -90*NU.mV, "IKs": -90*NU.mV}
         for ch in ["IK", "IKf", "IKs"]:
             chans[f"soma.{ch:s}", 'Erev'] = EK_revs[ch]
-        Eh_revs = {"IH": -43,}
+        Eh_revs = {"IH": -43*NU.mV,}
         for ch in ["IH"]:
             chans[f"soma.{ch:s}", 'Erev'] = Eh_revs[ch]
         self.set_hh_erev(ENa_revs["INa"], EK_revs["IK"], -55*NU.mV, Eh_revs["IH"])
