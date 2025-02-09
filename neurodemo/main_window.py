@@ -99,7 +99,7 @@ class DemoWindow(qt.QWidget):
         mechanisms = [self.clamp, self.hhna, self.leak, self.hhk, self.dexh, self.lgna, self.lgkf, self.lgks]
         # loop to run the simulation indefinitely
         self.runner = self.ndemo.SimRunner(self.sim)
-        self.runner.set_speed(0.2)
+        self.runner.set_speed(0.5)
 
         # if using remote process (only on Windows):
         if self.proc is not None:
@@ -159,10 +159,11 @@ class DemoWindow(qt.QWidget):
             ion.updateErev(self.sim.temp)  # match temperature with an update
         
         self.params = pt.Parameter.create(name='Parameters', type='group', children=[
-            dict(name='Preset', type='list', value='HH AP', values=['Passive', 'HH AP', 'LG AP']),
+            dict(name='Preset', type='list', value='HH AP', limits={'Passive', 'HH AP', 'LG AP'}),
             dict(name='Run/Stop', type='action', value=False),
+            dict(name="Elapsed", type='float', value=0.0, suffix='s', siPrefix=True),
             dict(name="dt", type='float', value=20e-6, limits=[2e-6, 200e-6], suffix='s', siPrefix=True),
-            dict(name="Method", type='list', value="solve_ivp", values=['solve_ivp', 'odeint']),
+            dict(name="Method", type='list', value="solve_ivp", limits={'solve_ivp', 'odeint'}),
             dict(name='Speed', type='float', value=self.runner.speed, limits=[0.001, 10], step=0.5, minStep=0.001, dec=True),
             dict(name="Plot Duration", type='float', value=1.0, limits=[0.1, 10], suffix='s', siPrefix=True, step=0.2),
             dict(name='Temp', type='float', value=self.sim.temp, limits=[0., 41.], suffix='C', step=1.0),
@@ -178,7 +179,7 @@ class DemoWindow(qt.QWidget):
         ])
 
         # Now that add_plot() sets x-axis limits, it must be called AFTER defining self.params,
-        # rather than before, since it uses self.params info about the plot duration.
+        # rather than before, since it uses "Plot Duration" field in self.params.
         self.vm_plot = self.add_plot('soma.V', 'Membrane Potential', 'V')
         self.splitter.setSizes([300, 300, 800])
 
@@ -193,7 +194,12 @@ class DemoWindow(qt.QWidget):
 
         # self.start()  # if autostart desired
 
-        self.clamp_param['Plot Current'] = True
+        # Make Pulse Once and Pulse Sequence buttons green, since they are also capable of starting the simulator.
+        # Unlike Run/Stop, these do not change color, since they are one-shot, and don't run continuously.
+        for p in [self.clamp_param.child("Pulse", "Pulse Once"), self.clamp_param.child("Pulse", "Pulse Sequence")]:
+            rsbutton = list(p.items.keys())[0].button
+            rsbutton.setStyleSheet("QPushButton { background-color: #225522}")
+
         self.clamp_param['Plot Command'] = True
 
         # Set default heights of neuronview, membrane voltage, and other initial scrolling graphs.
@@ -377,8 +383,9 @@ class DemoWindow(qt.QWidget):
     def running(self):
         return self.runner.running()
 
-    def start(self, **kwargs):
-        self.runner.start(blocksize=2048, **kwargs)
+    def start(self):
+
+        self.runner.start(blocksize=1000)
         for plt in self.channel_plots.values():
             plt.hover_line.setVisible(False)
         
@@ -455,7 +462,9 @@ class DemoWindow(qt.QWidget):
         # for pulse plots
         self.clamp_param.new_result(result)
 
-        if 'stop_after_cmd' in self.runner.run_args and self.runner.run_args['stop_after_cmd']:
+        self.params['Elapsed'] = result['t'][-1]
+
+        if self.runner.stop_after_cmd:
             # We have elected to stop after command (either single pulse or sequence) is done
             if len(self.clamp_param.triggers) == 0 and self.runner.sim.cmd_done():
                 # Stop after command queue and trigger queue are BOTH empty
@@ -571,7 +580,7 @@ class DemoWindow(qt.QWidget):
         """
         if preset == 'Passive':
             self.params['Temp'] = 6.3
-            self.params['Speed'] = 1.0
+            self.params['Speed'] = 0.5
             self.clamp_param['Plot Current'] = False
             self.clamp_param['Plot Voltage'] = False
             chans = self.params.child('Ion Channels')
@@ -589,7 +598,7 @@ class DemoWindow(qt.QWidget):
 
         elif preset == 'HH AP':
             self.params['Temp'] = 6.3
-            self.params['Speed'] = 1.0
+            self.params['Speed'] = 0.5
             chans = self.params.child('Ion Channels')
             chans['soma.Ileak'] = True
             chans['soma.Ileak', 'Erev'] = -55*NU.mV
@@ -605,7 +614,7 @@ class DemoWindow(qt.QWidget):
 
         elif preset == 'LG AP':
             self.params['Temp'] = 37
-            self.params['Speed'] = 1.0
+            self.params['Speed'] = 0.5
             chans = self.params.child('Ion Channels')
             chans['soma.Ileak'] = True
             chans['soma.Ileak', 'Erev'] = -70*NU.mV

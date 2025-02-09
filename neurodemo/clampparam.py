@@ -4,8 +4,16 @@ NeuroDemo - Physiological neuron sandbox for educational purposes
 Luke Campagnola 2015
 """
 
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    # TYPE_CHECKING is always false at runtime, preventing unnecessary runtime import of modules that
+    # are only needed by IDE for type checking
+    import neurodemo.main_window
+
 from dataclasses import dataclass
 import numpy as np
+
 from . import qt
 import pyqtgraph.parametertree as pt
 from .sequenceplot import SequencePlotWindow
@@ -26,7 +34,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
     )  # self, channel, name, on/off
     mode_changed = qt.Signal(object, object)  # self, mode
 
-    def __init__(self, clamp, sim):
+    def __init__(self, clamp: neurodemo.neuronsim.PatchClamp, sim: neurodemo.main_window.DemoWindow):
         self.clamp = clamp
         self.sim = sim
         self.dt = sim.dt
@@ -304,7 +312,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
 
         if not self.sim.running():
             # If not already running, then start a time-limited run.
-            self.sim.start(stop_after_cmd=True)
+            self.sim.runner.start(stop_after_cmd=True)
 
         # self.print_triggers()
 
@@ -347,7 +355,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         # self.print_triggers()
         if not self.sim.running():
             # If not already running, then start a time-limited run
-            self.sim.start(stop_after_cmd=True)
+            self.sim.runner.start(stop_after_cmd=True)
 
 
     def add_trigger(self, n, t, info):
