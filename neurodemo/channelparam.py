@@ -64,7 +64,7 @@ class IonConcentrations(pt.parameterTypes.GroupParameter):
                                                    expanded=False)
         self.sigTreeStateChanged.connect(self.treeChange)
 
-    def treeChange(self, root, changes: List[pt.parameterTypes.SimpleParameter]):
+    def treeChange(self, root, changes: List[(pt.SimpleParameter, str, any)]):
         for param, change, val in changes:
             if change != 'value':
                 continue
