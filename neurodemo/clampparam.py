@@ -312,7 +312,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
 
         if not self.sim.running():
             # If not already running, then start a time-limited run.
-            self.sim.runner.start(stop_after_cmd=True)
+            self.sim.start(stop_after_cmd=True)
 
         # self.print_triggers()
 
@@ -355,7 +355,7 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
         # self.print_triggers()
         if not self.sim.running():
             # If not already running, then start a time-limited run
-            self.sim.runner.start(stop_after_cmd=True)
+            self.sim.start(stop_after_cmd=True)
 
 
     def add_trigger(self, n, t, info):

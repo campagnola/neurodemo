@@ -159,11 +159,11 @@ class DemoWindow(qt.QWidget):
             ion.updateErev(self.sim.temp)  # match temperature with an update
         
         self.params = pt.Parameter.create(name='Parameters', type='group', children=[
-            dict(name='Preset', type='list', value='HH AP', limits={'Passive', 'HH AP', 'LG AP'}),
+            dict(name='Preset', type='list', value='HH AP', limits=['Passive', 'HH AP', 'LG AP']),
             dict(name='Run/Stop', type='action', value=False),
             dict(name="Elapsed", type='float', value=0.0, suffix='s', siPrefix=True),
             dict(name="dt", type='float', value=20e-6, limits=[2e-6, 200e-6], suffix='s', siPrefix=True),
-            dict(name="Method", type='list', value="solve_ivp", limits={'solve_ivp', 'odeint'}),
+            dict(name="Method", type='list', value="solve_ivp", limits=['solve_ivp', 'odeint']),
             dict(name='Speed', type='float', value=self.runner.speed, limits=[0.001, 10], step=0.5, minStep=0.001, dec=True),
             dict(name="Plot Duration", type='float', value=1.0, limits=[0.1, 10], suffix='s', siPrefix=True, step=0.2),
             dict(name='Temp', type='float', value=self.sim.temp, limits=[0., 41.], suffix='C', step=1.0),
@@ -383,9 +383,9 @@ class DemoWindow(qt.QWidget):
     def running(self):
         return self.runner.running()
 
-    def start(self):
+    def start(self, stop_after_cmd=False):
 
-        self.runner.start(blocksize=1000)
+        self.runner.start(stop_after_cmd=stop_after_cmd, blocksize=1000)
         for plt in self.channel_plots.values():
             plt.hover_line.setVisible(False)
         
@@ -518,7 +518,7 @@ class DemoWindow(qt.QWidget):
         self.set_lg_erev(ENa_erev, EK_erev, EK_erev, -55*NU.mV)
     
     def use_default_erev(self):
-        chans: pt.parameterTypes.basetypes.GroupParameter = self.params.child('Ion Channels')
+        chans: pt.Parameter = self.params.child('Ion Channels')
         ENa_revs = {"INa": 50*NU.mV, "INa1": 74*NU.mV}
         for ch in ["INa", "INa1"]:
             chans[f"soma.{ch:s}", 'Erev'] = ENa_revs[ch]
