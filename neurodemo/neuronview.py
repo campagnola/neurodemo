@@ -164,6 +164,19 @@ class NeuronItem(qt.QGraphicsItemGroup):
         self.circuit.setVisible(v)
 
 
+def set_transform(
+    item: pg.QtWidgets.QGraphicsItem, 
+    scale: Union[List, Tuple] = [1, 1],
+    angle: float = 0.0,
+    translate: Union[List, Tuple] = (0, 0),
+):
+    new_transform = qt.QTransform()
+    new_transform.scale(scale[0], scale[1])
+    new_transform.rotate(angle)
+    new_transform.translate(translate[0], translate[1])
+    item.setTransform(new_transform)
+
+
 class Cell(NeuronItem):
     def __init__(self, section):
         self.key = section.name
@@ -193,15 +206,15 @@ class Cell(NeuronItem):
 
         self.circuit = qt.QGraphicsItemGroup()
 
-        # Net current
+        # capacitive current
         self.current = Current(self.key, center=False)
         self.current.setParentItem(self.circuit)
         self.current.setPos(0, CellPosition.center_y+60)
         self.current.setZValue(2)
 
         # membrane capacitance, angled off from the pipette a bit
-        self.cap = Capacitor(l1=50, l2=150)
-        self.set_transform(self.cap, angle=-45)
+        self.cap = Capacitor(l1=50, l2=20)
+        set_transform(self.cap, angle=-45)
         self.cap.setParentItem(self.circuit)
         self.cap.setZValue(1)
 
@@ -212,19 +225,6 @@ class Cell(NeuronItem):
 
     def show_circuit(self, show):
         self.cap.setVisible(show)
-    
-    def set_transform(
-        self,
-        item: object,
-        scale: Union[List, Tuple] = [1, 1],
-        angle: float = 0.0,
-        translate: Union[List, Tuple] = (0, 0),
-    ):
-        new_transform = qt.QTransform()
-        new_transform.scale(scale[0], scale[1])
-        new_transform.rotate(angle)
-        new_transform.translate(translate[0], translate[1])
-        item.setTransform(new_transform)
 
 
 class Channel(NeuronItem):
@@ -281,14 +281,14 @@ class Channel(NeuronItem):
         transl[0] -= 9.066
 
         self.channel_svg.setParentItem(self)
-        self.set_transform(self.channel_svg, scale, angle=self.angle, translate=transl)
+        set_transform(self.channel_svg, scale, angle=self.angle, translate=transl)
 
         # add a label to the channel
         label = pg.LabelItem(channel.type, color=pg.mkColor(color),
             angle=-angle, anchor=[0.5, 0.5])
         label.setParentItem(self)
         transl[1] += 32
-        self.set_transform(label, scale, angle=self.angle, translate=transl)
+        set_transform(label, scale, angle=self.angle, translate=transl)
 
         # self.bg = qt.QGraphicsRectItem(qt.QRectF(-5, -10, 10, 20))
         # self.bg.setParentItem(self)
@@ -302,38 +302,18 @@ class Channel(NeuronItem):
 
         self.current = Current(channel.name, center=False)
         self.current.setParentItem(self.circuit)
-        self.current_translation = self.translation
-        self.current_angle = self.angle
-        self.current_transform = self.set_transform(
-            self.current,
-            scale=scale,
-            angle=self.current_angle,
-            translate=self.current_translation,
-        )
+        set_transform(self.current, scale=scale, angle=self.angle, translate=self.translation)
         self.current.setZValue(2)
 
         self.res = Resistor(l1=25, l2=15, ) # CellPosition.diam_x/2.0) # , l2=15)
         self.res.setParentItem(self.circuit)
-        self.set_transform(self.res, [1, 1], angle=-self.current_angle, translate=[0, CellPosition.center_y-25])
+        set_transform(self.res, [1, 1], angle=-self.angle, translate=[0, CellPosition.center_y-25])
 
         self.batt = Battery(l1=25, l2=15, w1=11, w2=7, gap=4, polarity=polarity)
         self.batt.setParentItem(self.circuit)
-        self.set_transform(self.batt, [1, -1], angle=self.current_angle, translate=[0, 0])
+        set_transform(self.batt, [1, -1], angle=self.angle, translate=[0, 0])
         # self.I_angle = 0.0
         # self.I_translation = [0, 15]
-
-    def set_transform(
-        self,
-        item: object,
-        scale: Union[List, Tuple] = [1, 1],
-        angle: float = 0.0,
-        translate: Union[List, Tuple] = (0, 50),
-    ):
-        new_transform = qt.QTransform()
-        new_transform.scale(scale[0], scale[1])
-        new_transform.rotate(angle)
-        new_transform.translate(translate[0], translate[1])
-        item.setTransform(new_transform)
 
     def update_state(self, state):
         try:
@@ -343,7 +323,6 @@ class Channel(NeuronItem):
             # channel is disabled
             self.setVisible(False)
             return
-        nop = np.clip(op / self.maxop, 0, 1)
         self.current.update_state(state)
 
     def show_circuit(self, show):
@@ -437,22 +416,22 @@ class Pipette(NeuronItem):
        # pipette current indicator
         self.current = Current(self.key)
         self.current.setParentItem(self.circuit)
-        self.current.setPos(0, CellPosition.center_y+CellPosition.diam_y)
+        self.current.setPos(0, CellPosition.center_y + CellPosition.diam_y)
         self.current.setZValue(2)
 
         # Draw the pipette resistor 
         # connected to the center  of the cell, but in the pipette
-        self.res = Resistor(l1=CellPosition.diam_y/2+40, l2=140)
+        self.res = Resistor(l1=CellPosition.diam_y / 2 + 10, l2=140)
         self.res.setParentItem(self.circuit)
         res_transform = qt.QTransform()
-        res_transform.translate(0, CellPosition.center_y+CellPosition.diam_y/2)
+        res_transform.translate(0, CellPosition.center_y + CellPosition.diam_y / 2)
         self.res.setTransform(res_transform)
 
         # Add the pipette transmural capacitance outside the cell and horizontal
         self.cap = Capacitor(l1=15, l2=15)
         self.cap.setParentItem(self.circuit)
         cap_transform = qt.QTransform()
-        cap_transform.translate(0, CellPosition.center_y+CellPosition.diam_y+15)  # 40
+        cap_transform.translate(0, CellPosition.center_y + CellPosition.diam_y + 30)  # 40
         cap_transform.rotate(-90.0)
         self.cap.setTransform(cap_transform)
 
@@ -541,6 +520,8 @@ class Resistor(qt.QGraphicsItemGroup):
     """
     def __init__(self, l1, l2):
         qt.QGraphicsItemGroup.__init__(self)
+        self.l1 = l1
+        self.l2 = l2
 
         w = 3
         h = w / 3**0.5
