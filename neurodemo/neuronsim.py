@@ -894,7 +894,10 @@ class IH(Channel):
 
 
 class LGNa(Channel):
-    """Cortical sodium channel (Lewis & Gerstner 2002, p.124)"""
+    """Cortical sodium channel: Ersir et al., 1999;
+       Jolivet, Lewis and Gerstner, 2004
+       For fast-spiking interneuron.
+    """
 
     type = "INa1"
 
@@ -944,7 +947,10 @@ class LGNa(Channel):
 
 
 class LGKfast(Channel):
-    """Cortical fast potassium channel (Lewis & Gerstner 2002, p.124)"""
+    """Cortical potassium channel (fast): Ersir et al., 1999;
+       Jolivet, Lewis and Gerstner, 2004
+       For fast-spiking interneuron.
+    """
 
     type = "IKf"
 
@@ -982,7 +988,10 @@ class LGKfast(Channel):
 
 
 class LGKslow(Channel):
-    """Cortical slow potassium channel (Lewis & Gerstner 2002, p.124)"""
+    """Cortical potassium channel (slow): Ersir et al., 1999;
+       Jolivet, Lewis and Gerstner, 2004
+       For fast-spiking interneuron.
+    """
 
     type = "IKs"
 

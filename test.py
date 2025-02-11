@@ -4,6 +4,7 @@ NeuroDemo - Physiological neuron sandbox for educational purposes
 Luke Campagnola 2015
 """
 import pyqtgraph as pg
+
 from pyqtgraph.Qt import QtGui
 import neurodemo.units as NU
 import neurodemo as ND
@@ -28,7 +29,7 @@ class TestSim(qt.QWidget):
             hhna = neuron.add(ND.HHNa())
 
         elif simtype == 'LG':
-            # Lewis & Gerstner cortical neuron
+            # Jolivet, Lewis & Gerstner cortical neuron
             sim = ND.Sim(temp=37)
             neuron = ND.Section(vm=-70*NU.mV)
             lgna = neuron.add(ND.LGNa())

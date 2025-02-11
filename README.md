@@ -9,7 +9,7 @@ Luke Campagnola & Paul Manis
 This is an educational simulation of a simple neuron.
 
 * Hodgkin & Huxley channels
-* Lewis & Gerstner (2002) cortical channels
+* Ersier et al. 1999 // Jolivet, Lewis & Gerstner (2004) cortical channels
 * Destexhe 1993 Ih channel
 * Current/voltage clamp electrode with access resistance
 * Diagram of cell membrane with circuit schematic
