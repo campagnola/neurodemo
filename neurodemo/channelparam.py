@@ -3,6 +3,8 @@
 NeuroDemo - Physiological neuron sandbox for educational purposes
 Luke Campagnola 2015
 """
+from typing import List
+
 import numpy as np
 from . import qt
 import pyqtgraph.parametertree as pt
@@ -44,7 +46,7 @@ class ChannelParameter(pt.parameterTypes.SimpleParameter):
             elif param.name().startswith('Plot'):
                 self.plots_changed.emit(self, self.channel, param.name()[5:], val)
 
-class IonConcentrations(pt.parameterTypes.SimpleParameter):
+class IonConcentrations(pt.parameterTypes.GroupParameter):
     """Holds the concentrations for one ion species
     """
 
@@ -57,12 +59,12 @@ class IonConcentrations(pt.parameterTypes.SimpleParameter):
         ]
         self.ion.Erev = self.Nernst(ion)
         self.ion_params.append(dict(name="Erev", type='float', value=self.ion.Erev, suffix='V', siPrefix=True, readonly=True))
-        pt.parameterTypes.SimpleParameter.__init__(self, name=name, type='bool', 
+        pt.parameterTypes.GroupParameter.__init__(self, name=name, type='group',
                                                    value=ion.enabled, children=self.ion_params,
                                                    expanded=False)
         self.sigTreeStateChanged.connect(self.treeChange)
 
-    def treeChange(self, root, changes):
+    def treeChange(self, root, changes: List[(pt.SimpleParameter, str, any)]):
         for param, change, val in changes:
             if change != 'value':
                 continue
