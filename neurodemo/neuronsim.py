@@ -1,18 +1,9 @@
-# -*- coding: utf-8 -*-
-"""
-Simple neuron simulator for Python.
-Also simulates voltage clamp and current clamp with access resistance.
-
-Luke Campagnola 2015
-"""
-
-# import sys, platform
 from collections import OrderedDict
 import numpy as np
 import scipy.integrate
 import neurodemo.units as NU
 import warnings
-# warnings.filterwarnings("error")
+
 
 class Sim(object):
     """Simulator for a collection of objects that derive from SimObject"""
@@ -177,6 +168,7 @@ class Sim(object):
 
 class MissingCurrentException(Exception):
     pass
+
 
 class SimState(object):
     """Contains the state of all diff. eq. variables in the simulation.

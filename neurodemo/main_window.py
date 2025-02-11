@@ -1,23 +1,12 @@
-# -*- coding: utf-8 -*-
-"""
-NeuroDemo - Physiological neuron sandbox for educational purposes
-Luke Campagnola 2015
-"""
-
-# Starting to add a few type hints. This is very preliminary.
 from __future__ import annotations
 import typing
-
-# make sure we get the right pyqtgraph.
-from dataclasses import dataclass
 import sys
 import numpy as np
 import pyqtgraph as pg
-
 import pyqtgraph.parametertree as pt
-from . import qt
-import pyqtgraph.multiprocess as mp
 
+from . import qt
+from . import ions
 import neurodemo
 import neurodemo.units as NU
 from neurodemo.channelparam import ChannelParameter
@@ -37,16 +26,6 @@ pg.setConfigOption('antialias', True)
 
 app = pg.mkQApp()
 app.setStyle("Fusion")  # necessary to remove double labels on mac os w/pyqtgraph until PR is done
-
-
-@dataclass
-class IonClass:
-    name: str = ""
-    Cout: float = 1.0
-    Cin: float = 1.0
-    valence: float = 1.0
-    Erev: float = 0.0
-    enabled: bool = False
 
 
 class DemoWindow(qt.QWidget):
@@ -150,11 +129,7 @@ class DemoWindow(qt.QWidget):
         for ch in self.channel_params:
             ch.plots_changed.connect(self.plots_changed)
 
-        self.ion_concentrations = [
-            IonConcentrations(IonClass(name='Na', Cout=140.0, Cin=8.0, valence=+1, enabled=False)),
-            IonConcentrations(IonClass(name='K', Cout=4., Cin=140., valence=+1, enabled=False)),
-            IonConcentrations(IonClass(name='Cl', Cout=140., Cin=20., valence=-1, enabled=False)),
-        ]
+        self.ion_concentrations = [IonConcentrations(ion) for ion in ions.all_ions]
         for ion in self.ion_concentrations:
             ion.updateErev(self.sim.temp)  # match temperature with an update
         

@@ -1,15 +1,10 @@
-# -*- coding: utf-8 -*-
-"""
-NeuroDemo - Physiological neuron sandbox for educational purposes
-Luke Campagnola 2015
-"""
-
 import numpy as np
 import pyqtgraph as pg
 from . import qt
 import pyqtgraph.parametertree as pt
 from lmfit import Model
 from lmfit.models import ExponentialModel
+
 
 class TraceAnalyzer(qt.QWidget):
     def __init__(self, seq_plotter):
@@ -51,7 +46,12 @@ class TraceAnalyzer(qt.QWidget):
 
     def update_analyzers(self):
         for analyzer in self.params.children():
-            self.plotter.plots[analyzer['Input']].addItem(analyzer.rgn, ignoreBounds=True)
+            requested_plot = self.plotter.plots[analyzer['Input']]
+            if analyzer.current_plot is not requested_plot:
+                if analyzer.current_plot is not None:
+                    analyzer.current_plot.removeItem(analyzer.rgn)
+                requested_plot.addItem(analyzer.rgn, ignoreBounds=True)
+                analyzer.current_plot = requested_plot
         self.update_analysis()
         
     def update_analysis(self):
@@ -103,7 +103,9 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
         
         pt.parameterTypes.GroupParameter.__init__(self, **kwds)
         self.sigTreeStateChanged.connect(self.tree_changed)
-        
+
+        self.current_plot = None
+
         self.rgn = pg.LinearRegionItem([self['Start'], self['End']])
         self.rgn_label = pg.InfLineLabel(self.rgn.lines[0], text=self.name(), angle=90, anchors=[(0, 0), (0, 0)])
         self.rgn.sigRegionChanged.connect(self.region_changed)
@@ -201,6 +203,7 @@ class TraceAnalyzerParameter(pt.parameterTypes.GroupParameter):
         print(result.params)
         return result.params['tau'] # fit[0][2]       
 
+
 class EvalPlotter(qt.QWidget):
     def __init__(self):
         self.held_plots = []
@@ -237,7 +240,7 @@ class EvalPlotter(qt.QWidget):
 
         self.hold_plot_btn = qt.QPushButton('Hold Plot')
         self.main_layout.addWidget(self.hold_plot_btn, 3, 0, 1, 2)
-        self.clear_plot_btn = qt.QPushButton('Clear Plot')
+        self.clear_plot_btn = qt.QPushButton('Clear Held Plots')
         self.main_layout.addWidget(self.clear_plot_btn, 3, 2, 1, 2)
         
         self.x_code.editingFinished.connect(self.replot)
@@ -298,4 +301,5 @@ class EvalPlotter(qt.QWidget):
         self.held_plots = []
         self.held_index = 0
         self.plot.clear()
+        self.last_curve = None
         self.replot()

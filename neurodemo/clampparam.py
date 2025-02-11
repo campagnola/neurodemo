@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-NeuroDemo - Physiological neuron sandbox for educational purposes
-Luke Campagnola 2015
-"""
-
 from __future__ import annotations
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
