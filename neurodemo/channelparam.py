@@ -48,7 +48,7 @@ class IonConcentrations(pt.parameterTypes.SimpleParameter):
     """Holds the concentrations for one ion species
     """
 
-    def __init__(self, ion):
+    def __init__(self, ion: 'IonClass'):
         self.ion = ion
         name = ion.name
         self.ion_params = [
