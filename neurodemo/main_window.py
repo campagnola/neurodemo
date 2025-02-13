@@ -353,7 +353,18 @@ class DemoWindow(qt.QWidget):
             plt.hover_line.setPos(t)
         state = self.result_buffer.get_state_at_time(t)
         if state is not None:
-            self.neuronview.update_state(state)
+           self.clamp_param['Cursor values', 'Relative time'] = t
+           if 'soma.V' in self.clamp_param.plot_keys:
+               self.clamp_param['Cursor values', 'Memb voltage'] = state['soma.V']
+           if 'soma.PatchClamp.cmd' in self.channel_plots.keys():
+               plt: ScrollingPlot = self.channel_plots['soma.PatchClamp.cmd']
+               dc: pg.PlotDataItem = plt.data_curve
+               [x, y] = [dc.xData, dc.yData]
+               dx = x[1] - x[0]
+               idx = int(t / dx)  # Note that t will be negative, since it represents time before present. This will make idx negative, so index will count from end
+               if idx >= -len(y):
+                   self.clamp_param['Cursor values', 'Command'] = y[idx]
+           self.neuronview.update_state(state)
 
     def running(self):
         return self.runner.running()

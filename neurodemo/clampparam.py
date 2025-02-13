@@ -86,6 +86,13 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
                 dict(name="Plot Current", type="bool", value=False),
                 dict(name="Plot Voltage", type="bool", value=False),
                 dict(name="Plot Command", type="bool", value=False),
+                dict(name="Cursor values",
+                     type="group",
+                     children=[
+                         dict(name="Relative time", type="float", value=0.0, suffix="s", siPrefix=True, step=0.0001),
+                         dict(name="Memb voltage", type="float", value=0.0, suffix="V", siPrefix=True),
+                         dict(name="Command", type="float", value=0.0, suffix="A", siPrefix=True),
+                     ]),
                 dict(
                     name="Pulse",
                     type="group",
