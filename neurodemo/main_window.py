@@ -364,6 +364,7 @@ class DemoWindow(qt.QWidget):
            if 'soma.V' in self.clamp_param.plot_keys:
                self.clamp_param['Cursor values', 'Memb voltage'] = state['soma.V']
            if 'soma.PatchClamp.cmd' in self.channel_plots.keys():
+               # Command values are not in the state variable, so we grab them out of the actual plot object
                plt: ScrollingPlot = self.channel_plots['soma.PatchClamp.cmd']
                dc: pg.PlotDataItem = plt.data_curve
                [x, y] = [dc.xData, dc.yData]

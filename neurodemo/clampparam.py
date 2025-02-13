@@ -250,6 +250,9 @@ class ClampParameter(pt.parameterTypes.SimpleParameter):
             self.child("Holding").setOpts(
                 suffix=suff, value=self.clamp.holding[mode], step=step
             )
+
+            self.child("Cursor values", "Command").setOpts(suffix=suff)
+
             self.child("Pulse", "Pre-amplitude").setOpts(suffix=suff, value=pre_amp, step=step)
             self.child("Pulse", "Post-amplitude").setOpts(suffix=suff, value=post_amp, step=step)
             self.child("Pulse", "Amplitude").setOpts(suffix=suff, value=amp, step=step)
