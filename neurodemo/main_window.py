@@ -127,12 +127,15 @@ class DemoWindow(qt.QWidget):
         ]
 
         for ch in self.channel_params:
+            # These will use default Erev values defined in neuronsim.py, Section(SimObject) class, which
+            # are INDEPENDENT of values defined in self.use_default_erev(). Consider replacing both with
+            # calculated Erev.
             ch.plots_changed.connect(self.plots_changed)
 
         self.ion_concentrations = [IonConcentrations(ion) for ion in ions.all_ions]
         for ion in self.ion_concentrations:
-            ion.updateErev(self.sim.temp)  # match temperature with an update
-        
+            ion.updateTemperature(self.sim.temp)  # match temperature with an update
+
         self.params = pt.Parameter.create(name='Parameters', type='group', children=[
             dict(name='Preset', type='list', value='HH AP', limits=['Passive', 'HH AP', 'LG AP']),
             dict(name='Run/Stop', type='action', value=False),
@@ -145,13 +148,15 @@ class DemoWindow(qt.QWidget):
             dict(name='Capacitance', type='float', value=self.neuron.cap, limits=[0.1e-12, 1000.e-12], suffix='F', siPrefix=True, dec=True, children=[
                 dict(name='Plot Current', type='bool', value=False),
             ]),
-            dict(name='Ions', type='bool', children=self.ion_concentrations),
+            dict(name='Ions', type='bool', children=self.ion_concentrations, value=True),
             dict(name='Cell Schematic', type='bool', value=True, children=[
                 dict(name='Show Circuit', type='bool', value=False),
             ]),
             # self.clamp_param,  # now in the adjacent window
             dict(name='Ion Channels', type='group', children=self.channel_params),
         ])
+
+        self.use_calculated_erev()
 
         # Now that add_plot() sets x-axis limits, it must be called AFTER defining self.params,
         # rather than before, since it uses "Plot Duration" field in self.params.
@@ -217,7 +222,7 @@ class DemoWindow(qt.QWidget):
                 self.sim.temp = val
                 # also update the ion channel values = specifically Erev
                 for ion in self.ion_concentrations:
-                    ion.updateErev(self.sim.temp)
+                    ion.updateTemperature(self.sim.temp)
             elif param is self.params.child('Capacitance'):
                 self.neuron.cap = val
             elif param is self.params.child('Capacitance', 'Plot Current'):
