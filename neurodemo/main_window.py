@@ -148,7 +148,7 @@ class DemoWindow(qt.QWidget):
             dict(name='Capacitance', type='float', value=self.neuron.cap, limits=[0.1e-12, 1000.e-12], suffix='F', siPrefix=True, dec=True, children=[
                 dict(name='Plot Current', type='bool', value=False),
             ]),
-            dict(name='Ions', type='bool', children=self.ion_concentrations, value=True),
+            dict(name='Ions', type='group', children=self.ion_concentrations),
             dict(name='Cell Schematic', type='bool', value=True, children=[
                 dict(name='Show Circuit', type='bool', value=False),
             ]),
@@ -236,20 +236,22 @@ class DemoWindow(qt.QWidget):
                 self.neuronview.setVisible(val)
             elif param is self.params.child('Cell Schematic', 'Show Circuit'):
                 self.neuronview.show_circuit(val)
-            elif param is self.params.child('Ions'):
-                if val: # checkbox checked
-                    self.use_calculated_erev()
-                else:  # not checked
-                    self.use_default_erev()
-            elif param in [  # change in ion concentrations and erev... 
+            elif param in [  # change in ion concentrations and erev...
                     self.params.child('Ions', "Na", "[C]in"),
                     self.params.child('Ions', "Na", "[C]out"),
                     self.params.child('Ions', "K", "[C]in"),
                     self.params.child('Ions', "K", "[C]out"),
                     self.params.child('Ions', "Cl", "[C]in"),
                     self.params.child('Ions', "Cl", "[C]out"),
-                ] and self.params.child('Ions').value():
+                ]:
                 self.use_calculated_erev()  # force update of erevs
+            elif param in self.params.child('Ion Channels'):
+                if not param.value():
+                    # When turning ion off, also remove any plots associated with this ion
+                    for p in param.children():
+                        if p.name().startswith('Plot') and p.value():
+                            # Turn off any plots that are currently ON
+                            p.setValue(False)
 
     def plots_changed(self, param, channel, name, plot):
         key = channel.name + '.' + name
@@ -508,20 +510,6 @@ class DemoWindow(qt.QWidget):
         self.set_hh_erev(ENa_erev, EK_erev, Eleak_erev, Eh_erev)
         self.set_lg_erev(ENa_erev, EK_erev, EK_erev, -55*NU.mV)
     
-    def use_default_erev(self):
-        chans: pt.Parameter = self.params.child('Ion Channels')
-        ENa_revs = {"INa": 50*NU.mV, "INa1": 74*NU.mV}
-        for ch in ["INa", "INa1"]:
-            chans[f"soma.{ch:s}", 'Erev'] = ENa_revs[ch]
-        EK_revs = {"IK": -74*NU.mV, "IKf": -90*NU.mV, "IKs": -90*NU.mV}
-        for ch in ["IK", "IKf", "IKs"]:
-            chans[f"soma.{ch:s}", 'Erev'] = EK_revs[ch]
-        Eh_revs = {"IH": -43*NU.mV,}
-        for ch in ["IH"]:
-            chans[f"soma.{ch:s}", 'Erev'] = Eh_revs[ch]
-        self.set_hh_erev(ENa_revs["INa"], EK_revs["IK"], -55*NU.mV, Eh_revs["IH"])
-        self.set_lg_erev(ENa_revs["INa1"], EK_revs["IKf"], EK_revs["IKs"], -55*NU.mV, )
-
     def set_hh_erev(self, ENa_erev=50*NU.mV, EK_erev=-74*NU.mV,
                     Eleak_erev=-55*NU.mV, Eh_erev=-43*NU.mV):
         """Set new reversal potentials for the HH currents
@@ -552,13 +540,6 @@ class DemoWindow(qt.QWidget):
         self.lgks.set_erev(EKs_erev)
         self.leak.set_erev(Eleak_erev)
 
-    def set_ions_off(self):
-        """Turn off use of ion concentrations, and reset
-        all of the checkboxes associated with those.
-        """
-        self.params.child('Ions', 'Na').setValue(False)
-        self.params.child('Ions', 'K').setValue(False)
-        self.params.child('Ions', 'Cl').setValue(False)
 
     def load_preset(self, preset):
         """Load preset configurations for the simulations.
