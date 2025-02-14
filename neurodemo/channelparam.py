@@ -54,6 +54,7 @@ class IonConcentrations(pt.parameterTypes.GroupParameter):
             dict(name='[C]out', type='float', value=ion.Cout, suffix='mM', siPrefix=True, step=1),
             dict(name='[C]in', type='float', value=ion.Cin, suffix='mM', siPrefix=True, step=1),
         ]
+        self.temperatureC = 37.
         self.ion.Erev = self.Nernst(ion)
         self.ion_params.append(dict(name="Erev", type='float', value=self.ion.Erev, suffix='V', siPrefix=True, readonly=True))
         pt.parameterTypes.GroupParameter.__init__(self, name=name, type='group',
@@ -72,12 +73,13 @@ class IonConcentrations(pt.parameterTypes.GroupParameter):
                 self.ion.Cin = val
                 self['Erev'] = self.Nernst(self.ion)
     
-    def updateErev(self, temp:float=37.):
-        self['Erev']=self.Nernst(self.ion, temp=temp)
+    def updateTemperature(self, temp:float=37.):
+        self.temperatureC = temp
+        self['Erev']=self.Nernst(self.ion)
 
-    def Nernst(self, ion, temp:float=37.):
+    def Nernst(self, ion):
         R = 8.135 # J/K/M
         F = 96840 # C/M
-        RTF = R*(273.16+temp)/F
+        RTF = R*(273.16+self.temperatureC)/F
         Er = (2.303*RTF/ion.valence)*np.log10(ion.Cout/ion.Cin)
         return Er
